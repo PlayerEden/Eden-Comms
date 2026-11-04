@@ -1,5 +1,6 @@
 package com.edenpractical.comms
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
@@ -9,8 +10,10 @@ import android.os.Looper
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -27,11 +30,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.PairingInviteCodec
@@ -76,7 +81,26 @@ private fun EdenCommsApp() {
         context.getSharedPreferences("eden_comms_ui", Context.MODE_PRIVATE)
     }
     var darkMode by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
-    var page by rememberSaveable { mutableStateOf("home") }
+    // Save a real screen history so system Back, gestures, and the in-app
+    // Back arrow all unwind the same navigation route after rotation.
+    var history by rememberSaveable { mutableStateOf(listOf("home")) }
+    val page = history.last()
+    val navigate: (String) -> Unit = { destination ->
+        history = NavigationHistory.push(history, destination)
+    }
+    val back: () -> Unit = { history = NavigationHistory.pop(history) }
+    BackHandler(enabled = history.size > 1) { back() }
+
+    // Edge-to-edge Android may render status/navigation bars over our app.
+    // Keep icon contrast correct when the theme changes, without restarting.
+    SideEffect {
+        (context as? Activity)?.let { activity ->
+            WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
+                isAppearanceLightStatusBars = !darkMode
+                isAppearanceLightNavigationBars = !darkMode
+            }
+        }
+    }
 
     val colors = if (darkMode) {
         darkColorScheme(
@@ -102,15 +126,6 @@ private fun EdenCommsApp() {
             onSurfaceVariant = Color(0xFF58665C),
             outline = Color(0xFFC5CEC5)
         )
-    }
-
-    val navigate: (String) -> Unit = { page = it }
-    val back: () -> Unit = {
-        page = when (page) {
-            "lan-test" -> "developer"
-            "developer", "identity" -> "settings"
-            else -> "home"
-        }
     }
 
     MaterialTheme(colorScheme = colors) {
@@ -379,7 +394,14 @@ private fun SettingsScreen(
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("PRIVACY")
-    CompactFact("Message history", "Session-only (default)")
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text("Message history", fontWeight = FontWeight.SemiBold)
+        Text(
+            "Session-only (default)",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
     Text(
         "Encrypted temporary history, up to 30 days per chat, is planned—not available yet.",
         style = MaterialTheme.typography.bodySmall,
@@ -564,34 +586,39 @@ private fun StepLine(index: String, title: String, subtitle: String) {
 
 @Composable
 private fun NavigationRow(title: String, description: String, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-        contentPadding = PaddingValues(vertical = 6.dp, horizontal = 0.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+    // Native clickable rows avoid TextButton's internal clipping/padding
+    // interaction which shaved the left edges of text on actual devices.
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(title, fontWeight = FontWeight.SemiBold)
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             Text(
-                "›",
-                style = MaterialTheme.typography.titleLarge,
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "›",
+            modifier = Modifier.widthIn(min = 20.dp),
+            textAlign = TextAlign.End,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
