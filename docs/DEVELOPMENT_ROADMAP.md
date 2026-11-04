@@ -37,6 +37,8 @@
 
 > **M2g v0.2.11 channel-binding compatibility diagnostic:** After the existing debug-only two-QR/mutual TLS1.3 session proof, the app now attempts Android's standardized RFC 9266 TLS exporter on API31+ *only to report a local support status* on the fixed-phrase test screen. It never stores/displays/transmits the 32-byte output, changes no wire packets or user-message/voice flags, and **does not implement consent or confirm both phones match**. JVM preflight/negative tests and CI audit boundary added. Real two-phone capability QA and independent reviewed approval protocol remain pending; Android API26–30 may still install but cannot use this standard Android exporter. See `docs/M2G_TLS_EXPORTER_COMPATIBILITY_DIAGNOSTIC.md`.
 
+> **M2h v0.2.12 approval design test matrix (JVM-only):** Candidate length-delimited presenter/joiner QR+identity+challenge+synthetic TLS exporter commitment with golden vector; test-only bilateral approval/decline ordering and adversarial stale/duplicate/wrong-role/reconnect scenarios. CI explicitly forbids these classes from app main sources; neither raw TLS exporter bytes nor approval frames are sent by the installed APK. This is a **candidate protocol, not independently reviewed authenticated consent**, and does not enable any real messages. See `docs/M2H_APPROVAL_TRANSCRIPT_AND_SIMULATOR.md`.
+
 ## Current next steps — ordered by security and real-device evidence
 
 1. **Finish M2b physical evidence.** Confirm success on both screens for v0.2.3; repeat with router WAN disabled; test invalid/stale QRs, wrong identities, network loss, cancellation and older-device behavior. Capture only sanitized outcomes, no live QR/IPs.
