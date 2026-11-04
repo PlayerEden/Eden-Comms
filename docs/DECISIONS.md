@@ -13,6 +13,14 @@ Keep choices explicit; proposed items are not locked.
 | D-008 | 2026-11-03 | Security review and crypto-library selection required before sending real encrypted messages | Required gate |
 | D-009 | 2026-11-03 | Simple home screen and QR/short-code peer verification; no need to understand IP addresses | Proposed UI |
 | D-010 | 2026-11-03 | Group messaging, file transfer and mesh networking deferred | Proposed scope |
+| D-011 | 2026-11-03 | Security and privacy outrank feature speed/convenience; no-ship on unsafe transports, unverified peers, or cloud leakage | Binding project principle |
+| D-012 | 2026-11-03 | No silent downgrade to plaintext; all communication transports share a reviewed E2EE/authentication layer | Binding project principle |
+| D-013 | 2026-11-03 | Distinguish verified identity, encrypted-but-unverified, and disconnected; clear user-controlled pairing | Binding project principle |
+| D-014 | 2026-11-03 | No external messaging endpoint/analytics/ads, no app-managed backup; protect sensitive chat content from logs, keyboard learning and notifications by design | Binding project principle |
+| D-015 | 2026-11-03 | Default ephemeral session-only content; retention and trusted-peer storage only after explicit consent; disclaim limits of deletion | Binding project principle |
+| D-016 | 2026-11-03 | Candidate Noise XX reviewed implementation for live nearby peer handshake; exact protocol and library not chosen yet | Research candidate |
+
+The [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md) sets mandatory security/no-ship gates for all milestones.
 
 ## Decisions needed before M1
 - Lowest Android OS version and which devices can be manually tested.
