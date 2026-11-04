@@ -175,7 +175,7 @@ private fun EdenCommsApp() {
                         when (page) {
                             "home" -> HomeScreen(
                                 onPtt = { navigate("ptt") },
-                                onConnect = { navigate("connect") },
+                                onConnect = { navigate("pairing-test") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
                             )
@@ -217,7 +217,7 @@ private fun EdenCommsApp() {
 private fun titleForPage(page: String): String = when (page) {
     "connect" -> "Connect nearby"
     "wifi" -> "Local Wi-Fi"
-    "pairing-test" -> "QR connection test"
+    "pairing-test" -> "Connect nearby"
     "ptt" -> "Voice / PTT"
     "settings" -> "Settings"
     "developer" -> "Developer tools"

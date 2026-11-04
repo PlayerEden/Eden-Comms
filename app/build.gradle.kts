@@ -15,8 +15,8 @@ android {
         applicationId = "com.edenpractical.comms"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.2.4-qr-binding-probe"
+        versionCode = 4
+        versionName = "0.2.5-guided-qr-connect"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

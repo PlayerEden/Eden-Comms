@@ -1,12 +1,16 @@
 package com.edenpractical.comms.transport
 
 import android.content.Context
+import android.os.SystemClock
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.PinnedTlsPeer
 import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.Tls13PeerContext
+import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.SocketException
 import java.net.Socket
 import java.util.concurrent.Executors
 import javax.net.ssl.SSLServerSocket
@@ -31,7 +35,7 @@ internal class LanTlsProbe(
 
     companion object {
         const val PORT: Int = 42519
-        private const val ACCEPT_TIMEOUT_MS = 60_000
+        private const val ACCEPT_TIMEOUT_MS = 90_000
         private const val CONNECT_TIMEOUT_MS = 7_000
         private const val TLS_TIMEOUT_MS = 12_000
     }
@@ -60,7 +64,7 @@ internal class LanTlsProbe(
             diagnosticStep = LanProbeDiagnostics.Step.BIND
             server.bind(InetSocketAddress(wifi.address, PORT), 1)
             diagnosticStep = LanProbeDiagnostics.Step.WAIT_FOR_PEER
-            emit(Phase.LISTENING, "Host is ready. Ask the other phone to tap Connect now (60-second window).")
+            emit(Phase.LISTENING, "Waiting for the other phone…")
             val socket = server.accept() as SSLSocket
             activeSocket = socket
             server.close()
@@ -86,7 +90,8 @@ internal class LanTlsProbe(
         local: LocalTlsIdentity,
         verifiedPeerFingerprint: ByteArray,
         hostIpv4: String,
-        binding: SessionProofBinding? = null
+        binding: SessionProofBinding? = null,
+        retryWhileWaiting: Boolean = false
     ) {
         execute {
             diagnosticStep = LanProbeDiagnostics.Step.WIFI
@@ -97,11 +102,9 @@ internal class LanTlsProbe(
             )
             diagnosticStep = LanProbeDiagnostics.Step.TLS_SETUP
             val tls = Tls13PeerContext(local.keyManager(), verifiedPeerFingerprint)
-            val raw = wifi.network.socketFactory.createSocket()
-            activeSocket = raw
             diagnosticStep = LanProbeDiagnostics.Step.TCP_CONNECT
-            emit(Phase.CONNECTING, "Connecting to the other phone over local Wi-Fi…")
-            raw.connect(InetSocketAddress(peer, PORT), CONNECT_TIMEOUT_MS)
+            emit(Phase.CONNECTING, "Waiting for the other phone…")
+            val raw = connectTcp(wifi, peer, retryWhileWaiting)
             val socket = tls.wrapConnectedClient(raw, peer.hostAddress ?: hostIpv4, PORT)
             activeSocket = socket
             socket.soTimeout = TLS_TIMEOUT_MS
@@ -118,6 +121,52 @@ internal class LanTlsProbe(
                 emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed (manual test only). QR session was not checked; text is disabled.")
             }
         }
+    }
+
+    /**
+     * The joining phone may present its reply QR for a short time before the
+     * other phone has scanned it and opened its listener. Retry only *TCP*
+     * reachability failures, never TLS/authentication failures.
+     */
+    private fun connectTcp(
+        wifi: WifiLanEndpoint.Link,
+        peer: InetAddress,
+        retryWhileWaiting: Boolean
+    ): Socket {
+        val startedMs = SystemClock.elapsedRealtime()
+        while (!cancelled) {
+            val current = WifiLanEndpoint.current(context)
+                ?: throw SocketException("Wi-Fi unavailable")
+            if (current.network != wifi.network ||
+                current.address != wifi.address ||
+                current.prefixLength != wifi.prefixLength
+            ) throw SocketException("Wi-Fi changed")
+
+            val raw = wifi.network.socketFactory.createSocket()
+            activeSocket = raw
+            try {
+                raw.connect(
+                    InetSocketAddress(peer, PORT),
+                    if (retryWhileWaiting) LanConnectRetryPolicy.CONNECT_TIMEOUT_MS
+                    else CONNECT_TIMEOUT_MS
+                )
+                return raw
+            } catch (error: IOException) {
+                try { raw.close() } catch (_: Exception) { }
+                activeSocket = null
+                val elapsedMs = SystemClock.elapsedRealtime() - startedMs
+                if (!LanConnectRetryPolicy.shouldRetry(error, elapsedMs, retryWhileWaiting)) {
+                    throw error
+                }
+            }
+            try {
+                Thread.sleep(LanConnectRetryPolicy.RETRY_DELAY_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw SocketException("Connection cancelled")
+            }
+        }
+        throw SocketException("Connection cancelled")
     }
 
     private fun execute(action: () -> Unit) {

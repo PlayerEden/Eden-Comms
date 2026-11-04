@@ -11,6 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
@@ -23,11 +26,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * One-shot QR-assisted mutual TLS 1.3 test.
+ * Guided two-QR LOCAL CONNECTION TEST. The second QR is still required:
+ * it authenticates the joiner's identity to the presenter.
  *
- * This screen only trades PUBLIC certificate fingerprints, an ephemeral host
- * address and nonces. No chat bytes, microphone or persistent peer trust.
- * Both scans happen in person; no clipboard, external messenger or website.
+ * No manual listener or Connect buttons, chat/voice traffic, remembered peers,
+ * cloud services, background discovery, or plaintext fallback.
  */
 @Composable
 internal fun LocalPairingTestScreen() {
@@ -40,231 +43,263 @@ internal fun LocalPairingTestScreen() {
     var signingStatus by remember {
         mutableStateOf(AndroidKeystoreIdentity.TlsSigningStatus.NOT_CREATED)
     }
-    var showUpgradeConfirmation by remember { mutableStateOf(false) }
     var wifi by remember { mutableStateOf<WifiLanEndpoint.Link?>(null) }
     var stage by remember { mutableStateOf("checking") }
     var status by remember { mutableStateOf("Checking this phone…") }
+    var details by remember { mutableStateOf("") }
+    var showDetails by remember { mutableStateOf(false) }
+    var passed by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
+    var showIdentityConsent by remember { mutableStateOf(false) }
+    var showUpgradeConfirmation by remember { mutableStateOf(false) }
+    var pendingRole by remember { mutableStateOf<String?>(null) }
     var hostInvite by remember { mutableStateOf<LocalPairingQrCodec.HostInvite?>(null) }
     var joinReply by remember { mutableStateOf<LocalPairingQrCodec.JoinReply?>(null) }
     var peerPin by remember { mutableStateOf<ByteArray?>(null) }
     var qrText by remember { mutableStateOf("") }
     var scanRevision by remember { mutableIntStateOf(0) }
+    var attemptVersion by remember { mutableIntStateOf(0) }
     var probe by remember { mutableStateOf<LanTlsProbe?>(null) }
     val latestProbe by rememberUpdatedState(probe)
 
-    DisposableEffect(Unit) {
-        onDispose { latestProbe?.close() }
-    }
-
-    LaunchedEffect(Unit) {
-        try {
-            val available = withContext(Dispatchers.IO) {
-                Triple(
-                    repository.existing(),
-                    WifiLanEndpoint.current(context),
-                    repository.tlsSigningStatus()
-                )
-            }
-            identity = available.first
-            wifi = available.second
-            signingStatus = available.third
-            stage = "choose"
-            status = if (available.second == null) "Connect both phones to the same Wi-Fi."
-                else if (available.first == null) "Create this phone's identity to begin."
-                else "Choose Host on one phone and Join on the other."
-        } catch (_: Exception) {
-            stage = "identityError"
-            status = "Cannot read the local device identity. No connection started."
-        }
+    fun stopTest() {
+        // Ignore messages posted by previous or cancelled attempts.
+        attemptVersion += 1
+        probe?.close()
+        probe = null
     }
 
     fun reset() {
-        probe?.close()
-        probe = null
-        peerPin = null
+        stopTest()
         hostInvite = null
         joinReply = null
+        peerPin = null
         qrText = ""
+        details = ""
+        showDetails = false
+        passed = false
+        pendingRole = null
         stage = "choose"
-        status = "Choose Host or Join to begin another test."
+        status = "Choose how to begin."
     }
 
-    fun runProbe(host: Boolean) {
-        val own = identity ?: run { status = "Create an identity first."; return }
-        val expected = peerPin ?: run { status = "Scan the other phone's QR first."; return }
+    fun startRole(role: String) {
+        if (loading) return
+        pendingRole = role
+        if (identity == null) {
+            showIdentityConsent = true
+            return
+        }
+        if (signingStatus == AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY) {
+            showUpgradeConfirmation = true
+            return
+        }
         try {
-            val invite = hostInvite ?: error("Missing host invitation")
-            val reply = joinReply ?: error("Missing join reply")
-            val binding = SessionProofBinding(
-                invite.certificateSha256, reply.certificateSha256,
-                invite.nonce, reply.nonce
-            )
-            val ownExpected = if (host) invite.certificateSha256 else reply.certificateSha256
-            require(own.publicFingerprint().contentEquals(ownExpected)) {
-                "Local signing identity changed during QR exchange"
+            val link = WifiLanEndpoint.current(context) ?: error("Wi-Fi unavailable")
+            wifi = link
+            if (role == "show") {
+                val invite = LocalPairingQrCodec.newHostInvite(
+                    link.address.hostAddress ?: error("Wi-Fi address unavailable"),
+                    identity!!.publicFingerprint()
+                )
+                hostInvite = invite
+                joinReply = null
+                peerPin = null
+                qrText = LocalPairingQrCodec.encodeHost(invite)
+                stage = "showHost"
+                status = "Ask the other person to scan this code."
+            } else {
+                hostInvite = null
+                joinReply = null
+                peerPin = null
+                qrText = ""
+                scanRevision += 1
+                stage = "scanHost"
+                status = "Point your camera at the code on their phone."
             }
-            if (!host) {
-                val invite = hostInvite ?: error("Missing host invite")
-                LocalPairingQrCodec.requireFresh(invite, System.currentTimeMillis() / 1000)
+        } catch (_: Exception) {
+            stage = "choose"
+            status = "Connect both phones to the same Wi-Fi and try again."
+        }
+    }
+
+    fun runProbe(asPresenter: Boolean) {
+        val own = identity
+        val expected = peerPin
+        val invite = hostInvite
+        val reply = joinReply
+        if (own == null || expected == null || invite == null || reply == null) {
+            stage = "result"
+            status = "Pairing was incomplete. Start again with fresh codes."
+            passed = false
+            return
+        }
+        try {
+            LocalPairingQrCodec.requireFresh(invite, System.currentTimeMillis() / 1000)
+            val binding = SessionProofBinding(
+                invite.certificateSha256, reply.certificateSha256, invite.nonce, reply.nonce
+            )
+            val ownPin = if (asPresenter) invite.certificateSha256 else reply.certificateSha256
+            require(own.publicFingerprint().contentEquals(ownPin)) {
+                "Local identity changed"
+            }
+            if (!asPresenter) {
                 val link = WifiLanEndpoint.current(context) ?: error("Wi-Fi lost")
                 LocalIpv4Policy.requireSamePrivateSubnet(
                     invite.wifiIp, link.address, link.prefixLength
                 )
-            } else {
-                LocalPairingQrCodec.requireFresh(
-                    hostInvite ?: error("Missing host invite"),
-                    System.currentTimeMillis() / 1000
-                )
             }
-            probe?.close()
+            stopTest()
+            val thisAttempt = attemptVersion
             val connection = LanTlsProbe(context.applicationContext) { event ->
                 handler.post {
-                    status = event.description
-                    if (event.phase == LanTlsProbe.Phase.SUCCEEDED ||
-                        event.phase == LanTlsProbe.Phase.FAILED
-                    ) stage = "result"
+                    if (thisAttempt != attemptVersion) return@post
+                    when (event.phase) {
+                        LanTlsProbe.Phase.LISTENING -> status =
+                            "Waiting for the other phone to connect…"
+                        LanTlsProbe.Phase.CONNECTING -> status =
+                            "Show your code on the other phone. Connecting automatically…"
+                        LanTlsProbe.Phase.SUCCEEDED -> {
+                            passed = true
+                            details = event.description
+                            status = "Secure connection test passed on this phone."
+                            stage = "result"
+                        }
+                        LanTlsProbe.Phase.FAILED -> {
+                            passed = false
+                            details = event.description
+                            status = "Couldn't complete the connection. Check both phones are on the same Wi-Fi."
+                            stage = "result"
+                        }
+                        LanTlsProbe.Phase.CANCELLED -> Unit
+                    }
                 }
             }
             probe = connection
-            stage = "running"
-            status = if (host) "Opening the local listener…"
-                else "Connecting to the verified host…"
-            if (host) connection.host(own, expected, binding)
-            else connection.join(own, expected, invite.wifiIp, binding)
+            // Keep reply QR visible while the other phone scans it.
+            stage = if (asPresenter) "connecting" else "showReply"
+            status = if (asPresenter) "Waiting for the other phone to connect…"
+                else "Show this code to the other phone. Connecting automatically…"
+            if (asPresenter) connection.host(own, expected, binding)
+            else connection.join(
+                own, expected, invite.wifiIp, binding, retryWhileWaiting = true
+            )
         } catch (_: Exception) {
+            stopTest()
             stage = "result"
-            status = "Secure connection test could not start. Restart the pairing."
+            passed = false
+            details = "Pairing codes were invalid, expired, or the Wi-Fi network changed."
+            status = "Couldn't start the test. Start again with fresh codes."
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val state = withContext(Dispatchers.IO) {
+                Triple(repository.existing(), WifiLanEndpoint.current(context),
+                    repository.tlsSigningStatus())
+            }
+            identity = state.first
+            wifi = state.second
+            signingStatus = state.third
+            stage = "choose"
+            status = if (wifi == null) "Connect both phones to the same Wi-Fi."
+                else "Choose how to begin."
+        } catch (_: Exception) {
+            stage = "identityError"
+            status = "This phone couldn't open its local identity."
+        }
+    }
+
+    // Stop test sockets if the user leaves the app, including during retries.
+    // Launching a camera permission dialog normally does not stop the Activity.
+    val lifecycleOwner = context as? LifecycleOwner
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP &&
+                stage !in listOf("checking", "choose", "result", "identityError")
+            ) {
+                stopTest()
+                passed = false
+                details = "The app left the screen, so the connection test was cancelled."
+                status = "Connection cancelled. Start again when both phones are ready."
+                stage = "result"
+            }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose {
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
+            latestProbe?.close()
         }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Connect nearby", style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold)
         Text(
-            "QR connection test",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            "Two phones on the same Wi-Fi. No internet service or message history.",
+            "Connection test only • Both phones need the same Wi-Fi. No internet required.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
         FieldFrame(accent = true) {
             Text(status, style = MaterialTheme.typography.bodyMedium)
-
-            if (stage == "choose" && identity == null) {
-                Text(
-                    "Creating an identity keeps your private signing key in Android Keystore.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Button(
-                    enabled = !loading,
-                    onClick = {
-                        scope.launch {
-                            loading = true
-                            try {
-                                val details = withContext(Dispatchers.IO) {
-                                    Pair(repository.createWithConsent(), repository.tlsSigningStatus())
-                                }
-                                identity = details.first
-                                signingStatus = details.second
-                                status = "Identity ready. Choose Host or Join."
-                            } catch (_: Exception) {
-                                status = "Identity creation failed on this phone."
-                            } finally {
-                                loading = false
-                            }
+            when (stage) {
+                "checking" -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                "choose" -> {
+                    Text(
+                        "On one phone, choose Show a code. On the other, choose Scan a code.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (wifi == null) {
+                        Text("Wi-Fi isn't available. Join the same network on both phones, then retry.",
+                            style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(
+                            onClick = {
+                                wifi = WifiLanEndpoint.current(context)
+                                status = if (wifi == null) "Wi-Fi is still unavailable."
+                                    else "Choose how to begin."
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("Check Wi-Fi again") }
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = { startRole("show") },
+                                enabled = !loading,
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                shape = CutCornerShape(6.dp)
+                            ) { Text("Show a code") }
+                            OutlinedButton(
+                                onClick = { startRole("scan") },
+                                enabled = !loading,
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                shape = CutCornerShape(6.dp)
+                            ) { Text("Scan a code") }
                         }
                     }
-                ) { Text("Create device identity") }
-            }
-
-            if (stage == "choose" && identity != null &&
-                signingStatus == AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY
-            ) {
-                Text(
-                    "This phone has an older test identity. Android may need a different " +
-                        "signing permission to complete TLS. Update it before pairing again.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Button(
-                    enabled = !loading,
-                    onClick = { showUpgradeConfirmation = true },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                ) { Text("Update this phone's identity") }
-            }
-
-            if (stage == "choose" && identity != null &&
-                signingStatus != AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY
-            ) {
-                if (signingStatus == AndroidKeystoreIdentity.TlsSigningStatus.INSPECTION_UNAVAILABLE) {
-                    Text(
-                        "This phone couldn't report its signing permissions. " +
-                            "TLS will still have to authenticate successfully.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    if (loading) CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    Text("The app handles the connection automatically after scanning. " +
+                        "You will scan one more code to verify both phones.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        enabled = wifi != null && !loading,
-                        onClick = {
-                            try {
-                                val link = WifiLanEndpoint.current(context)
-                                    ?: error("Wi-Fi unavailable")
-                                wifi = link
-                                val host = LocalPairingQrCodec.newHostInvite(
-                                    link.address.hostAddress ?: error("Missing IP"),
-                                    identity!!.publicFingerprint()
-                                )
-                                hostInvite = host
-                                qrText = LocalPairingQrCodec.encodeHost(host)
-                                stage = "hostQr"
-                                status = "Let the other person scan this QR on their phone."
-                            } catch (_: Exception) {
-                                status = "Wi-Fi or identity is unavailable. Try again."
-                            }
-                        },
-                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                        shape = CutCornerShape(6.dp)
-                    ) { Text("HOST") }
-                    OutlinedButton(
-                        enabled = wifi != null && !loading,
-                        onClick = {
-                            scanRevision++
-                            stage = "scanHost"
-                            status = "Scan the QR displayed on the host phone."
-                        },
-                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                        shape = CutCornerShape(6.dp)
-                    ) { Text("JOIN") }
-                }
-            }
-
-            when (stage) {
-                "hostQr" -> {
-                    Text(
-                        "Step 1 — Ask the other phone to scan this. QR expires in five minutes.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                "showHost" -> {
+                    Text("1 of 2 • Let the other person scan this code.",
+                        style = MaterialTheme.typography.bodySmall)
                     LocalPairingQrDisplay(qrText)
                     Button(
-                        modifier = Modifier.fillMaxWidth(),
                         onClick = {
-                            scanRevision++
+                            scanRevision += 1
                             stage = "scanReply"
-                            status = "Scan the reply QR shown on the other phone."
-                        }
-                    ) { Text("Scan their reply QR") }
-                    TextButton(onClick = { reset() }) { Text("Start over") }
+                            status = "Now scan the code shown on the other phone."
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("Scan their code") }
+                    TextButton(onClick = { reset() }) { Text("Cancel") }
                 }
                 "scanHost", "scanReply" -> {
-                    Text(
-                        if (stage == "scanHost") "Scan the host phone's QR."
-                        else "Scan the other phone's reply QR.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Point your camera at the code on the other phone.",
+                        style = MaterialTheme.typography.bodySmall)
                     key(scanRevision) {
                         LocalPairingQrScanner(
                             onPayload = { payload ->
@@ -272,7 +307,7 @@ internal fun LocalPairingTestScreen() {
                                     if (stage == "scanHost") {
                                         val invite = LocalPairingQrCodec.decodeHost(payload)
                                         val link = WifiLanEndpoint.current(context)
-                                            ?: error("No Wi-Fi network")
+                                            ?: error("Wi-Fi unavailable")
                                         LocalIpv4Policy.requireSamePrivateSubnet(
                                             invite.wifiIp, link.address, link.prefixLength
                                         )
@@ -284,18 +319,18 @@ internal fun LocalPairingTestScreen() {
                                         peerPin = invite.certificateSha256
                                         qrText = LocalPairingQrCodec.encodeJoin(reply)
                                         stage = "showReply"
-                                        status = "Show this reply QR to the host. Then connect."
-                                    } else {
-                                        val host = hostInvite ?: error("Missing host invite")
-                                        val reply = LocalPairingQrCodec.decodeJoin(payload, host)
+                                        runProbe(false)
+                                    } else if (stage == "scanReply") {
+                                        val invite = hostInvite ?: error("No active invitation")
+                                        val reply = LocalPairingQrCodec.decodeJoin(payload, invite)
                                         joinReply = reply
                                         peerPin = reply.certificateSha256
-                                        stage = "hostReady"
-                                        status = "QR exchange complete. Tap Start listening; wait until Host is ready before the other phone connects."
+                                        stage = "connecting"
+                                        runProbe(true)
                                     }
                                 } catch (_: Exception) {
-                                    status = "That QR isn't valid for this session. Try scanning again."
-                                    scanRevision++
+                                    status = "That code didn't work. Try scanning again."
+                                    scanRevision += 1
                                 }
                             },
                             onCameraError = { status = it }
@@ -304,99 +339,136 @@ internal fun LocalPairingTestScreen() {
                     TextButton(onClick = { reset() }) { Text("Cancel") }
                 }
                 "showReply" -> {
-                    Text(
-                        "Step 2 — Show this code to the host phone for scanning.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("2 of 2 • Show this code to the first phone.",
+                        style = MaterialTheme.typography.bodySmall)
                     LocalPairingQrDisplay(qrText)
-                    Text(
-                        "Wait until the host phone displays: Host is ready. Then tap Connect.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Button(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        onClick = { runProbe(false) }
-                    ) { Text("Connect to host") }
-                    TextButton(onClick = { reset() }) { Text("Start over") }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Connecting in the background of this screen…",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = { reset() }) { Text("Cancel test") }
                 }
-                "hostReady" -> {
-                    Text(
-                        "Step 3 — Tap Start listening here. Wait for the Host is ready message, then tell the other person to tap Connect.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Button(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        onClick = { runProbe(true) }
-                    ) { Text("Start listening (60 sec)") }
-                    TextButton(onClick = { reset() }) { Text("Start over") }
-                }
-                "running" -> {
-                    Text(
-                        "Testing pinned TLS 1.3 and QR session agreement. No messages are sent.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                "connecting" -> {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    Text("Keep both phones open while we check the connection.",
+                        style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { reset() }) { Text("Cancel test") }
                 }
                 "result" -> {
-                    Text(
-                        "The test connection is closed. No text or voice was transmitted.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Button(onClick = { reset() }) { Text("New test") }
+                    Text(if (passed) "✓ Connection check passed" else "Connection not completed",
+                        fontWeight = FontWeight.SemiBold)
+                    Text("No messages or voice were sent. The test connection is closed.",
+                        style = MaterialTheme.typography.bodySmall)
+                    if (details.isNotEmpty()) {
+                        TextButton(onClick = { showDetails = !showDetails }) {
+                            Text(if (showDetails) "Hide technical details" else "Technical details")
+                        }
+                        if (showDetails) Text(details,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(
+                        onClick = { reset() },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("Start a new test") }
                 }
                 "identityError" -> {
-                    Text("Open Device identity in Advanced Settings to inspect the problem.")
+                    Text("Open Device identity in Developer Tools for diagnostics.",
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         Text(
-            "This development test uses two in-person QR scans to pin both phones. " +
-                "Messaging and Voice / PTT remain disabled until full security testing passes.",
+            "During development, both people verify each other's phone with QR codes. " +
+                "Text and Voice / PTT remain disabled until security testing is complete.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 
-    if (showUpgradeConfirmation) {
+    if (showIdentityConsent) {
         AlertDialog(
-            onDismissRequest = { showUpgradeConfirmation = false },
-            title = { Text("Update this phone's identity?") },
+            onDismissRequest = { showIdentityConsent = false; pendingRole = null },
+            title = { Text("Set up a private device key?") },
             text = {
-                Text(
-                    "This creates a new Android Keystore identity with TLS-compatible " +
-                        "signing permissions. The old identity is replaced only after " +
-                        "the new one is verified. Both phones must scan fresh QR codes. " +
-                        "Any old pairing fingerprints will no longer match."
-                )
+                Text("Eden Comms needs a local identity to verify this phone. " +
+                    "Its private key stays in Android Keystore on this phone. " +
+                    "It isn't uploaded or shared.")
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showUpgradeConfirmation = false
-                        scope.launch {
-                            loading = true
-                            try {
-                                val result = withContext(Dispatchers.IO) {
-                                    Pair(
-                                        repository.upgradeLegacyWithConsent(),
-                                        repository.tlsSigningStatus()
-                                    )
-                                }
-                                identity = result.first
-                                signingStatus = result.second
-                                reset()
-                                status = "New identity ready. Restart the QR exchange on both phones."
-                            } catch (_: Exception) {
-                                status = "Identity update failed. The original identity should still be available."
-                            } finally {
-                                loading = false
+                TextButton(onClick = {
+                    showIdentityConsent = false
+                    val chosen = pendingRole
+                    scope.launch {
+                        loading = true
+                        try {
+                            val created = withContext(Dispatchers.IO) {
+                                Pair(repository.createWithConsent(), repository.tlsSigningStatus())
                             }
+                            identity = created.first
+                            signingStatus = created.second
+                            if (created.second ==
+                                AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY
+                            ) {
+                                showUpgradeConfirmation = true
+                            } else if (chosen != null) {
+                                startRole(chosen)
+                            }
+                        } catch (_: Exception) {
+                            status = "Couldn't set up this phone's identity."
+                        } finally {
+                            loading = false
                         }
                     }
-                ) { Text("Update identity") }
+                }) { Text("Create and continue") }
             },
             dismissButton = {
-                TextButton(onClick = { showUpgradeConfirmation = false }) { Text("Cancel") }
+                TextButton(onClick = {
+                    showIdentityConsent = false
+                    pendingRole = null
+                }) { Text("Not now") }
+            }
+        )
+    }
+
+    if (showUpgradeConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showUpgradeConfirmation = false; pendingRole = null },
+            title = { Text("Update this phone's test key?") },
+            text = {
+                Text("This older key may not work on some phones. " +
+                    "Updating creates a compatible local key and changes this phone's identity. " +
+                    "Previous QR codes will stop working, so both phones must use fresh codes.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUpgradeConfirmation = false
+                    val chosen = pendingRole
+                    scope.launch {
+                        loading = true
+                        try {
+                            val updated = withContext(Dispatchers.IO) {
+                                Pair(repository.upgradeLegacyWithConsent(),
+                                    repository.tlsSigningStatus())
+                            }
+                            identity = updated.first
+                            signingStatus = updated.second
+                            if (chosen != null) startRole(chosen)
+                        } catch (_: Exception) {
+                            status = "Couldn't update the test key. The old key should still exist."
+                        } finally {
+                            loading = false
+                        }
+                    }
+                }) { Text("Update and continue") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showUpgradeConfirmation = false
+                    pendingRole = null
+                }) { Text("Cancel") }
             }
         )
     }
