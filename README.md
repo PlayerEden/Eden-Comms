@@ -43,6 +43,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [L0 data handling and SDK inventory](docs/L0_DATA_HANDLING_AND_SDK_REGISTER.md)
 - [Privacy policy working draft — NOT PUBLISHED](docs/drafts/EDEN_COMMS_PRIVACY_POLICY_WORKING_DRAFT.md)
 - [M2g: TLS channel-binding compatibility diagnostic](docs/M2G_TLS_EXPORTER_COMPATIBILITY_DIAGNOSTIC.md)
+- [M2h: review-only approval transcript and decision simulator](docs/M2H_APPROVAL_TRANSCRIPT_AND_SIMULATOR.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
