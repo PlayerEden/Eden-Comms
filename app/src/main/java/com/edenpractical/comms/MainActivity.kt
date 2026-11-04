@@ -93,13 +93,23 @@ private fun EdenCommsApp() {
     val back: () -> Unit = { history = NavigationHistory.pop(history) }
     BackHandler(enabled = history.size > 1) { back() }
 
-    // Edge-to-edge Android may render status/navigation bars over our app.
-    // Keep icon contrast correct when the theme changes, without restarting.
+    // Keep Android system-bar icon contrast AND bar backgrounds synchronized
+    // with the selected app theme. On newer edge-to-edge systems the OS may
+    // control the bar pixels; disabling its automatic nav scrim also prevents
+    // the muddy gray 3-button navigation strip seen in light-mode testing.
     SideEffect {
         (context as? Activity)?.let { activity ->
             WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
                 isAppearanceLightStatusBars = !darkMode
                 isAppearanceLightNavigationBars = !darkMode
+            }
+            val window = activity.window
+            window.statusBarColor = if (darkMode) android.graphics.Color.rgb(17, 22, 21)
+                else android.graphics.Color.rgb(245, 246, 242)
+            window.navigationBarColor = if (darkMode) android.graphics.Color.rgb(17, 22, 21)
+                else android.graphics.Color.rgb(245, 246, 242)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
             }
         }
     }
@@ -146,17 +156,21 @@ private fun EdenCommsApp() {
                     thickness = 1.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
                 )
-                // Page-keyed scroll prevents a previous long developer screen
-                // leaving the next screen scrolled out of view.
-                key(page) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 20.dp, vertical = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                // The core pages are intentionally short enough not to scroll
+                // on typical phones. Keep scrolling as an accessibility and
+                // landscape fallback, with responsive density for small heights.
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                ) {
+                    val compact = maxHeight < 650.dp
+                    key(page) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 20.dp, vertical = if (compact) 10.dp else 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 13.dp)
+                        ) {
                         when (page) {
                             "home" -> HomeScreen(
                                 onPtt = { navigate("ptt") },
@@ -190,7 +204,8 @@ private fun EdenCommsApp() {
                                 onHelp = { navigate("help") }
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(if (compact) 2.dp else 6.dp))
+                        }
                     }
                 }
             }
@@ -270,13 +285,11 @@ private fun HomeScreen(
     onHelp: () -> Unit
 ) {
     FieldSectionHeader("DIRECT / LOCAL", "Nearby communication")
-    ConnectionStatus(
-        title = "Not connected",
-        detail = "No active conversation"
-    )
+    ConnectionStatus("Not connected", "No active conversation")
+
     Button(
         onClick = onConnect,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
         shape = CutCornerShape(6.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
@@ -286,39 +299,42 @@ private fun HomeScreen(
         Icon(
             painter = painterResource(R.drawable.ic_eden_wifi),
             contentDescription = null,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(21.dp)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Text("Connect nearby", fontWeight = FontWeight.SemiBold)
     }
+
+    FieldSectionHeader("COMMUNICATE", null)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        CompactModeTile(
+            modifier = Modifier.weight(1f),
+            glyph = R.drawable.ic_eden_chat,
+            title = "Text",
+            detail = "Not active",
+            onClick = onConnect
+        )
+        CompactModeTile(
+            modifier = Modifier.weight(1f),
+            glyph = R.drawable.ic_eden_ptt,
+            title = "Walkie-talkie",
+            detail = "Preview",
+            onClick = onPtt
+        )
+    }
+
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        NavigationRow("Settings", "Privacy and appearance", onSettings)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+        NavigationRow("How it works", "Local connection basics", onHelp)
+    }
+
     Text(
-        "A verified connection is required before messaging.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    FieldSectionHeader("COMMUNICATION", null)
-    FieldOption(
-        glyph = R.drawable.ic_eden_chat,
-        title = "Text messages",
-        detail = "Session-only by default",
-        state = "NOT ACTIVE",
-        onClick = onConnect
-    )
-    FieldOption(
-        glyph = R.drawable.ic_eden_ptt,
-        title = "Walkie-talkie",
-        detail = "Push-to-talk voice • planned",
-        state = "PREVIEW",
-        onClick = onPtt
-    )
-
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.29f))
-    NavigationRow("Settings", "Privacy, appearance and device identity", onSettings)
-    NavigationRow("How it works", "Connect • Verify • Talk • Disconnect", onHelp)
-
-    Text(
-        "DEVELOPMENT BUILD  /  NO LIVE MESSAGING",
+        "SESSION-ONLY BY DEFAULT  /  DEVELOPMENT PREVIEW",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -326,37 +342,31 @@ private fun HomeScreen(
 
 @Composable
 private fun NearbyScreen(onLocalWifi: () -> Unit) {
-    FieldSectionHeader("CONNECTION METHODS", "Choose a local connection")
-    Text(
-        "No account or internet service required for local Wi-Fi.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
+    FieldSectionHeader("CONNECTION", "Choose a local method")
     FieldOption(
         glyph = R.drawable.ic_eden_wifi,
         title = "Local Wi-Fi",
-        detail = "Same nearby network",
+        detail = "Same network • no internet needed",
         state = "NEXT",
         onClick = onLocalWifi
     )
     FieldOption(
         glyph = R.drawable.ic_eden_bluetooth,
         title = "Bluetooth",
-        detail = "Short-range direct connection",
+        detail = "Short-range direct",
         state = "LATER"
     )
     FieldOption(
         glyph = R.drawable.ic_eden_wifi,
         title = "Wi-Fi Direct",
-        detail = "Peer-to-peer without a router",
+        detail = "No router required",
         state = "LATER"
     )
 
-    FieldSectionHeader("PAIRING", null)
+    FieldSectionHeader("PAIRING / PLANNED", null)
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FieldStep("01", "Scan")
         FieldStep("02", "Verify")
@@ -364,7 +374,7 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
     }
 
     Text(
-        "QR-first pairing is planned. No fingerprint typing in the normal flow.",
+        "In-app QR pairing is under development. The manual TLS test remains in Developer tools.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -372,39 +382,46 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
 
 @Composable
 private fun LocalWifiScreen() {
-    FieldSectionHeader("LOCAL / OFFLINE", "Secure pairing")
+    FieldSectionHeader("LOCAL / OFFLINE", "Pair over Wi-Fi")
     Surface(
         shape = CutCornerShape(7.dp),
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.42f)
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_eden_wifi),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(56.dp)
-            )
-            Text(
-                "Pair over local Wi-Fi",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            StatusLabel("UNDER DEVELOPMENT")
-            Text(
-                "The planned flow uses an in-app QR scan and confirmation on both phones.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_eden_wifi),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text("Secure pairing", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Same local Wi-Fi • internet not required",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                StatusLabel("PLANNED")
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 OutlinedButton(
                     onClick = {},
                     enabled = false,
@@ -418,15 +435,21 @@ private fun LocalWifiScreen() {
                     shape = CutCornerShape(5.dp)
                 ) { Text("Join") }
             }
+            Text(
+                "Host and Join unlock after verified QR pairing is ready.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        StepLine("01", "Scan a QR code", "Exchange public pairing details in person")
-        StepLine("02", "Verify identities", "Approve the intended device on both phones")
-        StepLine("03", "Start talking", "Only after the encrypted session is authenticated")
+    FieldSectionHeader("HOW IT WILL WORK", null)
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        StepLine("01", "Scan the QR code", "On the other phone")
+        StepLine("02", "Verify both devices", "Confirm the intended peer")
+        StepLine("03", "Connect", "Only after authentication succeeds")
     }
     Text(
-        "Current manual TLS test: Settings → Developer tools. This screen does not start a connection.",
+        "Internal handshake test: Settings → Developer tools.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -434,7 +457,9 @@ private fun LocalWifiScreen() {
 
 @Composable
 private fun PushToTalkScreen() {
-    FieldSectionHeader("VOICE / LOCAL", "Walkie-talkie")
+    FieldSectionHeader("VOICE / LOCAL", "Push-to-talk")
+    ConnectionStatus("Not connected", "A verified peer is required")
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -444,50 +469,43 @@ private fun PushToTalkScreen() {
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_eden_ptt),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp)
-            )
-            Text(
-                "Push-to-talk",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            StatusLabel("NOT ACTIVE")
+            StatusLabel("VOICE NOT AVAILABLE")
             OutlinedButton(
                 onClick = {},
                 enabled = false,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
-                shape = CutCornerShape(7.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 156.dp),
+                shape = CutCornerShape(8.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_eden_ptt),
-                    contentDescription = null,
-                    modifier = Modifier.size(23.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Text("Hold to talk")
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_eden_ptt),
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Text(
+                        "Hold to talk",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             Text(
-                "Voice only becomes available after a verified local connection. No microphone access is used in this preview.",
+                "Microphone is off in this preview. Voice will unlock only after secure pairing.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
     }
-    FieldSectionHeader("DESIGN INTENT", null)
-    StepLine("01", "Connect", "Verify your nearby peer first")
-    StepLine("02", "Press and hold", "Transmit audio only while the button is held")
-    StepLine("03", "Release", "Stop transmitting immediately")
     Text(
-        "Live voice, codec choices and microphone permissions are later milestones. Session-only remains the default.",
+        "Future operation: press and hold to transmit • release to stop.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -642,6 +660,49 @@ private fun FieldSectionHeader(eyebrow: String, title: String?) {
                 title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactModeTile(
+    modifier: Modifier,
+    glyph: Int,
+    title: String,
+    detail: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .heightIn(min = 88.dp)
+            .clickable(role = Role.Button, onClick = onClick),
+        shape = CutCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.44f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                painter = painterResource(glyph),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(23.dp)
+            )
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2
+            )
+            Text(
+                detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
