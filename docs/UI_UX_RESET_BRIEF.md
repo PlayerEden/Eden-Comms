@@ -70,3 +70,27 @@ UX-01 is the visual and navigation foundation; M1f is a working LAN TLS *probe*,
 ## Notes
 - Read this with [Product Vision](PRODUCT_VISION.md), [Data Retention & Expiry](DATA_RETENTION_AND_EXPIRY.md), [Privacy Security Charter](PRIVACY_SECURITY_CHARTER.md) and [Test Build Policy](TEST_BUILD_POLICY.md) where present.
 - No "military-grade", "unhackable", "anonymous", guaranteed remote deletion or "fully secure" claims.
+
+
+## UX-02 — Reduced roundness and first launcher icon (2026-11-03)
+User testing on Android after UX-01 showed improvements, but:
+- Home still consumed too much vertical space because of a full intro and multiple separated marketing/information rows.
+- Buttons and cards felt excessively pill/soft; a little geometry and structure is preferred.
+- Connect screen still repeated redundant information and showed too much explanation.
+- The actual launcher icon and Android navigation/status bar retained the obsolete teal/blue foundation identity.
+
+### UX-02 implementation
+- Compact Home: one status line, a real "Connect nearby" navigation action, a short honest development disclaimer, Settings/Help rows, and concise retention/account facts. No duplicated hero copy or "Simply connected" claim while disconnected.
+- Compact Nearby page: one short Wi-Fi explanation, disabled Host/Join (real pairing unavailable), three short pairing steps and a developer-tools path. It never pretends QR scanning is implemented.
+- Change card radius from 14dp to ~7–8dp, badge radius from 7dp to 4dp, primary action to 8dp. Keep native touch targets ≥48dp.
+- Improve compact toolbar title and accessible back navigation. Keep page-specific scroll reset and old LAN/identity tools under Settings → Developer.
+- New **Eden Comms signal-shield** brand icon: simple angled shield and paired communication waves, consistent with muted sage/graphite. Source in Android vector drawable resources; no embedded lettering, fake agency insignia or excessive detail.
+- Adaptive launcher icon supports system masks and monochrome Android-themed icons using 108dp foreground/background layers with artwork centered in the safe area. The fallback in-app drawable uses the same graphic.
+- Android system status/navigation bar default changed from outdated blue to graphite; keep screenshot capture allowed for debug testing.
+- The complete code and vector assets remain editable source. No new packages, permissions, endpoints or network activity added.
+
+### UX-02 QA
+- Compile, unit tests, existing LAN security/permission regression.
+- Check home, connect, Settings, LAN developer view and icon in drawer/home screen at normal and large Android font sizes; portrait and landscape.
+- Verify desktop and launcher adaptive masks do not clip icon, including themed icon on supported versions.
+- This is an **internal test APK**, not a public release or security certification.

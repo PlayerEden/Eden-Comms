@@ -11,6 +11,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,8 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
@@ -132,8 +137,8 @@ private fun EdenCommsApp() {
                             .fillMaxWidth()
                             .weight(1f)
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 22.dp, vertical = 22.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         when (page) {
                             "home" -> HomeScreen(
@@ -185,39 +190,50 @@ private fun titleForPage(page: String): String = when (page) {
 @Composable
 private fun TopBar(page: String, onBack: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 70.dp)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(min = 62.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (page == "home") {
-            Column(
-                modifier = Modifier.padding(start = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
+            Image(
+                painter = painterResource(R.drawable.ic_eden_comms),
+                contentDescription = null,
+                modifier = Modifier.size(38.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(
                     "Eden Comms",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "EDEN PRACTICAL   /   COMMUNICATIONS",
+                    "EDEN PRACTICAL  /  COMMUNICATIONS",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         } else {
-            TextButton(
+            IconButton(
                 onClick = onBack,
-                modifier = Modifier.heightIn(min = 48.dp),
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.size(48.dp).semantics { contentDescription = "Back" }
+            ) {
+                Text(
+                    "←",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            ) { Text("‹  Back") }
-            Spacer(Modifier.width(8.dp))
+            }
+            Spacer(Modifier.width(4.dp))
             Text(
                 titleForPage(page),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -231,12 +247,12 @@ private fun HomeScreen(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            "Simply connected.",
-            style = MaterialTheme.typography.headlineMedium,
+            "Nearby communication",
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            "Private conversations. No permanent record by default.",
+            "Simple, direct conversations on local Wi-Fi.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -247,80 +263,89 @@ private fun HomeScreen(
         detail = "No active conversation"
     )
 
-    Button(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-        onClick = onConnect,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Text("Connect nearby", fontWeight = FontWeight.SemiBold)
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionLabel("BUILT AROUND THE ESSENTIALS")
-        CompactFact("Local-first", "Same Wi-Fi, no internet required")
-        CompactFact("Your messages", "Session-only by default")
-        CompactFact("Your data", "No account or messaging cloud")
-    }
-
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
-    NavigationRow("Settings", "Appearance, privacy and device identity", onSettings)
-    NavigationRow("How it works", "The idea behind Eden Comms", onHelp)
-
-    Text(
-        "DEVELOPMENT PREVIEW  •  Messaging not enabled yet",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-}
-
-@Composable
-private fun NearbyScreen() {
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(
-            "Same network. No internet needed.",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            "Connect two phones on the same local Wi-Fi. Bluetooth and Wi-Fi Direct can follow.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-    Panel(
-        title = "Local Wi-Fi",
-        detail = "Secure pairing is under development."
-    ) {
-        StatusLabel("NOT AVAILABLE YET")
-        Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Host") }
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Join") }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            onClick = onConnect,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text("Connect nearby", fontWeight = FontWeight.SemiBold)
         }
         Text(
-            "These actions will unlock only after verified encrypted pairing is ready.",
+            "Secure messaging is still in development.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionLabel("HOW PAIRING WILL WORK")
-        StepLine("01", "Scan a QR code", "No long fingerprints to type")
-        StepLine("02", "Verify the connection", "Confirm you're connecting to the right phone")
-        StepLine("03", "Start the conversation", "Only after both devices are verified")
+
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        NavigationRow("Settings", "Appearance and privacy", onSettings)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+        NavigationRow("How it works", "How local conversations work", onHelp)
     }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "Session-only by default",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            "No account needed",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun NearbyScreen() {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(
+            "Local Wi-Fi",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            "Use the same Wi-Fi network. Internet access isn't required.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    Panel(title = "Secure pairing", detail = "Not available in this preview") {
+        StatusLabel("IN DEVELOPMENT")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text("Host") }
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text("Join") }
+        }
+    }
+
+    SectionLabel("PAIRING WILL BE SIMPLE")
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        StepLine("01", "Scan", "Use the QR code shown on the other phone")
+        StepLine("02", "Confirm", "Both people approve the verified connection")
+        StepLine("03", "Talk", "Messages stay locked until verification succeeds")
+    }
+
     Text(
-        "Advanced manual TLS testing is available under Settings → Developer tools.",
+        "For internal LAN testing: Settings → Developer tools.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -484,14 +509,14 @@ private fun ConnectionStatus(title: String, detail: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(7.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outline.copy(alpha = 0.27f)
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Spacer(
@@ -541,7 +566,7 @@ private fun StepLine(index: String, title: String, subtitle: String) {
 private fun NavigationRow(title: String, description: String, onClick: () -> Unit) {
     TextButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
         contentPadding = PaddingValues(vertical = 6.dp, horizontal = 0.dp),
         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
     ) {
@@ -840,7 +865,7 @@ private fun LanHandshakeTest() {
 private fun StatusLabel(text: String) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(7.dp)
+        shape = RoundedCornerShape(4.dp)
     ) {
         Text(
             text,
@@ -861,15 +886,15 @@ private fun Panel(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 title,
