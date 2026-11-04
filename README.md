@@ -20,7 +20,7 @@ A simple, accessible way for two people nearby to **Connect → Communicate → 
 
 ## Build
 
-Requires Android SDK API 37, Android build tools 36.0.0, JDK 17+, Gradle 9.3.1.
+Requires Android SDK API 37.0, Android build tools 36.0.0, JDK 17+, Gradle 9.3.1.
 From a clone, run:
 
 ```sh
