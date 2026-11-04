@@ -244,7 +244,8 @@ internal class LanDemoSession(
 
     private fun startHeartbeat() {
         pulses.scheduleAtFixedRate({
-            if (stopped.get() || !ready) return@scheduleAtFixedRate
+            try {
+                if (stopped.get() || !ready) return@scheduleAtFixedRate
             val now = SystemClock.elapsedRealtime()
             val link = wifiLink
             val current = WifiLanEndpoint.current(context)
@@ -281,6 +282,12 @@ internal class LanDemoSession(
                 }
             } catch (_: RuntimeException) {
                 heartbeatQueued.set(false)
+            }
+            } catch (_: Exception) {
+                // Android connectivity APIs may fail unexpectedly. Never let
+                // ScheduledExecutor silently cancel the only live watchdog.
+                emitTerminal(Phase.ENDED, "Connection monitoring stopped unexpectedly.")
+                close()
             }
         }, HEARTBEAT_MS, HEARTBEAT_MS, TimeUnit.MILLISECONDS)
     }
