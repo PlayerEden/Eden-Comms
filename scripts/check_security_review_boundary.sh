@@ -8,6 +8,13 @@ MAIN="app/src/main/java"
 CAPABILITIES="$MAIN/com/edenpractical/comms/model/ReleaseCapabilities.kt"
 test -f "$CAPABILITIES"
 
+# The proposed wire parser is unit-test-only and must not ship in any APK.
+test -f "app/src/test/java/com/edenpractical/comms/security/ReviewOnlyApprovalFrame.kt"
+if test -e "$MAIN/com/edenpractical/comms/security/ReviewOnlyApprovalFrame.kt"; then
+  echo "FAIL: unreviewed approval parser was placed in app main sources" >&2
+  exit 1
+fi
+
 for NAME in CAN_CONNECT CAN_SEND_MESSAGES CAN_TRANSMIT_VOICE; do
   if ! grep -Eq "^[[:space:]]*const val[[:space:]]+$NAME[[:space:]]*=[[:space:]]*false([[:space:]]*//.*)?$" "$CAPABILITIES"; then
     echo "FAIL: $NAME must remain false until reviewed production integration" >&2
