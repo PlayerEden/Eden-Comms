@@ -13,7 +13,7 @@
 - Native Kotlin/Jetpack Compose Android prototype. App debug package `com.edenpractical.comms`. minSdk 26, targetSdk 36 as of v0.2.8. **Installability from API 26 does not equal TLS 1.3 runtime support**: Android's platform TLS 1.3 table starts at API 29.
 - Manifest grants `INTERNET` (required by Android for LAN TCP), `ACCESS_NETWORK_STATE`, and opt-in `CAMERA`. No contacts, location, mic or Bluetooth; `allowBackup=false`, cleartext disabled. Confirm via final built APK.
 - Existing test flow: in-person two QR scans, full expected public cert fingerprints and fresh QR nonces, mutually authenticated TLS 1.3, challenge-based session proof, four fixed *test* phrase IDs, in-memory feedback, bounded foreground lifecycle. This is **not** a production messaging client and has not passed independent crypto review.
-- Release switches `CAN_CONNECT`, `CAN_SEND_MESSAGES`, `CAN_TRANSMIT_VOICE` are all false. `ProductionSessionAuthorization` is an unwired policy model; `ReviewOnlyApprovalFrame` is an unwired, strict 39-byte parser proposal.
+- Release switches `CAN_CONNECT`, `CAN_SEND_MESSAGES`, `CAN_TRANSMIT_VOICE` are all false. `ProductionSessionAuthorization` is an unwired policy model; `ReviewOnlyApprovalFrame` is a strict 39-byte JVM-test-only parser proposal, excluded from installed APKs.
 - **No claim** that the current app works across two physical devices with WAN disconnected, in background, over Bluetooth, or with real typed chat.
 
 ## 1. What is truly possible offline?
