@@ -15,8 +15,8 @@ android {
         applicationId = "com.edenpractical.comms"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.2.11-tls-exporter-diagnostic"
+        versionCode = 11
+        versionName = "0.2.12-approval-review-only"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
