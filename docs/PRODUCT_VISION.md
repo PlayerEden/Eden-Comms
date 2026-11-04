@@ -5,6 +5,17 @@ Brand: Eden Practical. Repository: PlayerEden/Eden-Comms.
 ## Mission
 Make private, understandable, nearby Android communications available without accounts, company-operated servers, or a working internet connection. Guiding flow: **Connect → Communicate → Disconnect.**
 
+## Core experience: like a private conversation in person
+
+**A conversation, not a permanent transcript.** The goal is that two people can communicate privately, then leave with their memories of what was said rather than a default archived chat. A third party on the network should not be able to read the exchanged content, and Eden Comms itself should have no server-side copy or automatically saved transcript.
+
+- By default, messages exist for the active verified session only. Ending the session leaves no intentional chat-history archive on either standard client.
+- People who explicitly want to retain messages can turn on **per-chat encrypted local history**, expiring in no more than 30 days.
+- The design must minimize logs, caches, notifications, backups and metadata so the conversation-first promise is reflected in implementation, not just in marketing.
+- **Accurate limit:** like a face-to-face conversation, either participant can remember or record what is said. The app cannot guarantee privacy from a compromised phone, screenshots/external cameras, third-party keyboards, or every form of network metadata. Do not advertise absolute secrecy or guaranteed deletion.
+
+Preferred simple explanation: **“Talk privately. Leave without a permanent chat record.”** Use this as a product concept, not a security certification.
+
 ## Product principles
 1. Function before flair: one obvious primary action per screen.
 2. Privacy by architecture: no cloud message services, analytics, advertising, third-party trackers, or mandatory registration.
