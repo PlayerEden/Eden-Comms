@@ -18,7 +18,8 @@ Keep choices explicit; proposed items are not locked.
 | D-013 | 2026-11-04 | Message retention is an independent **per-chat** option: session-only by default; later encrypted local history capped at 30 days, best-effort deletion. One user's timer cannot delete the other person's copy. | Direction accepted; not implemented |
 | D-014 | 2026-11-04 | Settings remain simple; a contextual **?** provides a short, clear explanation for material privacy/security choices, with optional **Learn more** to an offline How it works section. | UX direction accepted; not implemented |
 | D-015 | 2026-11-04 | Local discovery should be explicitly user-initiated and time-limited, with minimal advertised metadata; discovering a device **never** means trusting its identity. QR remains an option; remote short-code verification requires reviewed transcript-bound cryptography. | Design direction; not implemented |
-| D-016 | 2026-11-04 | Failed two-phone QR/TLS test blocks messaging release. Show sanitized phase-specific failure codes, never raw exceptions/IPs/keys. Confirm successful real-phone handshake before advancing. | Test evidence; work in progress |
+| D-016 | 2026-11-04 | Failed two-phone QR/TLS test blocks messaging release. Show sanitized phase-specific failure codes, never raw exceptions/IPs/keys. Confirm successful real-phone handshake before advancing. | One-phone success screenshot received; paired QA incomplete |
+| D-017 | 2026-11-04 | Before real text, run an explicitly test-only reciprocal QR session/challenge proof inside pinned TLS 1.3; no chat/voice or persisted trust, no feature flag changes. Require both physical-device outcomes and negative tests. | In development on M2c branch; security review pending |
 
 ## Decisions needed before M1
 - Lowest Android OS version and which devices can be manually tested.

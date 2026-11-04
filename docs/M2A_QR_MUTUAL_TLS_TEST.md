@@ -2,6 +2,10 @@
 
 Date: November 4, 2026. Status: implemented on branch; CI/physical Android QA reported separately.
 
+## New physical evidence — November 4, 2026 (after v0.2.3)
+
+A screenshot from one phone reported **“Mutual TLS 1.3 handshake passed. Test link closed; text is still disabled.”** This matches the success event emitted after TLS 1.3 and the peer pin check in `LanTlsProbe.kt`. It is stronger than previous failed tests, but **the other phone's final screen is not yet recorded**, and no-WAN operation, negative certificate-pinning checks and replay/cancellation scenarios remain unverified. Do not mark the entire two-phone QA matrix PASS or claim messaging readiness. This report belongs to the v0.2.3 *handshake-only* build; the new v0.2.4 QR session-proof experiment is a distinct test that has not yet received device QA.
+
 ## Purpose
 Move beyond copying full certificate fingerprints and IP addresses through other messaging apps. The app can now exchange the required **public identity data locally, face-to-face**, via its own QR scanner and display. Then use existing **mutually pinned TLS 1.3** to attempt a real one-shot handshake on the same Wi-Fi network. No server, cloud, Bluetooth, clipboard, external scanner, media upload, chat storage, or voice transmission.
 

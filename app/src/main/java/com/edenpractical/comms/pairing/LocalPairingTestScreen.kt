@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
+import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.transport.LanTlsProbe
 import com.edenpractical.comms.transport.LocalIpv4Policy
 import com.edenpractical.comms.transport.WifiLanEndpoint
@@ -93,6 +94,16 @@ internal fun LocalPairingTestScreen() {
         val own = identity ?: run { status = "Create an identity first."; return }
         val expected = peerPin ?: run { status = "Scan the other phone's QR first."; return }
         try {
+            val invite = hostInvite ?: error("Missing host invitation")
+            val reply = joinReply ?: error("Missing join reply")
+            val binding = SessionProofBinding(
+                invite.certificateSha256, reply.certificateSha256,
+                invite.nonce, reply.nonce
+            )
+            val ownExpected = if (host) invite.certificateSha256 else reply.certificateSha256
+            require(own.publicFingerprint().contentEquals(ownExpected)) {
+                "Local signing identity changed during QR exchange"
+            }
             if (!host) {
                 val invite = hostInvite ?: error("Missing host invite")
                 LocalPairingQrCodec.requireFresh(invite, System.currentTimeMillis() / 1000)
@@ -119,8 +130,8 @@ internal fun LocalPairingTestScreen() {
             stage = "running"
             status = if (host) "Opening the local listener…"
                 else "Connecting to the verified host…"
-            if (host) connection.host(own, expected)
-            else connection.join(own, expected, hostInvite!!.wifiIp)
+            if (host) connection.host(own, expected, binding)
+            else connection.join(own, expected, invite.wifiIp, binding)
         } catch (_: Exception) {
             stage = "result"
             status = "Secure connection test could not start. Restart the pairing."
@@ -321,7 +332,7 @@ internal fun LocalPairingTestScreen() {
                 }
                 "running" -> {
                     Text(
-                        "Testing mutual TLS 1.3. No conversation data is sent.",
+                        "Testing pinned TLS 1.3 and QR session agreement. No messages are sent.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     TextButton(onClick = { reset() }) { Text("Cancel test") }

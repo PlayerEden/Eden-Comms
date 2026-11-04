@@ -4,6 +4,7 @@ import java.net.BindException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
+import com.edenpractical.comms.security.SessionProofException
 import java.security.InvalidKeyException
 import java.security.SignatureException
 import java.security.cert.CertificateException
@@ -20,7 +21,7 @@ import javax.net.ssl.SSLPeerUnverifiedException
  */
 internal object LanProbeDiagnostics {
     enum class Step {
-        WIFI, TLS_SETUP, BIND, WAIT_FOR_PEER, TCP_CONNECT, TLS_HANDSHAKE, VERIFY_PIN
+        WIFI, TLS_SETUP, BIND, WAIT_FOR_PEER, TCP_CONNECT, TLS_HANDSHAKE, VERIFY_PIN, SESSION_BINDING
     }
 
     enum class Code {
@@ -36,6 +37,8 @@ internal object LanProbeDiagnostics {
         CERTIFICATE_REJECTED,
         LOCAL_SIGNING_FAILED,
         TLS_HANDSHAKE_FAILED,
+        SESSION_BINDING_REJECTED,
+        SESSION_BINDING_TIMEOUT,
         CONNECTION_DROPPED,
         UNKNOWN
     }
@@ -54,6 +57,9 @@ internal object LanProbeDiagnostics {
             has(BindException::class.java) -> Code.LISTEN_UNAVAILABLE
             has(NoRouteToHostException::class.java) -> Code.NETWORK_UNREACHABLE
             has(ConnectException::class.java) -> Code.HOST_NOT_ACCEPTING
+            has(SessionProofException::class.java) -> Code.SESSION_BINDING_REJECTED
+            has(SocketTimeoutException::class.java) && step == Step.SESSION_BINDING ->
+                Code.SESSION_BINDING_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.WAIT_FOR_PEER ->
                 Code.HOST_WAIT_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.TCP_CONNECT ->
@@ -71,6 +77,7 @@ internal object LanProbeDiagnostics {
             step == Step.WAIT_FOR_PEER -> Code.HOST_WAIT_TIMEOUT
             step == Step.TCP_CONNECT -> Code.PEER_UNREACHABLE
             step == Step.TLS_HANDSHAKE -> Code.CONNECTION_DROPPED
+            step == Step.SESSION_BINDING -> Code.SESSION_BINDING_REJECTED
             step == Step.VERIFY_PIN -> Code.CERTIFICATE_REJECTED
             else -> Code.UNKNOWN
         }
@@ -88,6 +95,8 @@ internal object LanProbeDiagnostics {
             Code.CERTIFICATE_REJECTED -> "The expected device identity wasn't verified. Start a new pairing; never bypass verification."
             Code.LOCAL_SIGNING_FAILED -> "This phone's private key couldn't complete the TLS signature. Check the device identity's signing permissions in the QR test."
             Code.TLS_HANDSHAKE_FAILED -> "TLS couldn't authenticate the connection. A device compatibility or identity issue needs investigation."
+            Code.SESSION_BINDING_REJECTED -> "Both phones did not confirm the same QR session. Start again with two fresh QR scans."
+            Code.SESSION_BINDING_TIMEOUT -> "The QR session check timed out. Keep both screens open and try again."
             Code.CONNECTION_DROPPED -> "The connection stopped during authentication. Retry with both screens open."
             Code.UNKNOWN -> "The connection test couldn't finish. No messages or audio were sent."
         }

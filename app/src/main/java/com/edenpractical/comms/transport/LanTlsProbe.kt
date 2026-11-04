@@ -3,6 +3,8 @@ package com.edenpractical.comms.transport
 import android.content.Context
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.PinnedTlsPeer
+import com.edenpractical.comms.security.SessionProofBinding
+import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.Tls13PeerContext
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -13,9 +15,9 @@ import javax.net.ssl.SSLSocket
 /**
  * One-shot encrypted LAN authentication probe: TLS handshake ONLY.
  *
- * No message bytes are written/read. Success means the local TLS provider
- * negotiated 1.3 with a matching, pre-verified peer certificate fingerprint.
- * The connection is closed after the check (no background service).
+ * No message/voice bytes are transmitted. After mutually pinned TLS 1.3, a
+ * bounded QR transcript/challenge proof is exchanged INSIDE TLS (test control
+ * bytes only). The connection then closes; no background service or chat.
  *
  * This is an internal milestone test, not a full cryptographically reviewed
  * pairing or secure messaging feature.
@@ -45,7 +47,7 @@ internal class LanTlsProbe(
     /** Updated on this probe's single worker thread; no sensitive values. */
     @Volatile private var diagnosticStep = LanProbeDiagnostics.Step.WIFI
 
-    fun host(local: LocalTlsIdentity, verifiedPeerFingerprint: ByteArray) {
+    fun host(local: LocalTlsIdentity, verifiedPeerFingerprint: ByteArray, binding: SessionProofBinding) {
         execute {
             diagnosticStep = LanProbeDiagnostics.Step.WIFI
             val wifi = WifiLanEndpoint.current(context)
@@ -68,14 +70,17 @@ internal class LanTlsProbe(
             socket.startHandshake()
             diagnosticStep = LanProbeDiagnostics.Step.VERIFY_PIN
             PinnedTlsPeer.requirePinnedTls13(socket.session, verifiedPeerFingerprint)
-            emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed. Test link closed; text is still disabled.")
+            diagnosticStep = LanProbeDiagnostics.Step.SESSION_BINDING
+            SessionProofExchange.runHost(socket.inputStream, socket.outputStream, binding)
+            emit(Phase.SUCCEEDED, "Mutual TLS 1.3 + QR session check passed. Test link closed; text remains disabled.")
         }
     }
 
     fun join(
         local: LocalTlsIdentity,
         verifiedPeerFingerprint: ByteArray,
-        hostIpv4: String
+        hostIpv4: String,
+        binding: SessionProofBinding
     ) {
         execute {
             diagnosticStep = LanProbeDiagnostics.Step.WIFI
@@ -98,7 +103,9 @@ internal class LanTlsProbe(
             socket.startHandshake()
             diagnosticStep = LanProbeDiagnostics.Step.VERIFY_PIN
             PinnedTlsPeer.requirePinnedTls13(socket.session, verifiedPeerFingerprint)
-            emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed. Test link closed; text is still disabled.")
+            diagnosticStep = LanProbeDiagnostics.Step.SESSION_BINDING
+            SessionProofExchange.runJoin(socket.inputStream, socket.outputStream, binding)
+            emit(Phase.SUCCEEDED, "Mutual TLS 1.3 + QR session check passed. Test link closed; text remains disabled.")
         }
     }
 

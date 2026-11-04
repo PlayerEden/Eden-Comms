@@ -1,6 +1,8 @@
 # Eden Comms — Android compatibility, accessible design & TLS signing research
 **Date:** November 4, 2026. **Status:** research-backed engineering targets, not completed compatibility certification.
 
+> **Updated physical evidence (November 4, 2026):** Following v0.2.3 Keystore compatibility changes, one device displayed a successful pinned TLS 1.3 handshake and intentional test-link closure. This does **not** prove the precise earlier failure cause or certify Android 13 support across devices. Second-phone and offline negative-case evidence is still outstanding. New v0.2.4 QR session-binding test remains untested on devices.
+
 ## Why compatibility matters
 Eden Comms is a local-first communications utility for people who may keep modest Android phones for years. Avoid gating basic communication on high-end CPU, new cameras, high memory, subscriptions, Google Play Services, cellular data or an internet connection. Security requirements remain independent of phone price.
 
