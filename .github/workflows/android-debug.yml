@@ -23,12 +23,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Locate preinstalled Android SDK
+      - name: Install Android SDK platform
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          sdkmanager --version
-      - name: Install platform
-        run: sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          "$SDKMANAGER" "platforms;android-37" "build-tools;36.0.0"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
