@@ -2,6 +2,7 @@ package com.edenpractical.comms.transport
 
 import java.net.BindException
 import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.security.cert.CertificateException
 import javax.net.ssl.SSLHandshakeException
@@ -13,10 +14,29 @@ class LanProbeDiagnosticsTest {
     private val d = LanProbeDiagnostics
 
     @Test fun unreachablePeerIsDistinguishedFromTimeout() {
-        assertEquals(LanProbeDiagnostics.Code.PEER_UNREACHABLE,
+        assertEquals(LanProbeDiagnostics.Code.HOST_NOT_ACCEPTING,
             d.classify(LanProbeDiagnostics.Step.TCP_CONNECT, ConnectException("192.168.2.55")).code)
         assertEquals(LanProbeDiagnostics.Code.CONNECT_TIMEOUT,
             d.classify(LanProbeDiagnostics.Step.TCP_CONNECT, SocketTimeoutException("192.168.2.55")).code)
+    }
+
+    @Test fun networkRouteFailureIsDifferentFromRejectedConnection() {
+        val failure = d.classify(
+            LanProbeDiagnostics.Step.TCP_CONNECT,
+            NoRouteToHostException("SECRET-ADDRESS")
+        )
+        assertEquals(LanProbeDiagnostics.Code.NETWORK_UNREACHABLE, failure.code)
+        assertFalse(failure.display().contains("SECRET"))
+    }
+
+    @Test fun refusingHostDoesNotEchoSensitiveSocketDetails() {
+        val failure = d.classify(
+            LanProbeDiagnostics.Step.TCP_CONNECT,
+            ConnectException("SECRET-HOST-IP")
+        )
+        assertEquals(LanProbeDiagnostics.Code.HOST_NOT_ACCEPTING, failure.code)
+        assertFalse(failure.display().contains("SECRET"))
+        assert(failure.display().contains("Start listening"))
     }
 
     @Test fun hostWaitTimeoutHasSpecificInstruction() {

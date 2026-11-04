@@ -108,7 +108,7 @@ internal fun LocalPairingTestScreen() {
             }
             probe = connection
             stage = "running"
-            status = if (host) "Listening for the verified phone…"
+            status = if (host) "Opening the local listener…"
                 else "Connecting to the verified host…"
             if (host) connection.host(own, expected)
             else connection.join(own, expected, hostInvite!!.wifiIp)
@@ -245,7 +245,7 @@ internal fun LocalPairingTestScreen() {
                                         joinReply = reply
                                         peerPin = reply.certificateSha256
                                         stage = "hostReady"
-                                        status = "Both public identities exchanged. Start listening."
+                                        status = "QR exchange complete. Tap Start listening; wait until Host is ready before the other phone connects."
                                     }
                                 } catch (_: Exception) {
                                     status = "That QR isn't valid for this session. Try scanning again."
@@ -264,7 +264,7 @@ internal fun LocalPairingTestScreen() {
                     )
                     LocalPairingQrDisplay(qrText)
                     Text(
-                        "Once the host has scanned it and started listening, tap below.",
+                        "Wait until the host phone displays: Host is ready. Then tap Connect.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Button(
@@ -275,13 +275,13 @@ internal fun LocalPairingTestScreen() {
                 }
                 "hostReady" -> {
                     Text(
-                        "Step 3 — The host is ready to verify the other phone.",
+                        "Step 3 — Tap Start listening here. Wait for the Host is ready message, then tell the other person to tap Connect.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Button(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         onClick = { runProbe(true) }
-                    ) { Text("Start listening") }
+                    ) { Text("Start listening (60 sec)") }
                     TextButton(onClick = { reset() }) { Text("Start over") }
                 }
                 "running" -> {

@@ -13,6 +13,20 @@ A user completed an initial attempt involving **two real phones** and reached id
 
 **Next diagnostics patch:** Show bounded safe phase/category codes for Wi-Fi, host listen/bind timeout, peer reachability/connect timeout, TLS negotiation and certificate rejection. Never surface raw exceptions, IP addresses or certificate fingerprints in screenshots or logs. Repeat test with host listening first and both devices on the same local Wi-Fi, WAN disconnected. Capture only both phones' safe codes and app versions. Fix the demonstrated cause; do not relax TLS 1.3 or certificate pinning.
 
+## Second physical test — November 4, 2026
+
+After installing the safe-diagnostics APK on two phones, the tester showed QR generation and an ensuing **PEER-UNREACHABLE** error. That category was previously a combination of `ConnectException` and `NoRouteToHostException`, so it does **not** establish which network failure occurred. It does mean the Join phone failed opening a TCP connection, **before TLS certificate verification**. No successful handshake was established.
+
+Screenshots show the Host QR but do not establish that the Host scanned the reply QR and reached **Start listening**, or that the listener remained active when Join attempted to connect. The original host timeout was only 30 seconds; a phone that connects later can encounter a refused socket.
+
+### Next focused patch and test
+- Increase the **opt-in test listener** from 30 to **60 seconds**, preserving explicit time limits and all existing TLS/pinning restrictions.
+- Split `ConnectException` into **HOST-NOT-ACCEPTING** (likely no listener/port blocked) and `NoRouteToHostException` into **NETWORK-UNREACHABLE**; treat categories as investigative clues, never proof of a particular root cause. Do not surface raw network addresses.
+- Explicitly instruct **Host**: scan Join's reply QR → tap **Start listening** → wait until the screen says **Host is ready**.
+- Only then instruct **Join** to tap **Connect to host**; both phones remain on the same Wi-Fi with guest/client isolation off. No WAN required. Keep both screens open.
+- Observe and record the Host and Join status codes independently. If Host says **LISTEN-UNAVAILABLE**, inspect binding; if Join says **HOST-NOT-ACCEPTING**, ensure the Host is still listening; if **NETWORK-UNREACHABLE** or timeout, inspect Wi-Fi isolation/routing; if handshake error appears, only then investigate TLS identity.
+- No real text or audio is enabled. No diagnostics containing raw IPs, QR payloads or fingerprints should be shared publicly. Because QR contains a time-limited network address and public identity data, avoid posting live QR screenshots.
+
 ## Why two scans?
 A single host QR gives the joiner the **host's** exact certificate identity but does not independently authenticate the **joiner's** identity to the host. To avoid an unverified or trust-all TLS state, we initially require an explicit *second in-person QR*, shown on the joiner's phone and scanned by the host. That supplies the joiner's exact full fingerprint and binds the response to the host's fresh session nonce.
 

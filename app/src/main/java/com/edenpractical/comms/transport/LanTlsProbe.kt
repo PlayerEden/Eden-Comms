@@ -29,7 +29,7 @@ internal class LanTlsProbe(
 
     companion object {
         const val PORT: Int = 42519
-        private const val ACCEPT_TIMEOUT_MS = 30_000
+        private const val ACCEPT_TIMEOUT_MS = 60_000
         private const val CONNECT_TIMEOUT_MS = 7_000
         private const val TLS_TIMEOUT_MS = 12_000
     }
@@ -58,7 +58,7 @@ internal class LanTlsProbe(
             diagnosticStep = LanProbeDiagnostics.Step.BIND
             server.bind(InetSocketAddress(wifi.address, PORT), 1)
             diagnosticStep = LanProbeDiagnostics.Step.WAIT_FOR_PEER
-            emit(Phase.LISTENING, "Host is ready. Connect from the other phone.")
+            emit(Phase.LISTENING, "Host is ready. Ask the other phone to tap Connect now (60-second window).")
             val socket = server.accept() as SSLSocket
             activeSocket = socket
             server.close()

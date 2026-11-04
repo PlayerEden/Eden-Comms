@@ -27,6 +27,8 @@ internal object LanProbeDiagnostics {
         LISTEN_UNAVAILABLE,
         HOST_WAIT_TIMEOUT,
         PEER_UNREACHABLE,
+        HOST_NOT_ACCEPTING,
+        NETWORK_UNREACHABLE,
         CONNECT_TIMEOUT,
         HANDSHAKE_TIMEOUT,
         CERTIFICATE_REJECTED,
@@ -47,8 +49,8 @@ internal object LanProbeDiagnostics {
             has(SSLPeerUnverifiedException::class.java) ||
                 has(CertificateException::class.java) -> Code.CERTIFICATE_REJECTED
             has(BindException::class.java) -> Code.LISTEN_UNAVAILABLE
-            has(NoRouteToHostException::class.java) ||
-                has(ConnectException::class.java) -> Code.PEER_UNREACHABLE
+            has(NoRouteToHostException::class.java) -> Code.NETWORK_UNREACHABLE
+            has(ConnectException::class.java) -> Code.HOST_NOT_ACCEPTING
             has(SocketTimeoutException::class.java) && step == Step.WAIT_FOR_PEER ->
                 Code.HOST_WAIT_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.TCP_CONNECT ->
@@ -71,7 +73,9 @@ internal object LanProbeDiagnostics {
             Code.TLS_UNSUPPORTED -> "This device couldn't prepare the required TLS 1.3 connection."
             Code.LISTEN_UNAVAILABLE -> "The host couldn't open its local listening port. Try a new test."
             Code.HOST_WAIT_TIMEOUT -> "The host didn't receive a connection. Start listening first, then connect from the other phone."
-            Code.PEER_UNREACHABLE -> "The other phone couldn't be reached. Check Wi-Fi, guest isolation and the host's listening state."
+            Code.PEER_UNREACHABLE -> "The other phone couldn't be reached. Check the Wi-Fi network and retry."
+            Code.HOST_NOT_ACCEPTING -> "The host isn't accepting connections. On Host, scan the reply QR, tap Start listening, and wait for Host is ready before joining. The network may also block connections."
+            Code.NETWORK_UNREACHABLE -> "No network route to the host. Check that both phones use the same non-guest Wi-Fi and that device isolation is off."
             Code.CONNECT_TIMEOUT -> "The connection timed out. Check that both phones share Wi-Fi and the host is listening."
             Code.HANDSHAKE_TIMEOUT -> "The encrypted handshake timed out. Try again with both screens open."
             Code.CERTIFICATE_REJECTED -> "The expected device identity wasn't verified. Start a new pairing; never bypass verification."
