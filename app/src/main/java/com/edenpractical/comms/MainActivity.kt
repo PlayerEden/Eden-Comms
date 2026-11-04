@@ -1,6 +1,7 @@
 package com.edenpractical.comms
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.os.Build
 import android.view.View
@@ -56,9 +57,13 @@ private val DayPanel = Color(0xFFFFFFFF)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Privacy default: prevent OS screen recording, screenshots and recents previews.
-        // This does not prevent external cameras or compromised-device capture.
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Development APKs allow screenshots so testers can report visual bugs.
+        // Keep the release-only protection; revisit its UX and accessibility
+        // before shipping a production app.
+        val isDebuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!isDebuggable) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
         // Reduce unintended data collection by autofill/content-capture services.
         window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -327,11 +332,12 @@ private fun HowItWorks() {
     }
     Panel(
         title = "Screen privacy",
-        detail = "This preview blocks screenshots and screen sharing by default."
+        detail = "Screenshots are available in development APKs for visual testing."
     ) {
         Text(
-            "The device's screen-capture restrictions reduce accidental exposure but cannot " +
-                "stop someone from photographing the screen or using a compromised phone.",
+            "Production builds restrict Android screenshots and screen recording. " +
+                "Development builds allow them to make testing and feedback easier. " +
+                "Never test with real private messages or sensitive data.",
             style = MaterialTheme.typography.bodyMedium
         )
     }
