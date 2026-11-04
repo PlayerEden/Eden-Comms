@@ -5,9 +5,13 @@ Status: implemented **gate model only**, crypto/transport **not implemented** (2
 - `SessionSecurityGate` expresses an application-level **default deny** policy: discovery or handshake is not enough; the user must explicitly verify the binding on BOTH devices before app messages or microphone transmission can be enabled.
 - Any identity mismatch, verification mismatch, security failure, or transport loss denies communication; no implicit trust carried over across a reconnect.
 - Automated negative tests cover both-confirmation requirement, stale verification, wrong peer identity, disconnect and protocol failures.
-- Android preview defaults to `FLAG_SECURE` to prevent OS screenshots/screen sharing and attempts to reduce autofill/content-capture exposure. This is **not** protection against cameras, malicious keyboards, accessibility abuse, or compromised endpoints.
+- **Development APKs allow screenshots/screen sharing** to speed up visual feedback. Non-debuggable release builds still use `FLAG_SECURE`, subject to release readiness and accessibility review. Both reduce autofill/content-capture exposure, but no such setting protects against cameras, malicious keyboards, accessibility abuse, or compromised endpoints.
 - CI inspects the built APK permissions; any unexpected network/Bluetooth/microphone/location/contacts permission request fails this pre-network build.
 - Product still requests no communication permissions, does not establish an encrypted channel, and **cannot send messages**.
+
+## Test/build cadence
+- See [Development APK policy](TEST_BUILD_POLICY.md): rapid internal builds are not public releases and do not need full release audits for each minor UI change.
+- Use only synthetic test content in debug builds; screenshot protection remains disabled during UI testing.
 
 ## Important limitation — gate model is not cryptography
 The gate accepts events for conceptual handshake establishment and confirmation; those calls are not proof of authenticity. No developer may wire this gate to network sockets until a real audited cryptographic adapter authenticates peer identity, session transcript, transport framing and confirmation messages. An attacker controlling upstream input could otherwise forge those events. The release-level trust boundary must live in cryptography, **not** in UI state flags.
