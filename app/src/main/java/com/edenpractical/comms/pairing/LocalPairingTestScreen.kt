@@ -1,5 +1,6 @@
 package com.edenpractical.comms.pairing
 
+import android.content.pm.ApplicationInfo
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,8 @@ import androidx.lifecycle.LifecycleOwner
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
-import com.edenpractical.comms.transport.LanTlsProbe
+import com.edenpractical.comms.protocol.TestPacketCodec
+import com.edenpractical.comms.transport.LanDemoSession
 import com.edenpractical.comms.transport.LocalIpv4Policy
 import com.edenpractical.comms.transport.WifiLanEndpoint
 import com.edenpractical.comms.ui.FieldFrame
@@ -29,12 +31,17 @@ import kotlinx.coroutines.withContext
  * Guided two-QR LOCAL CONNECTION TEST. The second QR is still required:
  * it authenticates the joiner's identity to the presenter.
  *
- * No manual listener or Connect buttons, chat/voice traffic, remembered peers,
- * cloud services, background discovery, or plaintext fallback.
+ * No manual listener or Connect buttons, user-supplied chat/voice traffic,
+ * remembered peers, cloud services, background discovery, or plaintext fallback.
+ * Development builds may exchange ONLY fixed test phrases over proven TLS.
  */
 @Composable
 internal fun LocalPairingTestScreen() {
     val context = LocalContext.current
+    if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+        Text("Local pairing tests are available only in development builds.")
+        return
+    }
     val repository = remember { AndroidKeystoreIdentity() }
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
@@ -59,7 +66,11 @@ internal fun LocalPairingTestScreen() {
     var qrText by remember { mutableStateOf("") }
     var scanRevision by remember { mutableIntStateOf(0) }
     var attemptVersion by remember { mutableIntStateOf(0) }
-    var probe by remember { mutableStateOf<LanTlsProbe?>(null) }
+    var probe by remember { mutableStateOf<LanDemoSession?>(null) }
+    data class TestLine(val fromThisPhone: Boolean, val phrase: String)
+    val testLines = remember { mutableStateListOf<TestLine>() }
+    var sentCount by remember { mutableIntStateOf(0) }
+    var receivedCount by remember { mutableIntStateOf(0) }
     val latestProbe by rememberUpdatedState(probe)
 
     fun stopTest() {
@@ -78,6 +89,9 @@ internal fun LocalPairingTestScreen() {
         details = ""
         showDetails = false
         passed = false
+        testLines.clear()
+        sentCount = 0
+        receivedCount = 0
         pendingRole = null
         stage = "choose"
         status = "Choose how to begin."
@@ -152,27 +166,42 @@ internal fun LocalPairingTestScreen() {
             }
             stopTest()
             val thisAttempt = attemptVersion
-            val connection = LanTlsProbe(context.applicationContext) { event ->
+            val connection = LanDemoSession(context.applicationContext) { event ->
                 handler.post {
                     if (thisAttempt != attemptVersion) return@post
                     when (event.phase) {
-                        LanTlsProbe.Phase.LISTENING -> status =
+                        LanDemoSession.Phase.LISTENING -> status =
                             "Waiting for the other phone to connect…"
-                        LanTlsProbe.Phase.CONNECTING -> status =
-                            "Show your code on the other phone. Connecting automatically…"
-                        LanTlsProbe.Phase.SUCCEEDED -> {
+                        LanDemoSession.Phase.CONNECTING -> status =
+                            "Show your code to the other phone. Connecting automatically…"
+                        LanDemoSession.Phase.READY -> {
                             passed = true
                             details = event.description
-                            status = "Secure connection test passed on this phone."
+                            status = "Connected for the two-phone test."
+                            stage = "demo"
+                        }
+                        LanDemoSession.Phase.SENT, LanDemoSession.Phase.RECEIVED -> {
+                            val phrase = event.phraseId?.let(TestPacketCodec::phrase)
+                            if (phrase != null) {
+                                val fromThisPhone = event.phase == LanDemoSession.Phase.SENT
+                                if (fromThisPhone) sentCount++ else receivedCount++
+                                testLines.add(TestLine(fromThisPhone, phrase))
+                                while (testLines.size > 8) testLines.removeAt(0)
+                            }
+                        }
+                        LanDemoSession.Phase.ENDED -> {
+                            details = event.description
+                            status = "Test connection ended."
+                            testLines.clear()
                             stage = "result"
                         }
-                        LanTlsProbe.Phase.FAILED -> {
+                        LanDemoSession.Phase.FAILED -> {
                             passed = false
                             details = event.description
-                            status = "Couldn't complete the connection. Check both phones are on the same Wi-Fi."
+                            status = "Couldn't connect. Check both phones are on the same Wi-Fi."
+                            testLines.clear()
                             stage = "result"
                         }
-                        LanTlsProbe.Phase.CANCELLED -> Unit
                     }
                 }
             }
@@ -347,7 +376,7 @@ internal fun LocalPairingTestScreen() {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp)
                         Spacer(Modifier.width(12.dp))
-                        Text("Connecting in the background of this screen…",
+                        Text("Connecting automatically. Keep this code visible…",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     TextButton(onClick = { reset() }) { Text("Cancel test") }
@@ -358,10 +387,64 @@ internal fun LocalPairingTestScreen() {
                         style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { reset() }) { Text("Cancel test") }
                 }
+                "demo" -> {
+                    Text("Connected — test conversation", fontWeight = FontWeight.SemiBold)
+                    Text("Only predefined test phrases are available. No personal messages, voice, or saved history.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Sent from here: $sentCount  •  Received here: $receivedCount",
+                        style = MaterialTheme.typography.labelMedium)
+                    if (testLines.isEmpty()) {
+                        Text("Choose a phrase below. Watch the other phone receive it.",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            testLines.forEach { line ->
+                                Text((if (line.fromThisPhone) "You: " else "Other phone: ") + line.phrase,
+                                    style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    TestPacketCodec.phrases.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pair.forEach { phrase ->
+                                OutlinedButton(
+                                    onClick = {
+                                        if (probe?.sendPreset(phrase.id) != true) {
+                                            status = "The test is no longer connected."
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                    shape = CutCornerShape(6.dp)
+                                ) { Text(phrase.label, style = MaterialTheme.typography.bodySmall) }
+                            }
+                        }
+                    }
+                    Text("Sent means written to TLS, not a guaranteed delivery receipt. Compare both phone screens.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(
+                        onClick = {
+                            val ending = probe
+                            probe = null
+                            attemptVersion += 1
+                            ending?.endByUser()
+                            details = "Test ended on this phone."
+                            status = "Test ended."
+                            testLines.clear()
+                            stage = "result"
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("End test and disconnect") }
+                }
                 "result" -> {
-                    Text(if (passed) "✓ Connection check passed" else "Connection not completed",
+                    Text(if (passed) "✓ Test connection established" else "Connection not completed",
                         fontWeight = FontWeight.SemiBold)
-                    Text("No messages or voice were sent. The test connection is closed.",
+                    Text(if (passed)
+                        "Test finished. Sent: $sentCount • Received: $receivedCount. Chat history is cleared."
+                        else "No test messages were sent. The connection is closed.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Voice and normal messaging remain disabled.",
                         style = MaterialTheme.typography.bodySmall)
                     if (details.isNotEmpty()) {
                         TextButton(onClick = { showDetails = !showDetails }) {
@@ -382,8 +465,8 @@ internal fun LocalPairingTestScreen() {
             }
         }
         Text(
-            "During development, both people verify each other's phone with QR codes. " +
-                "Text and Voice / PTT remain disabled until security testing is complete.",
+            "This development build can send only preset test phrases over a verified local connection. " +
+                "Normal text messaging, history and Voice / PTT remain disabled.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
