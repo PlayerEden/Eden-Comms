@@ -4,6 +4,8 @@
 **Status:** Proposed design + bounded *unwired* codec/tests. Not an implemented security protocol, no proof of consent in a real session, no production authorization, and **not independently reviewed**.  
 **Base:** M2e v0.2.8 policy-only PR #17; current debug v0.2.7 remains the physical two-phone test candidate.
 
+> **M2g follow-up:** Android API31+ TLS exporter **compatibility diagnostic** was added to the existing fixed-phrase debug test; it outputs *only availability*, not binding bytes, and is not connected to remote approval. See `docs/M2G_TLS_EXPORTER_COMPATIBILITY_DIAGNOSTIC.md`. This proposal is **still unreviewed**. No real authenticated approval, message send, or voice release is enabled.
+
 ## Why we're changing the design
 
 The production authorization model correctly denies all release sends, but the named callbacks `onAuthenticatedChannel` and `onAuthenticatedRemoteApproval` could be abused by a poorly integrated UI or QR parser. Those are POLICY callbacks, not cryptographic evidence. This milestone specifies what evidence a future *trusted adapter* must possess before invoking them. It deliberately stops short of wiring a live stream.
