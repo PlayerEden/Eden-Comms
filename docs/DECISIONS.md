@@ -1,0 +1,25 @@
+# Eden Comms — Decisions Log
+Keep choices explicit; proposed items are not locked.
+
+| ID | Date | Decision | Status |
+|---|---|---|---|
+| D-001 | 2026-11-03 | Working name Eden Comms (EC), under Eden Practical; repository remains Eden-Comms | Working |
+| D-002 | 2026-11-03 | Android first, one-to-one local peer messaging, no company server, no account | Direction accepted |
+| D-003 | 2026-11-03 | Three supported connectivity modes planned: LAN, Bluetooth, Wi-Fi Direct | Direction accepted |
+| D-004 | 2026-11-03 | Privacy-first with clear disclosures, accessible simple UI, restrained government-utility feel | Direction accepted |
+| D-005 | 2026-11-03 | Session-only default; optional encrypted local history and disappearing mode | Proposed detail |
+| D-006 | 2026-11-03 | Kotlin + Jetpack Compose instead of HTML Canvas/Pixi for native permissions, connectivity and accessibility | Proposed technical direction |
+| D-007 | 2026-11-03 | Implement secure LAN text first, then Bluetooth and Wi-Fi Direct, then voice | Proposed sequencing |
+| D-008 | 2026-11-03 | Security review and crypto-library selection required before sending real encrypted messages | Required gate |
+| D-009 | 2026-11-03 | Simple home screen and QR/short-code peer verification; no need to understand IP addresses | Proposed UI |
+| D-010 | 2026-11-03 | Group messaging, file transfer and mesh networking deferred | Proposed scope |
+
+## Decisions needed before M1
+- Lowest Android OS version and which devices can be manually tested.
+- Exact cryptographic protocol/library, key storage and identity verification.
+- Are trusted peers saved only when opted in?
+- Are session notifications shown as contentless by default?
+- Package ID and signing/release identity (never reuse game package IDs).
+
+## Change process
+Record new decisions here with trade-offs and why. Do not silently turn a proposed detail into an implemented promise. Every major milestone gets targeted QA and a rollback point.
