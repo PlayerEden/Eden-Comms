@@ -1,15 +1,13 @@
 package com.edenpractical.comms.security
 
-import com.edenpractical.comms.model.ReleaseCapabilities
-
 /**
  * UI / application *permission gate*, not a cryptographic protocol or proof.
  *
  * A future reviewed encrypted transport MUST authenticate the handshake and
  * transcript binding before it calls [authenticatedChannelEstablished].
  * No network or message transport is wired to this class in the current APK.
- * Keep this legacy gate compatible with tests, but never expose its VERIFIED
- * phase as a production send authorization while ReleaseCapabilities are off.
+ * Keep this legacy gate compatible with tests, but NEVER expose its VERIFIED
+ * phase as production send authorization, even if ReleaseCapabilities change.
  * New design work lives in ProductionSessionAuthorization.
  */
 enum class SessionPhase {
@@ -33,13 +31,14 @@ class SessionSecurityGate {
     val modelApprovalsComplete: Boolean
         get() = phase == SessionPhase.VERIFIED
 
+    // Hard-denied permanently: this legacy model accepts plain application
+    // strings for a mock authenticated channel and must NEVER become a live
+    // send permission even if the feature flags change in the future.
     val maySendMessage: Boolean
-        get() = modelApprovalsComplete && ReleaseCapabilities.CAN_CONNECT &&
-            ReleaseCapabilities.CAN_SEND_MESSAGES
+        get() = false
 
     val mayTransmitAudio: Boolean
-        get() = modelApprovalsComplete && ReleaseCapabilities.CAN_CONNECT &&
-            ReleaseCapabilities.CAN_TRANSMIT_VOICE
+        get() = false
 
     /**
      * Select a particular peer; never silently reuse previous session trust.
