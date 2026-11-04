@@ -41,6 +41,12 @@ jobs:
         run: bash scripts/check_security_review_boundary.sh
       - name: Audit M1 preparation permissions
         run: bash scripts/check_preview_permissions.sh app/build/outputs/apk/debug/app-debug.apk
+      - name: Test Google Play launch-surface inventory
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Audit packaged APK privacy/dependency surface
+        run: python3 scripts/audit_play_surface.py --apk app/build/outputs/apk/debug/app-debug.apk --output-dir app/build/play-evidence
+      - name: Capture resolved release runtime dependencies
+        run: gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > app/build/play-evidence/releaseRuntimeClasspath.txt
       - name: Generate SHA-256
         run: |
           cd app/build/outputs/apk/debug
@@ -53,5 +59,8 @@ jobs:
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
+            app/build/play-evidence/launch-surface.json
+            app/build/play-evidence/launch-surface.md
+            app/build/play-evidence/releaseRuntimeClasspath.txt
           if-no-files-found: error
           retention-days: 14
