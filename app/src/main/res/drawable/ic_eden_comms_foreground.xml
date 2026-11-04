@@ -1,28 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:pathData="M54,24 L79,34 L79,55 C79,68 68,78 54,84 C40,78 29,68 29,55 L29,34 Z"
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#B9CCB9"
-        android:strokeWidth="4"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M40,40 C32,47 32,61 40,68 M68,40 C76,47 76,61 68,68"
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#E9EEE7"
-        android:strokeWidth="3.2"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M46,46 C42,50 42,58 46,62 M62,46 C66,50 66,58 62,62"
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#E9EEE7"
-        android:strokeWidth="3.2"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M54,49 C56.8,49 59,51.2 59,54 C59,56.8 56.8,59 54,59 C51.2,59 49,56.8 49,54 C49,51.2 51.2,49 54,49 Z"
-        android:fillColor="#E9EEE7" />
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- angular shield; inset to survive round/teardrop adaptive masks -->
+    <path android:pathData="M54,23 L79,32 L79,56 C79,68 68,78 54,86 C40,78 29,68 29,56 L29,32 Z"
+        android:fillColor="@android:color/transparent" android:strokeColor="#8FAA6A"
+        android:strokeWidth="3.5" android:strokeLineJoin="miter" />
+    <!-- narrow radio mast -->
+    <path android:pathData="M54,44 L47,68 M54,44 L61,68 M50,60 L58,60"
+        android:fillColor="@android:color/transparent" android:strokeColor="#E6E8E6"
+        android:strokeWidth="2.1" android:strokeLineCap="round" />
+    <path android:pathData="M54,42 m-2,0 a2,2 0,1 0,4 0 a2,2 0,1 0,-4 0"
+        android:fillColor="#E6E8E6" />
+    <!-- paired transmission arcs -->
+    <path android:pathData="M46,35 C42,39 42,45 46,49 M62,35 C66,39 66,45 62,49 M41,30 C35,36 35,47 41,53 M67,30 C73,36 73,47 67,53"
+        android:fillColor="@android:color/transparent" android:strokeColor="#E6E8E6"
+        android:strokeWidth="2" android:strokeLineCap="round" />
+    <!-- simple mountain/horizon at base -->
+    <path android:pathData="M35,72 L45,62 L50,67 L57,57 L74,73 L63,77 L54,80 L44,76 Z"
+        android:fillColor="#E6E8E6" />
 </vector>

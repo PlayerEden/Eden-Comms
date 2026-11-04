@@ -16,7 +16,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.4-ui-density"
+        versionName = "0.1.5-reference-ui"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

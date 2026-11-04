@@ -37,6 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.edenpractical.comms.ui.FieldFrame
+import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
@@ -48,11 +51,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Grounded field-utility palette: neutral graphite with restrained olive accents.
-private val Graphite = Color(0xFF111615)
-private val GraphiteSurface = Color(0xFF1B211F)
-private val GraphiteRaised = Color(0xFF272E29)
-private val SoftIvory = Color(0xFFE8ECE7)
-private val PaleSage = Color(0xFFA3B690)
+private val Graphite = Color(0xFF0D1112)
+private val GraphiteSurface = Color(0xFF161B1D)
+private val GraphiteRaised = Color(0xFF1F2628)
+private val SoftIvory = Color(0xFFE6E8E6)
+private val PaleSage = Color(0xFF8FAA6A)
 private val LightSurface = Color(0xFFFFFFFF)
 private val Ink = Color(0xFF232A25)
 
@@ -104,9 +107,9 @@ private fun EdenCommsApp() {
                 isAppearanceLightNavigationBars = !darkMode
             }
             val window = activity.window
-            window.statusBarColor = if (darkMode) android.graphics.Color.rgb(17, 22, 21)
+            window.statusBarColor = if (darkMode) android.graphics.Color.rgb(13, 17, 18)
                 else android.graphics.Color.rgb(245, 246, 242)
-            window.navigationBarColor = if (darkMode) android.graphics.Color.rgb(17, 22, 21)
+            window.navigationBarColor = if (darkMode) android.graphics.Color.rgb(13, 17, 18)
                 else android.graphics.Color.rgb(245, 246, 242)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 window.isNavigationBarContrastEnforced = false
@@ -123,8 +126,8 @@ private fun EdenCommsApp() {
             surface = GraphiteSurface,
             onSurface = SoftIvory,
             surfaceVariant = GraphiteRaised,
-            onSurfaceVariant = Color(0xFFB7C0B4),
-            outline = Color(0xFF546155)
+            onSurfaceVariant = Color(0xFFAFB7B1),
+            outline = Color(0xFF667269)
         )
     } else {
         lightColorScheme(
@@ -152,10 +155,7 @@ private fun EdenCommsApp() {
                     .navigationBarsPadding()
             ) {
                 TopBar(page = page, onBack = back)
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
-                )
+                FieldHeaderRule()
                 // The core pages are intentionally short enough not to scroll
                 // on typical phones. Keep scrolling as an accessibility and
                 // landscape fallback, with responsive density for small heights.
@@ -216,7 +216,7 @@ private fun EdenCommsApp() {
 private fun titleForPage(page: String): String = when (page) {
     "connect" -> "Connect nearby"
     "wifi" -> "Local Wi-Fi"
-    "ptt" -> "Walkie-talkie"
+    "ptt" -> "Voice / PTT"
     "settings" -> "Settings"
     "developer" -> "Developer tools"
     "identity" -> "Device identity"
@@ -229,7 +229,7 @@ private fun titleForPage(page: String): String = when (page) {
 private fun TopBar(page: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth()
-            .heightIn(min = 62.dp)
+            .heightIn(min = 64.dp)
             .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -237,14 +237,16 @@ private fun TopBar(page: String, onBack: () -> Unit) {
             Image(
                 painter = painterResource(R.drawable.ic_eden_comms),
                 contentDescription = null,
-                modifier = Modifier.size(38.dp)
+                modifier = Modifier.size(42.dp)
             )
             Spacer(Modifier.width(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    "Eden Comms",
+                    "EDEN COMMS",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.7.sp,
+                    maxLines = 1
                 )
                 Text(
                     "EDEN PRACTICAL  /  COMMUNICATIONS",
@@ -267,9 +269,10 @@ private fun TopBar(page: String, onBack: () -> Unit) {
             }
             Spacer(Modifier.width(4.dp))
             Text(
-                titleForPage(page),
+                titleForPage(page).uppercase(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.3.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -284,28 +287,33 @@ private fun HomeScreen(
     onSettings: () -> Unit,
     onHelp: () -> Unit
 ) {
-    FieldSectionHeader("DIRECT / LOCAL", "Nearby communication")
-    ConnectionStatus("Not connected", "No active conversation")
+    FieldSectionHeader("DIRECT / LOCAL", "Private conversations")
+    Text(
+        "No permanent transcript by default.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    ConnectionStatus("Not connected", "No active session")
 
     Button(
         onClick = onConnect,
         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-        shape = CutCornerShape(6.dp),
+        shape = CutCornerShape(7.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_eden_wifi),
+            painter = painterResource(R.drawable.ic_eden_radio_tower),
             contentDescription = null,
-            modifier = Modifier.size(21.dp)
+            modifier = Modifier.size(24.dp)
         )
         Spacer(Modifier.width(10.dp))
-        Text("Connect nearby", fontWeight = FontWeight.SemiBold)
+        Text("CONNECT NEARBY", fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
     }
 
-    FieldSectionHeader("COMMUNICATE", null)
+    FieldSectionHeader("COMMUNICATION", null)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -320,7 +328,7 @@ private fun HomeScreen(
         CompactModeTile(
             modifier = Modifier.weight(1f),
             glyph = R.drawable.ic_eden_ptt,
-            title = "Walkie-talkie",
+            title = "Voice / PTT",
             detail = "Preview",
             onClick = onPtt
         )
@@ -328,13 +336,12 @@ private fun HomeScreen(
 
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        NavigationRow("Settings", "Privacy and appearance", onSettings)
+        NavigationRow("Settings", "Privacy and appearance", onSettings, R.drawable.ic_eden_settings)
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-        NavigationRow("How it works", "Local connection basics", onHelp)
+        NavigationRow("How it works", "Local connection basics", onHelp, R.drawable.ic_eden_info)
     }
-
     Text(
-        "SESSION-ONLY BY DEFAULT  /  DEVELOPMENT PREVIEW",
+        "DEVELOPMENT PREVIEW  /  MESSAGING DISABLED",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -342,27 +349,42 @@ private fun HomeScreen(
 
 @Composable
 private fun NearbyScreen(onLocalWifi: () -> Unit) {
-    FieldSectionHeader("CONNECTION", "Choose a local method")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painter = painterResource(R.drawable.ic_eden_radio_tower),
+            tint = MaterialTheme.colorScheme.primary,
+            contentDescription = null,
+            modifier = Modifier.size(42.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("SAME NETWORK", fontWeight = FontWeight.Bold)
+            Text(
+                "No internet connection required for local Wi-Fi.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
     FieldOption(
         glyph = R.drawable.ic_eden_wifi,
         title = "Local Wi-Fi",
-        detail = "Same network • no internet needed",
+        detail = "Same nearby network",
         state = "NEXT",
         onClick = onLocalWifi
     )
     FieldOption(
         glyph = R.drawable.ic_eden_bluetooth,
         title = "Bluetooth",
-        detail = "Short-range direct",
+        detail = "Short-range direct connection",
         state = "LATER"
     )
     FieldOption(
         glyph = R.drawable.ic_eden_wifi,
         title = "Wi-Fi Direct",
-        detail = "No router required",
+        detail = "Peer-to-peer without router",
         state = "LATER"
     )
-
     FieldSectionHeader("PAIRING / PLANNED", null)
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -372,9 +394,8 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
         FieldStep("02", "Verify")
         FieldStep("03", "Talk")
     }
-
     Text(
-        "In-app QR pairing is under development. The manual TLS test remains in Developer tools.",
+        "QR pairing is planned. Manual security testing stays under Developer tools.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -382,74 +403,51 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
 
 @Composable
 private fun LocalWifiScreen() {
-    FieldSectionHeader("LOCAL / OFFLINE", "Pair over Wi-Fi")
-    Surface(
-        shape = CutCornerShape(7.dp),
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.42f)
+    FieldSectionHeader("LOCAL / OFFLINE", "Secure pairing")
+    FieldFrame(accent = true) {
+        Image(
+            painter = painterResource(R.drawable.ic_eden_pairing_phones),
+            contentDescription = "Illustration of two phones linked by local Wi-Fi",
+            modifier = Modifier.fillMaxWidth().height(94.dp)
         )
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) { StatusLabel("UNDER DEVELOPMENT") }
+        Text(
+            "Connect two phones through local Wi-Fi, then verify both identities.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_eden_wifi),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text("Secure pairing", fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Same local Wi-Fi • internet not required",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                StatusLabel("PLANNED")
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                    shape = CutCornerShape(5.dp)
-                ) { Text("Host") }
-                OutlinedButton(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                    shape = CutCornerShape(5.dp)
-                ) { Text("Join") }
-            }
-            Text(
-                "Host and Join unlock after verified QR pairing is ready.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                shape = CutCornerShape(5.dp)
+            ) { Text("HOST") }
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                shape = CutCornerShape(5.dp)
+            ) { Text("JOIN") }
         }
     }
-    FieldSectionHeader("HOW IT WILL WORK", null)
+    FieldSectionHeader("THREE STEPS", null)
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        StepLine("01", "Scan the QR code", "On the other phone")
-        StepLine("02", "Verify both devices", "Confirm the intended peer")
-        StepLine("03", "Connect", "Only after authentication succeeds")
+        StepLine("01", "Scan a QR code", "Pairing happens inside Eden Comms")
+        StepLine("02", "Verify both devices", "Both people confirm their intended peer")
+        StepLine("03", "Start the session", "Only after the authenticated connection succeeds")
     }
     Text(
-        "Internal handshake test: Settings → Developer tools.",
+        "This is a visual preview. For the real handshake probe, use Settings → Developer tools.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -457,55 +455,59 @@ private fun LocalWifiScreen() {
 
 @Composable
 private fun PushToTalkScreen() {
-    FieldSectionHeader("VOICE / LOCAL", "Push-to-talk")
-    ConnectionStatus("Not connected", "A verified peer is required")
+    FieldSectionHeader("VOICE / PTT", "Push-to-talk")
+    ConnectionStatus("Disconnected", "A verified local peer is required")
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = CutCornerShape(7.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.42f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+    FieldFrame(accent = true) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            StatusLabel("VOICE NOT AVAILABLE")
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 156.dp),
-                shape = CutCornerShape(8.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_eden_ptt),
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Text(
-                        "Hold to talk",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
             Text(
-                "Microphone is off in this preview. Voice will unlock only after secure pairing.",
-                style = MaterialTheme.typography.bodySmall,
+                "VOICE CHANNEL",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                fontWeight = FontWeight.SemiBold
             )
+            StatusLabel("NOT ACTIVE")
         }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {},
+            enabled = false,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 158.dp),
+            shape = CutCornerShape(8.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_eden_ptt),
+                    contentDescription = null,
+                    modifier = Modifier.size(35.dp)
+                )
+                Text(
+                    "HOLD TO TRANSMIT",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.3.sp
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Release to stop transmission.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
+
     Text(
-        "Future operation: press and hold to transmit • release to stop.",
+        "Preview only: no audio capture or transmission. A verified connection is required.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -645,21 +647,23 @@ private fun FieldSectionHeader(eyebrow: String, title: String?) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Spacer(
-            modifier = Modifier.width(3.dp).height(26.dp)
+            modifier = Modifier.width(3.dp)
+                .height(if (title == null) 19.dp else 30.dp)
                 .background(MaterialTheme.colorScheme.primary)
         )
         Spacer(Modifier.width(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 eyebrow,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp
             )
             if (title != null) Text(
                 title,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -876,26 +880,34 @@ private fun StepLine(index: String, title: String, subtitle: String) {
 }
 
 @Composable
-private fun NavigationRow(title: String, description: String, onClick: () -> Unit) {
-    // Native clickable rows avoid TextButton's internal clipping/padding
-    // interaction which shaved the left edges of text on actual devices.
+private fun NavigationRow(
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+    glyph: Int? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .heightIn(min = 58.dp)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (glyph != null) {
+            Icon(
+                painter = painterResource(glyph),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+        }
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
             Text(
                 description,
                 style = MaterialTheme.typography.bodySmall,
