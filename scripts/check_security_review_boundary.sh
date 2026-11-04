@@ -39,6 +39,21 @@ if ! grep -A1 'val mayTransmitAudio: Boolean' "$LEGACY" | grep -Eq 'get\(\)[[:sp
   echo "FAIL: old mock gate could authorize voice" >&2; exit 1
 fi
 
+# M2h proposed transcript builder and bilateral approval simulation must
+# remain JVM-test-only. No installed APK or live socket/Compose UI may link
+# these unreviewed approval semantics. Review future class refactors explicitly.
+for CLASS in ReviewOnlyChannelCommitment ReviewOnlyBilateralApproval; do
+  TEST_FILE="app/src/test/java/com/edenpractical/comms/security/$CLASS.kt"
+  test -f "$TEST_FILE" || { echo "FAIL: missing M2h test-only $CLASS" >&2; exit 1; }
+  if find "$MAIN" -name "$CLASS.kt" -print -quit | grep -q .; then
+    echo "FAIL: unreviewed M2h $CLASS moved to app main sources" >&2; exit 1
+  fi
+  if grep -RFn --include='*.kt' "$CLASS" "$MAIN"; then
+    echo "FAIL: production app refers to review-only approval simulator $CLASS" >&2
+    exit 1
+  fi
+done
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -50,4 +65,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: review-only proposal unwired; diagnostic limited to demo; legacy send/audio denied; release capabilities off"
+echo "PASS: M2f/M2h protocol and policy simulation remain unwired; exporter diagnostic limited to demo; release gates off"
