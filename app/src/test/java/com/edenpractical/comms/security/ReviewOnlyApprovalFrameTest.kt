@@ -13,8 +13,8 @@ class ReviewOnlyApprovalFrameTest {
     private val sessionB = ByteArray(32) { 0x21.toByte() }
 
     @Test fun allDecisionsAndRolesHaveExactBoundedCanonicalEncoding() {
-        frame.Decision.entries.forEach { decision ->
-            frame.Role.entries.forEach { role ->
+        ReviewOnlyApprovalFrame.Decision.entries.forEach { decision ->
+            ReviewOnlyApprovalFrame.Role.entries.forEach { role ->
                 val written = frame.encode(frame.packet(decision, role, sessionA))
                 assertEquals(frame.WIRE_BYTES, written.size)
                 val parsed = frame.decode(written)
@@ -27,7 +27,7 @@ class ReviewOnlyApprovalFrameTest {
     }
 
     @Test fun invalidTypeVersionMagicLengthAndAllZeroCommitmentFailClosed() {
-        val valid = frame.encode(frame.packet(frame.Decision.APPROVE, frame.Role.PRESENTER, sessionA))
+        val valid = frame.encode(frame.packet(ReviewOnlyApprovalFrame.Decision.APPROVE, ReviewOnlyApprovalFrame.Role.PRESENTER, sessionA))
         val variants = listOf(
             byteArrayOf(), valid.copyOf(valid.size - 1), valid + byteArrayOf(0),
             valid.copyOf().apply { this[0] = 0 },
@@ -40,32 +40,32 @@ class ReviewOnlyApprovalFrameTest {
             assertThrows(InvalidApprovalFrame::class.java) { frame.decode(invalid) }
         }
         assertThrows(InvalidApprovalFrame::class.java) {
-            frame.packet(frame.Decision.APPROVE, frame.Role.PRESENTER, ByteArray(16))
+            frame.packet(ReviewOnlyApprovalFrame.Decision.APPROVE, ReviewOnlyApprovalFrame.Role.PRESENTER, ByteArray(16))
         }
     }
 
     @Test fun senderRoleAndChannelTranscriptMustBothMatch() {
-        val packet = frame.packet(frame.Decision.APPROVE, frame.Role.JOINER, sessionA)
-        assertTrue(packet.matchesExpectedApprovalProposal(frame.Role.JOINER, sessionA))
-        assertFalse(packet.matchesExpectedApprovalProposal(frame.Role.PRESENTER, sessionA))
-        assertFalse(packet.matchesExpectedApprovalProposal(frame.Role.JOINER, sessionB))
-        assertFalse(packet.matchesExpectedApprovalProposal(frame.Role.JOINER, ByteArray(1)))
+        val packet = frame.packet(ReviewOnlyApprovalFrame.Decision.APPROVE, ReviewOnlyApprovalFrame.Role.JOINER, sessionA)
+        assertTrue(packet.matchesExpectedApprovalProposal(ReviewOnlyApprovalFrame.Role.JOINER, sessionA))
+        assertFalse(packet.matchesExpectedApprovalProposal(ReviewOnlyApprovalFrame.Role.PRESENTER, sessionA))
+        assertFalse(packet.matchesExpectedApprovalProposal(ReviewOnlyApprovalFrame.Role.JOINER, sessionB))
+        assertFalse(packet.matchesExpectedApprovalProposal(ReviewOnlyApprovalFrame.Role.JOINER, ByteArray(1)))
     }
 
     @Test fun inputAndReturnedCommitmentArraysCannotModifyPacket() {
         val userInput = sessionA.copyOf()
-        val packet = frame.packet(frame.Decision.APPROVE, frame.Role.PRESENTER, userInput)
+        val packet = frame.packet(ReviewOnlyApprovalFrame.Decision.APPROVE, ReviewOnlyApprovalFrame.Role.PRESENTER, userInput)
         userInput.fill(0)
         val returned = packet.commitment
         returned.fill(0)
-        assertTrue(packet.matchesExpectedApprovalProposal(frame.Role.PRESENTER, sessionA))
+        assertTrue(packet.matchesExpectedApprovalProposal(ReviewOnlyApprovalFrame.Role.PRESENTER, sessionA))
         assertArrayEquals(sessionA, frame.decode(frame.encode(packet)).commitment)
     }
 
     @Test fun declineIsDistinctFromApprovalAndCanNeverBeTreatedAsConsent() {
-        val decline = frame.packet(frame.Decision.DECLINE, frame.Role.JOINER, sessionA)
-        assertEquals(frame.Decision.DECLINE, frame.decode(frame.encode(decline)).decision)
-        assertFalse(frame.decode(frame.encode(decline)).decision == frame.Decision.APPROVE)
-        assertFalse(decline.matchesExpectedApprovalProposal(frame.Role.JOINER, sessionA))
+        val decline = frame.packet(ReviewOnlyApprovalFrame.Decision.DECLINE, ReviewOnlyApprovalFrame.Role.JOINER, sessionA)
+        assertEquals(ReviewOnlyApprovalFrame.Decision.DECLINE, frame.decode(frame.encode(decline)).decision)
+        assertFalse(frame.decode(frame.encode(decline)).decision == ReviewOnlyApprovalFrame.Decision.APPROVE)
+        assertFalse(decline.matchesExpectedApprovalProposal(ReviewOnlyApprovalFrame.Role.JOINER, sessionA))
     }
 }
