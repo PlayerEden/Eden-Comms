@@ -42,6 +42,7 @@ import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
+import com.edenpractical.comms.privacy.PrivacyPreviewContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.pairing.LocalPairingTestScreen
 import com.edenpractical.comms.security.PairingInviteCodec
@@ -189,7 +190,8 @@ private fun EdenCommsApp() {
                                     darkMode = it
                                     preferences.edit().putBoolean("dark_theme", it).apply()
                                 },
-                                onDeveloper = { navigate("developer") }
+                                onDeveloper = { navigate("developer") },
+                                onPrivacy = { navigate("privacy") }
                             )
                             "developer" -> DeveloperScreen(
                                 onIdentity = { navigate("identity") },
@@ -197,7 +199,8 @@ private fun EdenCommsApp() {
                             )
                             "identity" -> DeviceIdentitySetup()
                             "lan-test" -> LanHandshakeTest()
-                            "help" -> HelpScreen()
+                            "help" -> HelpScreen(onPrivacy = { navigate("privacy") })
+                            "privacy" -> PrivacyInfoScreen()
                             else -> HomeScreen(
                                 onPtt = { navigate("ptt") },
                                 onConnect = { navigate("connect") },
@@ -224,6 +227,7 @@ private fun titleForPage(page: String): String = when (page) {
     "identity" -> "Device identity"
     "lan-test" -> "LAN connection test"
     "help" -> "How it works"
+    "privacy" -> "Privacy & data"
     else -> "Eden Comms"
 }
 
@@ -501,7 +505,8 @@ private fun PushToTalkScreen() {
 private fun SettingsScreen(
     darkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
-    onDeveloper: () -> Unit
+    onDeveloper: () -> Unit,
+    onPrivacy: () -> Unit
 ) {
     SectionLabel("APPEARANCE")
     Row(
@@ -524,6 +529,11 @@ private fun SettingsScreen(
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("PRIVACY")
+    NavigationRow(
+        title = "Privacy & data",
+        description = "What this preview stores, shares and cannot protect",
+        onClick = onPrivacy
+    )
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text("Message history", fontWeight = FontWeight.SemiBold)
         Text(
@@ -580,7 +590,7 @@ private fun DeveloperScreen(
 }
 
 @Composable
-private fun HelpScreen() {
+private fun HelpScreen(onPrivacy: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             "Connect. Talk. Done.",
@@ -609,8 +619,46 @@ private fun HelpScreen() {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    NavigationRow(
+        title = "Privacy & data",
+        description = "Read what this preview accesses and shares",
+        onClick = onPrivacy
+    )
     Text(
-        "Development preview: connections, messaging and voice aren't ready for normal use.",
+        "Development preview: secure messaging and voice aren't ready for normal use.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
+private fun PrivacyInfoScreen() {
+    FieldSectionHeader("TRANSPARENCY", "Current preview")
+    Text(
+        PrivacyPreviewContent.status,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+    )
+    Text(
+        PrivacyPreviewContent.introduction,
+        style = MaterialTheme.typography.bodyMedium
+    )
+    PrivacyPreviewContent.sections.forEach { section ->
+        Panel(title = section.heading, detail = section.description) {
+            // Content is intentionally a readable, static statement of current
+            // behavior, not a permission switch, consent prompt or policy link.
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
+    Text(
+        "PUBLIC POLICY NOT YET PUBLISHED",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+    )
+    Text(
+        PrivacyPreviewContent.policyNote,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
