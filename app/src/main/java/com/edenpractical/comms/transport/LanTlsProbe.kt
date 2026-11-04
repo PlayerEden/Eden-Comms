@@ -47,7 +47,7 @@ internal class LanTlsProbe(
     /** Updated on this probe's single worker thread; no sensitive values. */
     @Volatile private var diagnosticStep = LanProbeDiagnostics.Step.WIFI
 
-    fun host(local: LocalTlsIdentity, verifiedPeerFingerprint: ByteArray, binding: SessionProofBinding) {
+    fun host(local: LocalTlsIdentity, verifiedPeerFingerprint: ByteArray, binding: SessionProofBinding? = null) {
         execute {
             diagnosticStep = LanProbeDiagnostics.Step.WIFI
             val wifi = WifiLanEndpoint.current(context)
@@ -70,9 +70,15 @@ internal class LanTlsProbe(
             socket.startHandshake()
             diagnosticStep = LanProbeDiagnostics.Step.VERIFY_PIN
             PinnedTlsPeer.requirePinnedTls13(socket.session, verifiedPeerFingerprint)
-            diagnosticStep = LanProbeDiagnostics.Step.SESSION_BINDING
-            SessionProofExchange.runHost(socket.inputStream, socket.outputStream, binding)
-            emit(Phase.SUCCEEDED, "Mutual TLS 1.3 + QR session check passed. Test link closed; text remains disabled.")
+            if (binding != null) {
+                diagnosticStep = LanProbeDiagnostics.Step.SESSION_BINDING
+                SessionProofExchange.runHost(socket.inputStream, socket.outputStream, binding)
+                emit(Phase.SUCCEEDED, "Mutual TLS 1.3 + QR session check passed. Test link closed; text remains disabled.")
+            } else {
+                // Legacy Developer Tools handshake-only diagnostic. NEVER a
+                // real verified chat; release capabilities stay disabled.
+                emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed (manual test only). QR session was not checked; text is disabled.")
+            }
         }
     }
 
@@ -80,7 +86,7 @@ internal class LanTlsProbe(
         local: LocalTlsIdentity,
         verifiedPeerFingerprint: ByteArray,
         hostIpv4: String,
-        binding: SessionProofBinding
+        binding: SessionProofBinding? = null
     ) {
         execute {
             diagnosticStep = LanProbeDiagnostics.Step.WIFI
@@ -103,9 +109,14 @@ internal class LanTlsProbe(
             socket.startHandshake()
             diagnosticStep = LanProbeDiagnostics.Step.VERIFY_PIN
             PinnedTlsPeer.requirePinnedTls13(socket.session, verifiedPeerFingerprint)
-            diagnosticStep = LanProbeDiagnostics.Step.SESSION_BINDING
-            SessionProofExchange.runJoin(socket.inputStream, socket.outputStream, binding)
-            emit(Phase.SUCCEEDED, "Mutual TLS 1.3 + QR session check passed. Test link closed; text remains disabled.")
+            if (binding != null) {
+                diagnosticStep = LanProbeDiagnostics.Step.SESSION_BINDING
+                SessionProofExchange.runJoin(socket.inputStream, socket.outputStream, binding)
+                emit(Phase.SUCCEEDED, "Mutual TLS 1.3 + QR session check passed. Test link closed; text remains disabled.")
+            } else {
+                // Legacy Developer Tools handshake-only diagnostic.
+                emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed (manual test only). QR session was not checked; text is disabled.")
+            }
         }
     }
 

@@ -18,7 +18,8 @@ Two in-person QR scans pin the exact host and joiner leaf certificates and carry
 4. Join validates the whole record and replies with its own fresh challenge while echoing Host's challenge. Host validates that response.
 5. Host acknowledges Join's challenge; Join verifies and echoes Host's challenge in the final record. Host verifies. Only then does **the test** say QR session agreement passed.
 6. All records are sent **inside mutually pinned TLS**. This uses the existing TLS provider, not new encryption, custom signing or trust-all authentication. Each record is fixed-size (134 bytes) with bounded reads, version/type checks and constant-time comparisons of nonces/pins.
-7. Socket closes immediately. **No text, voice, conversation data, peer trust store, contacts, telemetry or remote server requests.** `ReleaseCapabilities.CAN_CONNECT`, `CAN_SEND_MESSAGES` and `CAN_TRANSMIT_VOICE` remain false. `SessionSecurityGate` does not get marked verified by this test.
+7. The existing **Advanced Settings / developer-only manual LAN probe** remains a handshake-only diagnostic for older tester flows; it cannot accidentally claim QR-session proof without both scanned QR nonces. Both probe variants leave all messaging capabilities disabled.
+8. Socket closes immediately. **No text, voice, conversation data, peer trust store, contacts, telemetry or remote server requests.** `ReleaseCapabilities.CAN_CONNECT`, `CAN_SEND_MESSAGES` and `CAN_TRANSMIT_VOICE` remain false. `SessionSecurityGate` does not get marked verified by this test.
 
 This check cannot prove resistance to a compromised endpoint, and it is not a reviewed end-to-end messaging protocol. Explicit user approval and transcript-bound confirmation for real sessions must be designed and independently reviewed before any message I/O.
 
