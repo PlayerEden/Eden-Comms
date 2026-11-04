@@ -21,7 +21,14 @@ ALLOWED_PERMISSIONS = frozenset({
     "android.permission.ACCESS_NETWORK_STATE",
     "android.permission.CAMERA",
 })
-REQUIRED_PERMISSIONS = ALLOWED_PERMISSIONS
+# AndroidX Core merges a self-declared signature-level permission to guard
+# non-exported dynamic broadcast receivers on older Android versions.
+# This exact applicationId-bound name is expected in the packaged APK ONLY.
+# A different generated permission or arbitrary Android permission still fails.
+GENERATED_MERGED_ONLY_PERMISSIONS = frozenset({
+    "com.edenpractical.comms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+})
+EXPECTED_APK_PERMISSIONS = ALLOWED_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS
 SCOPES = ("implementation", "debugImplementation", "testImplementation",
           "releaseImplementation", "api", "runtimeOnly", "compileOnly")
 
@@ -149,10 +156,10 @@ def build_report(repo, apk):
     problems = []
     if declared != ALLOWED_PERMISSIONS:
         problems.append("Source manifest permissions differ from approved set")
-    if binary != ALLOWED_PERMISSIONS:
-        problems.append("Packaged APK permissions differ from approved set")
-    if declared != binary:
-        problems.append("Packaged APK permissions differ from source manifest")
+    if binary != EXPECTED_APK_PERMISSIONS:
+        problems.append("Packaged APK permissions differ from approved merged set")
+    if binary - declared != GENERATED_MERGED_ONLY_PERMISSIONS:
+        problems.append("Unexpected manifest-merge permission addition or removal")
     if deps != baseline:
         problems.append("Direct dependency baseline changed: manual privacy/license review required")
     if attrs["allowBackup"] != "false" or attrs["usesCleartextTraffic"] != "false":
@@ -170,7 +177,8 @@ def build_report(repo, apk):
         "apk_sha256": digest(apk),
         "source_permissions": sorted(declared),
         "apk_permissions": sorted(binary),
-        "approved_permissions": sorted(ALLOWED_PERMISSIONS),
+        "approved_source_permissions": sorted(ALLOWED_PERMISSIONS),
+        "expected_androidx_merged_only_permission": sorted(GENERATED_MERGED_ONLY_PERMISSIONS),
         "application_settings": attrs,
         "exported_main_components": [
             {"type": typ, "name": name} for typ, name in components
@@ -201,7 +209,9 @@ def report_markdown(report):
         "- Source commit (CI context): `" + report["build_sha"] + "`",
         "- APK SHA-256: `" + report["apk_sha256"] + "`",
         "- Status: **" + report["status"] + "**",
-        "- Declared APK permissions: " + ", ".join(report["apk_permissions"]),
+        "- Packaged APK permissions: " + ", ".join(report["apk_permissions"]),
+        "- AndroidX merged-only permission: " + ", ".join(
+            report.get("expected_androidx_merged_only_permission", [])),
         "- Backup exclusion rules: " + ("found" if report["backup_exclusion_rules_present"] else "MISSING"),
         "- Direct Gradle dependencies: " + str(len(report["direct_gradle_dependencies"])),
         "",
