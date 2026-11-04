@@ -33,6 +33,17 @@ class LaunchEvidenceTests(unittest.TestCase):
         extras = audit.parse_apk_permissions(sample) - audit.ALLOWED_PERMISSIONS
         self.assertEqual(extras, {"android.permission.READ_CONTACTS"})
 
+    def test_only_exact_app_scoped_androidx_receiver_permission_is_allowed(self):
+        expected = "com.edenpractical.comms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        self.assertEqual(audit.GENERATED_MERGED_ONLY_PERMISSIONS, {expected})
+        self.assertEqual(
+            audit.EXPECTED_APK_PERMISSIONS - audit.ALLOWED_PERMISSIONS, {expected}
+        )
+        extra = "com.otherapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        self.assertNotIn(extra, audit.EXPECTED_APK_PERMISSIONS)
+        self.assertNotIn("android.permission.RECORD_AUDIO",
+                         audit.EXPECTED_APK_PERMISSIONS)
+
     def test_direct_dependency_parser_flags_unknown_syntax(self):
         example = '''
 dependencies {
