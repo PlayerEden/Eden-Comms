@@ -36,6 +36,7 @@ internal class LanDemoSession(
     private val report: (Event) -> Unit
 ) : AutoCloseable {
     enum class Phase { LISTENING, CONNECTING, READY, SENT, RECEIVED, ENDED, FAILED }
+    enum class SendResult { QUEUED, BUSY, NOT_CONNECTED }
     data class Event(val phase: Phase, val description: String, val phraseId: Int? = null)
 
     companion object {
@@ -66,11 +67,13 @@ internal class LanDemoSession(
         Thread(action, "eden-demo-heartbeat").apply { isDaemon = true }
     }
     private val outputLock = Any()
+    private val sockets = SessionSocketRegistry()
+    private val sendBudget = DemoSendBudget(2)
+    private val heartbeatQueued = AtomicBoolean(false)
+    private val ending = AtomicBoolean(false)
     private val terminal = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
 
-    @Volatile private var activeSocket: Socket? = null
-    @Volatile private var activeServer: SSLServerSocket? = null
     @Volatile private var ready = false
     @Volatile private var lastReceivedMs = 0L
     @Volatile private var connectedAtMs = 0L
@@ -86,16 +89,16 @@ internal class LanDemoSession(
             currentStep = LanProbeDiagnostics.Step.TLS_SETUP
             val tls = Tls13PeerContext(local.keyManager(), expectedPin)
             val server = tls.unboundServerSocket()
-            activeServer = server
+            sockets.ownServer(server)
             server.soTimeout = ACCEPT_TIMEOUT_MS
             currentStep = LanProbeDiagnostics.Step.BIND
             server.bind(InetSocketAddress(wifi.address, PORT), 1)
             currentStep = LanProbeDiagnostics.Step.WAIT_FOR_PEER
             emit(Event(Phase.LISTENING, "Waiting for the second phone…"))
             val socket = server.accept() as SSLSocket
-            activeSocket = socket
+            sockets.ownSocket(socket)
             server.close()
-            activeServer = null
+            sockets.releaseServer(server)
             authenticateAndServe(socket, expectedPin, binding, isHost = true)
         }
     }
@@ -121,7 +124,7 @@ internal class LanDemoSession(
             emit(Event(Phase.CONNECTING, "Connecting when the other phone is ready…"))
             val raw = connectTcp(wifi, peer, retryWhileWaiting)
             val socket = tls.wrapConnectedClient(raw, peer.hostAddress ?: hostIpv4, PORT)
-            activeSocket = socket
+            sockets.ownSocket(socket)
             authenticateAndServe(socket, expectedPin, binding, isHost = false)
         }
     }
@@ -132,11 +135,13 @@ internal class LanDemoSession(
         binding: SessionProofBinding,
         isHost: Boolean
     ) {
+        sockets.requireOpen()
         socket.soTimeout = AUTH_TIMEOUT_MS
         currentStep = LanProbeDiagnostics.Step.TLS_HANDSHAKE
         socket.startHandshake()
         currentStep = LanProbeDiagnostics.Step.VERIFY_PIN
         PinnedTlsPeer.requirePinnedTls13(socket.session, expectedPin)
+        sockets.requireOpen()
 
         currentStep = LanProbeDiagnostics.Step.SESSION_BINDING
         if (isHost) {
@@ -144,6 +149,8 @@ internal class LanDemoSession(
         } else {
             SessionProofExchange.runJoin(socket.inputStream, socket.outputStream, binding)
         }
+
+        sockets.requireOpen()
 
         // Both ends have performed QR transcript checks before any preset text.
         // A separate small READY exchange prevents showing the test as connected
@@ -160,6 +167,7 @@ internal class LanDemoSession(
             TestPacketCodec.write(socket.outputStream, TestPacketCodec.ready())
         }
 
+        sockets.requireOpen()
         socket.soTimeout = 0
         connectedAtMs = SystemClock.elapsedRealtime()
         lastReceivedMs = connectedAtMs
@@ -223,7 +231,8 @@ internal class LanDemoSession(
     private fun sendPacket(packet: TestPacketCodec.Packet) {
         synchronized(outputLock) {
             if (!ready || stopped.get()) throw SocketException("Test already closed")
-            val tls = activeSocket as? SSLSocket ?: throw SocketException("Test socket closed")
+            val tls = sockets.currentSocket() as? SSLSocket
+                ?: throw SocketException("Test socket closed")
             TestPacketCodec.write(tls.outputStream, packet)
         }
     }
@@ -278,7 +287,7 @@ internal class LanDemoSession(
             ) throw SocketException("Wi-Fi changed")
 
             val raw = wifi.network.socketFactory.createSocket()
-            activeSocket = raw
+            sockets.ownSocket(raw)
             try {
                 raw.connect(
                     InetSocketAddress(peer, PORT),
@@ -288,7 +297,7 @@ internal class LanDemoSession(
                 return raw
             } catch (e: IOException) {
                 try { raw.close() } catch (_: Exception) { }
-                activeSocket = null
+                sockets.releaseSocket(raw)
                 val elapsed = SystemClock.elapsedRealtime() - started
                 if (!LanConnectRetryPolicy.shouldRetry(e, elapsed, retryWhileWaiting)) throw e
             }
@@ -327,10 +336,8 @@ internal class LanDemoSession(
     override fun close() {
         if (!stopped.compareAndSet(false, true)) return
         ready = false
-        try { activeSocket?.close() } catch (_: Exception) {}
-        try { activeServer?.close() } catch (_: Exception) {}
-        activeSocket = null
-        activeServer = null
+        ending.set(true)
+        sockets.close()
         pulses.shutdownNow()
         writer.shutdownNow()
         worker.shutdownNow()
