@@ -44,6 +44,12 @@ internal class AndroidKeystoreIdentity {
 
     @Synchronized
     fun tlsSigningStatus(): TlsSigningStatus {
+        val store = loadKeystore()
+        // Our v1 alias always authorized SHA-256 only. Detect its known
+        // version without depending on vendor-specific KeyInfo support.
+        if (!store.containsAlias(CURRENT_ALIAS) && store.containsAlias(LEGACY_ALIAS)) {
+            return TlsSigningStatus.LEGACY_SHA256_ONLY
+        }
         val identity = existing() ?: return TlsSigningStatus.NOT_CREATED
         return try {
             val keyInfo = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_EC, PROVIDER)
