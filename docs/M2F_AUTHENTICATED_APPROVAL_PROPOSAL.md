@@ -55,13 +55,13 @@ local explicit approval A       local explicit approval B
 
 **Usability caution:** the current two QR scans already require explicit user actions. A future UX review should determine whether well-worded QR actions can constitute the required local consent without adding multiple extra taps. Do not infer remote consent merely because the other phone is online or sent a QR. One-QR-plus-short-comparison-code is a separate protocol and requires separate security review and threat testing; don't implement simply by removing the second scan.
 
-### Pure draft frame for parsing tests ONLY
+### Pure draft frame for parsing tests ONLY (not bundled in APK)
 
 `ReviewOnlyApprovalFrame` is deliberately a **strict, 39-byte envelope**:
 `ASCII ECAP (4) | version (1) | decision APPROVE/DECLINE (1) | sender role (1) | proposed channel/QR commitment (32)`.
 
 - Exact length, magic, version, enum values, nonzero digest and expected role/commitment are validated, with copied byte arrays.
-- It creates no network or TLS bytes, requires no permissions and changes zero release flags. A packet without trusted authenticated socket context is **not proof** of remote authorization.
+- It lives solely under `app/src/test` (JVM tests), is **excluded from the installed debug/release APK**, creates no network/TLS bytes, requires no permissions and changes zero release flags. A packet without trusted authenticated socket context is **not proof** of remote authorization.
 - A future authenticated reader must reject wrong role, wrong attempt/session commitment, duplicate conflicting decisions, replay, absence of the local person's consent and packets received before successful identity/QR checks. Keep a bounded deadline and immediately revoke on Cancel, app background, network loss or identity change.
 - A future reviewer should decide if a final acknowledgment is needed to make connection state coherent on both phones. It is impossible to ensure simultaneous knowledge of all delivery states after arbitrary network failure; never falsely promise both devices received all approvals.
 - The debugger test with fixed phrase IDs remains unchanged. The old test's four-record challenge **does not expose its challenges to this new codec**; live integration requires a reviewed adapter, not an assumption that a QR-only digest is enough.
