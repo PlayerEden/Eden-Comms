@@ -286,7 +286,7 @@ private fun HomeScreen(
     onSettings: () -> Unit,
     onHelp: () -> Unit
 ) {
-    FieldSectionHeader("NEARBY", "Connect and talk")
+    FieldSectionHeader("NEARBY", "Connect and communicate")
     Text(
         "Designed for conversations without permanent chat history.",
         style = MaterialTheme.typography.bodySmall,
@@ -348,54 +348,37 @@ private fun HomeScreen(
 
 @Composable
 private fun NearbyScreen(onLocalWifi: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painter = painterResource(R.drawable.ic_eden_radio_tower),
-            tint = MaterialTheme.colorScheme.primary,
-            contentDescription = null,
-            modifier = Modifier.size(38.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("START WITH WI-FI", fontWeight = FontWeight.Bold)
-            Text(
-                "Both phones use the same Wi-Fi. Internet isn't needed.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+    FieldSectionHeader("CONNECT", "Choose a connection")
+    // The only upcoming transport is the primary action. We don't force
+    // people to learn LAN, Bluetooth or Wi-Fi Direct terminology to start.
     FieldOption(
         glyph = R.drawable.ic_eden_wifi,
         title = "Local Wi-Fi",
-        detail = "Recommended first",
+        detail = "Same network • internet not needed",
         state = "PREVIEW",
         onClick = onLocalWifi
     )
-    FieldSectionHeader("OTHER OPTIONS / LATER", null)
-    FieldOption(
-        glyph = R.drawable.ic_eden_bluetooth,
-        title = "Bluetooth",
-        detail = "Direct connection without Wi-Fi",
-        state = "LATER"
-    )
-    FieldOption(
-        glyph = R.drawable.ic_eden_wifi,
-        title = "Wi-Fi Direct",
-        detail = "Connect without a router",
-        state = "LATER"
-    )
-    FieldSectionHeader("PAIRING / COMING SOON", null)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+    SectionLabel("LATER")
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        FieldStep("01", "Scan")
-        FieldStep("02", "Confirm")
-        FieldStep("03", "Talk")
+        Icon(
+            painter = painterResource(R.drawable.ic_eden_bluetooth),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            "Bluetooth and Wi-Fi Direct are planned.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
     Text(
-        "You'll scan a QR code and confirm the other phone inside Eden Comms.",
+        "When pairing is ready, follow the steps on the Local Wi-Fi screen.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -407,7 +390,7 @@ private fun LocalWifiScreen() {
     FieldFrame(accent = true) {
         Image(
             painter = painterResource(R.drawable.ic_eden_pairing_phones),
-            contentDescription = "Two phones with a Wi-Fi symbol between them",
+            contentDescription = "Two phones with Wi-Fi between them",
             modifier = Modifier.fillMaxWidth().height(86.dp)
         )
         Row(
@@ -415,7 +398,7 @@ private fun LocalWifiScreen() {
             horizontalArrangement = Arrangement.Center
         ) { StatusLabel("PAIRING COMING SOON") }
         Text(
-            "Use the same Wi-Fi network. Internet isn't required.",
+            "Both phones must be on the same Wi-Fi. Internet isn't needed.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -439,14 +422,8 @@ private fun LocalWifiScreen() {
             ) { Text("JOIN") }
         }
     }
-    FieldSectionHeader("HOW IT WILL WORK", null)
-    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        StepLine("01", "Scan", "Scan a QR code on the other phone")
-        StepLine("02", "Confirm", "Both people approve the connection")
-        StepLine("03", "Talk", "Start once both phones are verified")
-    }
     Text(
-        "Host and Join aren't available in this preview.",
+        "Coming next: show or scan a QR code, confirm the other phone, then connect.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -455,7 +432,7 @@ private fun LocalWifiScreen() {
 @Composable
 private fun PushToTalkScreen() {
     FieldSectionHeader("VOICE / PTT", "Push-to-talk")
-    ConnectionStatus("Not connected", "Connect a nearby phone to use voice")
+    ConnectionStatus("Not connected", "No active voice session")
     FieldFrame(accent = true) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -463,19 +440,17 @@ private fun PushToTalkScreen() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "VOICE / PTT",
+                "VOICE CHANNEL",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             StatusLabel("COMING SOON")
         }
-        Spacer(Modifier.height(8.dp))
-        // Keep inactive. The more readable disabled text is a visual change only.
         OutlinedButton(
             onClick = {},
             enabled = false,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 158.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 170.dp),
             shape = CutCornerShape(8.dp),
             colors = ButtonDefaults.outlinedButtonColors(
                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -488,7 +463,7 @@ private fun PushToTalkScreen() {
                 Icon(
                     painter = painterResource(R.drawable.ic_eden_ptt),
                     contentDescription = null,
-                    modifier = Modifier.size(35.dp)
+                    modifier = Modifier.size(38.dp)
                 )
                 Text(
                     "HOLD TO TRANSMIT",
@@ -498,17 +473,16 @@ private fun PushToTalkScreen() {
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
         Text(
-            "When available: release to stop transmitting.",
+            "Press to transmit • release to stop (once available).",
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
     Text(
-        "Preview only. The microphone is not used in this build.",
+        "Voice is disabled until a verified connection is established.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
