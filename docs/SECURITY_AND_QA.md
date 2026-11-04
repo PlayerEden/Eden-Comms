@@ -1,6 +1,8 @@
 # Eden Comms — Security, Privacy and QA v0.1
 Status: **planning / unaudited**. This document is not a security certification.
 
+**Mandatory product requirements:** [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md). The charter's no-ship gates override scheduling or feature priorities.
+
 ## Threat model
 We seek to protect the **contents** of text and voice against nearby eavesdroppers, other LAN clients, routers, ISPs and passive observers outside the two verified endpoints. We seek to limit stored data, outbound communications, third-party dependencies, and accidentally exposed identifiers. No internet or account is needed to exchange nearby messages.
 
@@ -45,6 +47,11 @@ A shared LAN router can observe network metadata even if message contents are en
 | Release | clean build, signing, SHA-256 checksum, version, regression check, rollback procedure |
 
 ## Security gates
+- **Block M1 real messaging** until the protocol/library choice, peer identity verification, state model and failure-closed E2EE handshake are reviewed and tested.
+- **Block production release** if any transport can send plaintext, peer verification can be silently bypassed, messages/keys escape via backups/diagnostics, or external telemetry is found.
+- **Require external traffic testing** with mobile data and WAN enabled as well as disabled: offline capability alone does not prove a no-cloud design.
+- **Explicitly test input leaks** from third-party keyboards, system notifications and recents/screenshot behavior; minimize by default and disclose residual risks.
+- **Never claim secure deletion** of a recipient's or OS's copies; disappearing messages are best-effort.
 - Never market as secure, anonymous, invisible, or untraceable solely because traffic stays local.
 - Before real use: confirm crypto library maintenance, licensing and threat model; document key verification and key rotation.
 - Before public release: independent review proportional to the security promises. Fix critical/high flaws before marking production-ready.
