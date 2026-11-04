@@ -16,6 +16,8 @@
 
 > **Previous failure history:** Initial two-phone test: generic failure → `PEER-UNREACHABLE` → `TLS-HANDSHAKE-FAILED` on a Galaxy A32 5G / Android 13. The v2 Keystore repair was a plausible signing-interop fix, not proof of root cause. Preserve this history for regressions.
 
+> **L0 engineering evidence (2026-11-04):** Add strict reviewed APK permission allowlist and direct dependency baseline; audit backup/cleartext settings, exported components and generate downloadable CI dependency and launch-surface evidence for future Google Play Data safety review. This is **not a privacy certification** or proof of zero collection. See `docs/L0_DATA_HANDLING_AND_SDK_REGISTER.md` and `scripts/audit_play_surface.py`. Do not add SDKs, permissions or new network data flows without updating this register and reviewing Play disclosures.
+
 ## Google Play / North America launch track — starts now, mandatory before release
 
 **Goal:** Publish Eden Comms on Google Play when the app and security are ready, with a **staged North American rollout: U.S. first, Canada second, Mexico third** (rather than committing to simultaneous publication). This is an explicit product goal, **not a claim that any country is launch-cleared**. Other countries/territories need separate eligibility and legal checks.
