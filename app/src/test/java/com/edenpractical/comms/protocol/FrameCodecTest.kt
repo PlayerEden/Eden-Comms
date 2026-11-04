@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import kotlin.random.Random
@@ -120,10 +121,10 @@ class FrameCodecTest {
     @Test fun deterministicMalformedInputFuzzNeverAllocatesUnboundedMemory() {
         val rng = Random(0xEC0A)
         repeat(1_000) {
-            val raw = ByteArray(rng.nextInt(0, 48)).also(rng::nextBytes)
+            val raw = ByteArray(rng.nextInt(0, 48)).also { rng.nextBytes(it) }
             try {
                 val decoded = FrameCodec.readFrom(ByteArrayInputStream(raw))
-                assert(decoded.size in 1..FrameCodec.MAX_PAYLOAD_BYTES)
+                assertTrue(decoded.size in 1..FrameCodec.MAX_PAYLOAD_BYTES)
             } catch (_: IOException) {
                 // Expected: random bytes usually do not represent a valid frame.
             }
