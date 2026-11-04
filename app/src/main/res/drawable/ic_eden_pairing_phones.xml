@@ -11,8 +11,8 @@
         android:fillColor="@android:color/transparent" android:strokeColor="#E6E8E6" android:strokeWidth="2.2"/>
     <path android:pathData="M182,13 L195,13 M182,75 L195,75" android:fillColor="@android:color/transparent" android:strokeColor="#E6E8E6" android:strokeWidth="2" android:strokeLineCap="round"/>
     <!-- dotted link only: not a real connected indicator -->
-    <path android:pathData="M77,62 L163,62" android:fillColor="@android:color/transparent" android:strokeColor="#6C8A5B"
-        android:strokeWidth="2" android:strokeLineCap="round" android:strokeDashArray="4,6"/>
+    <path android:pathData="M80,62 L84,62 M90,62 L94,62 M100,62 L104,62 M110,62 L114,62 M126,62 L130,62 M136,62 L140,62 M146,62 L150,62 M156,62 L160,62" android:fillColor="@android:color/transparent" android:strokeColor="#6C8A5B"
+        android:strokeWidth="2" android:strokeLineCap="round"/>
     <!-- Wi-Fi glyph -->
     <path android:pathData="M94,30 C108,18 132,18 146,30 M101,38 C112,30 128,30 139,38 M110,46 C116,42 124,42 130,46"
         android:fillColor="@android:color/transparent" android:strokeColor="#8FAA6A"
