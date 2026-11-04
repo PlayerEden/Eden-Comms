@@ -7,12 +7,15 @@ import java.io.IOException
 import java.io.InputStream
 
 /**
- * Bounded binary framing for a FUTURE cryptographically authenticated channel.
+ * Bounded binary framing for a FUTURE authenticated channel and the strictly
+ * debug-only preset-phrase test. Framing is NOT encryption or authentication.
  *
  * This class does not encrypt or authenticate anything. It MUST NOT be used on
  * a plaintext socket. All bytes passed here must travel inside a reviewed,
- * already authenticated, encrypted transport, after BOTH peers have verified.
- * It is not currently connected to any Android networking API.
+ * already authenticated, encrypted transport. For the v0.2.6 test only,
+ * the caller must finish pinned TLS 1.3, both QR proof records and READY
+ * before reading/writing synthetic test frames. General-purpose messaging
+ * remains disabled and needs independent review.
  */
 internal object FrameCodec {
     private const val FORMAT_VERSION = 1
