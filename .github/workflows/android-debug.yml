@@ -37,6 +37,8 @@ jobs:
           gradle-version: '9.3.1'
       - name: Run unit tests and build APK
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Enforce review-only security boundary
+        run: bash scripts/check_security_review_boundary.sh
       - name: Audit M1 preparation permissions
         run: bash scripts/check_preview_permissions.sh app/build/outputs/apk/debug/app-debug.apk
       - name: Generate SHA-256
