@@ -8,7 +8,7 @@ package com.edenpractical.comms.security
  * No network or message transport is wired to this class in the current APK.
  * Keep this legacy gate compatible with tests, but NEVER expose its VERIFIED
  * phase as production send authorization, even if ReleaseCapabilities change.
- * New design work lives in ProductionSessionAuthorization.
+ * New design work lives in the isolated production policy model.
  */
 enum class SessionPhase {
     DISCONNECTED,
