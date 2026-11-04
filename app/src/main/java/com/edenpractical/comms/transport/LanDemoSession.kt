@@ -197,28 +197,33 @@ internal class LanDemoSession(
         }
     }
 
-    fun sendPreset(id: Int): Boolean {
-        if (!ready || stopped.get()) return false
+    fun sendPreset(id: Int): SendResult {
+        if (!ready || stopped.get() || ending.get()) return SendResult.NOT_CONNECTED
         val packet = TestPacketCodec.preset(id)
+        if (!sendBudget.tryAcquire()) return SendResult.BUSY
         return try {
             writer.execute {
-                if (!ready || stopped.get()) return@execute
                 try {
+                    if (!ready || stopped.get() || ending.get()) return@execute
                     sendPacket(packet)
-                    emit(Event(Phase.SENT, "Test phrase sent (delivery not yet confirmed)", id))
+                    emit(Event(Phase.SENT, "Test phrase written to TLS (not a receipt)", id))
                 } catch (_: IOException) {
                     emitTerminal(Phase.ENDED, "The connection was interrupted.")
                     close()
+                } finally {
+                    sendBudget.release()
                 }
             }
-            true
+            SendResult.QUEUED
         } catch (_: RuntimeException) {
-            false
+            sendBudget.release()
+            SendResult.NOT_CONNECTED
         }
     }
 
     /** UI ended test; try a bounded CLOSE packet but never block the UI. */
     fun endByUser() {
+        if (!ending.compareAndSet(false, true)) return
         if (!ready || stopped.get()) { close(); return }
         try {
             writer.execute {
@@ -259,17 +264,24 @@ internal class LanDemoSession(
                 close()
                 return@scheduleAtFixedRate
             }
+            // Keep at most one heartbeat queued when the writer is busy.
+            if (!heartbeatQueued.compareAndSet(false, true)) return@scheduleAtFixedRate
             try {
                 writer.execute {
-                    if (ready && !stopped.get()) {
-                        try { sendPacket(TestPacketCodec.heartbeat()) }
-                        catch (_: IOException) {
-                            emitTerminal(Phase.ENDED, "The connection was interrupted.")
-                            close()
+                    try {
+                        if (ready && !stopped.get() && !ending.get()) {
+                            sendPacket(TestPacketCodec.heartbeat())
                         }
+                    } catch (_: IOException) {
+                        emitTerminal(Phase.ENDED, "The connection was interrupted.")
+                        close()
+                    } finally {
+                        heartbeatQueued.set(false)
                     }
                 }
-            } catch (_: RuntimeException) { /* An already closed test needs no work. */ }
+            } catch (_: RuntimeException) {
+                heartbeatQueued.set(false)
+            }
         }, HEARTBEAT_MS, HEARTBEAT_MS, TimeUnit.MILLISECONDS)
     }
 
