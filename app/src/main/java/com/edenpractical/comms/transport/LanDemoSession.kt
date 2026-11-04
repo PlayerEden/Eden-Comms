@@ -9,6 +9,7 @@ import com.edenpractical.comms.security.PinnedTlsPeer
 import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.Tls13PeerContext
+import com.edenpractical.comms.security.TlsExporterReadiness
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -152,6 +153,12 @@ internal class LanDemoSession(
 
         sockets.requireOpen()
 
+        // DEVELOPMENT DIAGNOSTIC ONLY. This reads a standard exporter on the
+        // live verified TLS 1.3 socket but DOES NOT expose its bytes, change
+        // the QR proof, send extra packets or authorize user messages.
+        val exporterDiagnostic = TlsExporterReadiness.probeAfterVerifiedDemoProof(socket)
+        sockets.requireOpen()
+
         // Both ends have performed QR transcript checks before any preset text.
         // A separate small READY exchange prevents showing the test as connected
         // until the other end has also progressed beyond the QR proof.
@@ -172,7 +179,11 @@ internal class LanDemoSession(
         connectedAtMs = SystemClock.elapsedRealtime()
         lastReceivedMs = connectedAtMs
         ready = true
-        emit(Event(Phase.READY, "Pinned TLS 1.3 and QR session checks passed."))
+        emit(Event(
+            Phase.READY,
+            "Pinned TLS 1.3 + QR test passed. Local channel-binding check: " +
+                exporterDiagnostic.safeDescription + "."
+        ))
         startHeartbeat()
 
         // This receive loop processes ONLY a 3-byte versioned preset/control
