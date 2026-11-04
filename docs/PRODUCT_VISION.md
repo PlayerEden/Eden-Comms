@@ -25,6 +25,19 @@ Preferred simple explanation: **“Talk privately. Leave without a permanent cha
 6. Minimal permissions and clear permission rationales; ask when features are used.
 7. A restrained utility aesthetic: charcoal/navy, muted teal, off-white, amber only for attention, clear typography. Avoid tactical jargon or fake military branding.
 8. Offline by default. LAN, Bluetooth, and Wi-Fi Direct all planned; no internet relay service.
+9. **Resource-conscious by design:** minimize app storage, live RAM use, CPU, battery drain, radio airtime and transferred bytes without weakening authentication/encryption or accessibility. Simple, fast, no background activity without a user-understood purpose.
+
+## Resource-conscious experience
+**Open → Connect → Talk → Disconnect → Done.** The same simple interaction should minimize device resource use.
+- No permanent chat database in session-only mode, no automatic file/media caching and no silent archive. Optional local encrypted history has a maximum retention of 30 days per chat.
+- No auto-starting background discovery or permanent peer broadcasting. Start scanning only when requested; stop promptly on exit, timeout or disconnect.
+- Avoid an always-running service while disconnected. When a live call/session genuinely requires a foreground component, show it clearly and stop it when the session ends.
+- Use bounded receive/send buffers, modest message sizes, connection timeouts and efficient cryptographic implementation; do not trade confidentiality for a lower byte count.
+- Avoid polling loops, unnecessary animations, duplicate transmissions and diagnostics/telemetry network traffic.
+- Direct communication over nearby radios should not require an app-managed internet connection or cellular data plan. However, local Wi-Fi and Bluetooth still transfer bytes and consume power; "no internet" does not mean "zero data" or "zero battery".
+- Optimize the installed app size and RAM footprint while preserving device compatibility, security and accessibility.
+- Verify resource goals in targeted QA: idle/background battery consumption, session battery use, retained on-device bytes, per-message transfer overhead and peak memory on lower-end phones. Record baselines before setting numerical performance promises.
+
 
 ## Target use cases
 - Two nearby people on the same Wi-Fi network, including when the router has no internet.
