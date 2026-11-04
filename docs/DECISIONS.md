@@ -25,6 +25,8 @@ Keep choices explicit; proposed items are not locked.
 | D-020 | 2026-11-03 | Changing to a shorter TTL deletes aged local messages immediately; longer TTL never revives/extends old messages; app filters expired content before display | Proposed implementation guardrail |
 | D-021 | 2026-11-03 | Eden Comms should be lightweight by design: minimize storage, RAM, CPU, battery and network/radio use; no unnecessary always-on background service or discovery | Accepted product direction |
 | D-022 | 2026-11-03 | Optimize resources without sacrificing encryption, peer authentication, accessibility or reliability; measure overhead before publishing numeric claims | Required design constraint |
+| D-023 | 2026-11-03 | First priority is a reliable offline two-phone local build with one working secure transport; LAN with Wi-Fi router but no WAN preferred, Bluetooth acceptable fallback; remote over different internet connections deferred | Accepted sequencing |
+| D-024 | 2026-11-03 | First testable milestone is genuine verified encrypted two-way LAN text with internet/cellular unavailable, session-only default, accurate connection UI and two-phone security/reliability checks | Milestone gate |
 
 The [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md) sets mandatory security/no-ship gates for all milestones. The [Data Retention and Expiry design](DATA_RETENTION_AND_EXPIRY.md) specifies the 30-day ceiling and deletion limitations.
 
