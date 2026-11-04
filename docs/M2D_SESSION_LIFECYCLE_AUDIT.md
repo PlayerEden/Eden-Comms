@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | High | A cancelled test could race with a freshly accepted or newly wrapped socket, leaving a socket outside the shutdown code's reference. | New `SessionSocketRegistry`: registration and cancellation share one monitor, reject/close late sockets and refuse further processing between authentication stages. |
 | Medium | Rapid taps could queue arbitrarily many preset sends and delay a disconnect. | `DemoSendBudget` caps outstanding preset sends at 2; UI distinguishes Busy from Disconnected. |
-| Medium | Heartbeat task could enqueue duplicate pending writes when a slow TLS write blocks the sender. | At most one pending heartbeat using an atomic flag, independent from silence/expiry checks. |
+| Medium | Heartbeat task could enqueue duplicate pending writes when a slow TLS write blocks the sender, or silently stop if an Android connectivity check throws. | At most one pending heartbeat using an atomic flag; unexpected watchdog exceptions terminate the session instead of disabling monitoring. |
 | Medium | Public QR fingerprints and short-lived nonce metadata remained referenced by the UI after a successful or failed test. | Drop temporary QR data when READY, on failure, cancellation, app background, explicit End and screen disposal. This is reference cleanup, **not** guaranteed secure memory erasure. |
 | Low | Safe diagnostic text still referred to removed Host/Join/Start Listening buttons. | Updated plain-language troubleshooting. |
 
