@@ -39,4 +39,15 @@ if ! grep -A1 'val mayTransmitAudio: Boolean' "$LEGACY" | grep -Eq 'get\(\)[[:sp
   echo "FAIL: old mock gate could authorize voice" >&2; exit 1
 fi
 
-echo "PASS: review-only proposal unwired; legacy send/audio denied; release capabilities off"
+# The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
+# Only its implementation and the fixed-phrase debug-gated demo may reference
+# it; broader usage requires fresh independent protocol review.
+for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true); do
+  case "$FILE" in
+    "$MAIN/com/edenpractical/comms/security/TlsExporterReadiness.kt"|\
+    "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt") ;;
+    *) echo "FAIL: TLS exporter diagnostic referenced outside the gated demo: $FILE" >&2; exit 1 ;;
+  esac
+done
+
+echo "PASS: review-only proposal unwired; diagnostic limited to demo; legacy send/audio denied; release capabilities off"
