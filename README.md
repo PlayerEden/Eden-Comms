@@ -30,6 +30,8 @@ The debug APK will be under `app/build/outputs/apk/debug/app-debug.apk`.
 The GitHub Actions workflow publishes a **debug APK artifact**, SHA-256, a permissions/dependency evidence report, and a resolved runtime dependency tree after a successful build.
 A Gradle Wrapper is not yet committed; build environment and packaging verification remain open until CI confirms success.
 
+The preview includes an in-app **Privacy & data** explainer under Settings and How it works. It is not yet a publicly hosted privacy policy; publishing requires verified publisher details and a final security/data-flow review.
+
 ## Roadmap and safety
 
 - [Product vision](docs/PRODUCT_VISION.md)
@@ -39,6 +41,7 @@ A Gradle Wrapper is not yet committed; build environment and packaging verificat
 - [M0 development status](docs/M0_EXECUTION_STATUS.md)
 - [Google Play / North America launch plan](docs/GOOGLE_PLAY_NORTH_AMERICA_LAUNCH_READINESS.md)
 - [L0 data handling and SDK inventory](docs/L0_DATA_HANDLING_AND_SDK_REGISTER.md)
+- [Privacy policy working draft — NOT PUBLISHED](docs/drafts/EDEN_COMMS_PRIVACY_POLICY_WORKING_DRAFT.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
