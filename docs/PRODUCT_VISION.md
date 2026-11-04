@@ -34,10 +34,12 @@ Open app → tap Connect Nearby → select peer → approve pairing on both phon
 
 ## Message and privacy semantics
 - **Session-only (default)**: app does not intentionally persist chat content; it clears in-memory session state when session ends where possible. This does not guarantee erasure from all device memory, notification surfaces, recipient copies, or OS snapshots.
-- **Keep on this device**: encrypted local history only; no app-managed cloud sync; app excludes sensitive content from Android backup/device transfer where supported.
-- **Disappearing**: each device independently applies timer to its own copies; never imply remote deletion is enforceable. Default is off until explicitly configured.
+- **Keep on this device (opt-in per chat)**: encrypted local history only, set to expire automatically after at most **30 days**. Suggested presets: 1 hour, 24 hours, 7 days, 14 days, 30 days. Never unlimited, never app-managed cloud sync; exclude from Android backup/device transfer and verify on actual devices.
+- **Disappearing / expiration**: retained messages have absolute expiration times from first local send/receipt, not last read. Hide expired items immediately and delete them opportunistically even if Android delays background cleanup. Each device has its own copies; never imply remote deletion is enforceable. Session-only remains the default; persistence/retention is explicitly enabled.
 - Pairing may store only a verified peer identity/fingerprint locally when explicitly opted into trusted peers; distinguish key retention from chat retention.
 - No contact-book upload, phone number, public profile, or account.
+
+See [Data Retention and Expiry design](DATA_RETENTION_AND_EXPIRY.md) for requirements, limitations, consent and testing.
 
 ## In scope by progression
 1:1 text; LAN; verified peer pairing; reconnect within one session; visible delivery states; Bluetooth Classic; Wi-Fi Direct; push-to-talk; optional voice notes; secure local history; disappearing timers; accessibility and help.
