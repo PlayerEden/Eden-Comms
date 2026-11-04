@@ -1,5 +1,7 @@
 # Eden Comms v0.2.6 — Two-phone test bundle
 
+> **v0.2.7 update:** See `docs/M2D_SESSION_LIFECYCLE_AUDIT.md` for safety fixes and added regression tests. The physical two-phone acceptance checklist below remains outstanding; no need for an intermediate install solely for the audit.
+
 **November 4, 2026.** Development-only branch: `feat/m2d-two-phone-demo-session`.
 This is **not a secure messenger release** and has not passed physical device QA.
 
