@@ -28,6 +28,13 @@ Each region can be configured independently via Play Console **Test and release 
 | L6 — Mexico readiness | Before adding Mexico | Check Mexico's current private-sector personal-data law (new LFPDPPP published 2025-03-20), any required *aviso de privacidad*, Spanish-language listing/policy/support and terms, applicable consumer/communications rules and tax/payment obligations if monetization is added. Verify whether Eden or third parties actually collect/process personal data | Mexican legal/localization reviewer + publisher |
 | L7 — post-launch | Continuous | Monitor Play policy updates, crashes, security advisories, vulnerabilities, actual device compatibility, support reports, privacy notice accuracy and legal changes; maintain incident response, quick rollback, release history, third-party license/SBOM and per-country controls | Publisher + engineering |
 
+## L0 engineering evidence started — 2026-11-04
+
+- [x] Record current *source-described* data flows and sensitive stores: Android Keystore public/private identity, QR nonce/fingerprint, LAN IP, time-limited test packets, SharedPreferences theme and camera usage in `docs/L0_DATA_HANDLING_AND_SDK_REGISTER.md`.
+- [x] Add an exact, review-gated Android permission/dependency baseline and tests, with CI emitting non-sensitive `launch-surface.json`, `launch-surface.md` and resolved `releaseRuntimeClasspath.txt` alongside APK checksum evidence.
+- [ ] **Manual** SDK/vendor data-processing + transitive license/vulnerability assessment, real-device network capture and OS backup/transfer verification. Automated static evidence **cannot** establish zero SDK collection or complete Data safety declarations.
+- [ ] Create and verify a public app-specific privacy policy URL, clear in-app policy link, publisher support information, Data safety review and legal sign-offs when those facts are ready. Do **not** invent URLs or claim done.
+
 ## Legal research checklist — not a substitute for counsel
 
 ### United States / export compliance
