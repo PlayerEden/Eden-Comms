@@ -1,4 +1,20 @@
 # Eden Comms — Development Roadmap v0.1
+
+> **Active checkpoint — November 4, 2026:** The roadmap below is the original broad plan. Actual work is now at the **two-phone QR / pinned TLS test**. The Android app, native visual baseline, opt-in Keystore identity, and in-app QR exchange are built; the user's two-phone attempt reported **Secure LAN test failed**. A successful authenticated encrypted connection has **not** yet been demonstrated, and text/PTT are disabled. GitHub PRs are stacked and unmerged; review/merge bottom-up once milestones pass.
+
+## Current next steps — ordered by security and real-device evidence
+
+1. **M2b: diagnose and repair the failed two-phone TLS test.** Provide safe diagnostic codes for Wi-Fi, listen/timeout, TCP reachability, certificate rejection and TLS negotiation (no secrets/IPs in logs). Repeat the QR pairing test on two actual phones, WAN disconnected; record both devices' *sanitized* result codes. Make a focused fix to the proven cause, rerun negative and regression tests.
+2. **M2c: finish a reliable authenticated session.** Keep both phones strictly pinned to each other's verified public certificate. Introduce bilateral, transcript-bound confirmation and an end-to-end message gate. No code path allows plaintext or communication merely because a device was found on the network.
+3. **M2d: usability without compromising identity.** Optional, foreground-only, time-limited nearby discovery; advertised names/IDs minimized and rotated, no automatic trust. First-time users can verify in person by QR or securely designed code comparison at a distance; code comparison requires additional protocol review before enabling. No background broadcast by default.
+4. **M2e: minimal verified offline text.** Two-way authenticated encrypted text on same Wi-Fi without WAN, in-memory session-only conversation default. Real-device negative tests, no content logging/backups. Do not enable voice yet.
+5. **M3: optional peer trust retention.** **Never remember peers by default.** After proven bilateral verification, each user can independently opt to remember only that peer's *public identity* for **1–30 days, hard maximum 30 days**; no automatic renewal. On expiry or clock rollback, refuse prior trust and reverify. Forget immediately on request, exclude from backup and protect local integrity. Reconnect still cryptographically proves possession of the pinned private key. Trust storage is **not** conversation storage and is not yet implemented.
+6. **M3: optional encrypted message retention (independent).** Session-only default; separately opt in per chat to encrypted local history with 1–30 day limit, automatic eligibility/expiry check on next use, best-effort deletion, and no remote deletion guarantee. A person can remember a peer and retain *zero* messages, or vice versa.
+7. **Privacy explanations:** short setting labels, a contextual **?** for privacy/security-sensitive choices, and offline **Learn more → How it works** guidance. No giant modal on every action. Explain exactly what is stored, who controls it, when it expires, and what cannot be guaranteed.
+8. **Only then Voice / PTT, Bluetooth, Wi-Fi Direct, further polish and release review.** Never ship a promise of encrypted communication based on a successful build alone. Prioritize a clean reviewed integration branch and rollbackable checkpoints.
+
+See `docs/TRUST_RETENTION_AND_HELP_PLAN.md`, `docs/M2A_QR_MUTUAL_TLS_TEST.md` and `docs/SECURITY_AND_QA.md`.
+
 Status: proposal. **Do not implement all planned features at once.** Small mergeable steps, demonstrable Android APKs, security checkpoints, and rollbackable releases.
 
 ## Platform and implementation approach
@@ -81,7 +97,7 @@ Status: proposal. **Do not implement all planned features at once.** Small merge
 
 ## Open decisions
 - Android minSdk and test devices.
-- Peer identity persistence: ephemeral by default vs optional saved trusted peers.
+- **Resolved direction:** ephemeral/session-only peer trust by default; optional explicitly chosen, per-peer public-identity trust for up to 30 days. Implementation remains gated on verified local authentication.
 - Handling of background notifications while in a live session.
 - Audio capability support for Bluetooth.
 - Exact crypto library and audited implementation approach.

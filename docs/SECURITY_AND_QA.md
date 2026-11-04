@@ -21,6 +21,17 @@ A shared LAN router can observe network metadata even if message contents are en
 - Do not persist peer names/IP/MAC or message metadata except necessary configuration/consented saved trusted-peer identities.
 - Requests for Bluetooth, Wi-Fi nearby, local network and microphone permissions must be contextual and explained.
 
+## Time-limited identity and message retention — accepted design, not yet enabled
+
+- **Default: persist zero peer trust records and zero chat bodies.** The user's own explicitly created Android Keystore identity is a separate local key that may persist and can be reset; don't confuse it with saved *peer* trust.
+- A user may explicitly remember a **verified public peer certificate/public-key identity** for a selected 1–30-day duration; recipient independently chooses their own duration. Saved peer identity is not a message or secret, but can reveal an association if a device is compromised.
+- Each reconnect must cryptographically prove the matching private key; no saved name, broadcast, QR hash or device label is sufficient to authenticate.
+- Future minimal trust store: versioned per-peer record (public pin / minimum creation and expiry fields), integrity-protected using Android Keystore-backed cryptographic material, app-private, backups/data-transfer excluded. No peer IP, MAC, phone number, chat body or unnecessary stable nickname.
+- **No automatic renewal.** Fail closed on expiry, tampering, missing identity, rollback of the clock or identity reset; purge expired records at start/foreground/reconnection and immediately on explicit Forget. Background exact-time erasure and physical flash-cell erasure cannot be guaranteed.
+- Future message-history opt-in is **separate per chat**, encrypted locally, max 30 days, session-only default. Deleting the local copy never forces recipients to delete theirs; recipients can photograph or independently save text.
+- Explain these facts in plain-language inline disclosures with a contextual question-mark Help and an offline Learn more section. Never imply that an expired trust record is a remotely erased message.
+- Zero new peer-trust persistence until a reviewed authentication protocol and the device-to-device tests pass. Model-only expiry calculations are not proof of an implemented store.
+
 ## API/platform constraints to track
 - Android 12+ Bluetooth nearby-device permissions; Android 13+ NEARBY_WIFI_DEVICES for Wi-Fi Direct, with possible legacy location requirements for earlier versions.
 - Wi-Fi Direct uses sockets requiring INTERNET manifest permission; location mode is required for some peer-discovery APIs.

@@ -42,23 +42,31 @@ internal class LanTlsProbe(
     @Volatile private var activeSocket: Socket? = null
     @Volatile private var activeServer: SSLServerSocket? = null
 
+    /** Updated on this probe's single worker thread; no sensitive values. */
+    @Volatile private var diagnosticStep = LanProbeDiagnostics.Step.WIFI
+
     fun host(local: LocalTlsIdentity, verifiedPeerFingerprint: ByteArray) {
         execute {
+            diagnosticStep = LanProbeDiagnostics.Step.WIFI
             val wifi = WifiLanEndpoint.current(context)
                 ?: error("No usable Wi-Fi interface")
+            diagnosticStep = LanProbeDiagnostics.Step.TLS_SETUP
             val tls = Tls13PeerContext(local.keyManager(), verifiedPeerFingerprint)
             val server = tls.unboundServerSocket()
             activeServer = server
             server.soTimeout = ACCEPT_TIMEOUT_MS
+            diagnosticStep = LanProbeDiagnostics.Step.BIND
             server.bind(InetSocketAddress(wifi.address, PORT), 1)
-            emit(Phase.LISTENING, "Listening on " + wifi.address.hostAddress +
-                ":" + PORT + " • waiting for a TLS peer")
+            diagnosticStep = LanProbeDiagnostics.Step.WAIT_FOR_PEER
+            emit(Phase.LISTENING, "Host is ready. Connect from the other phone.")
             val socket = server.accept() as SSLSocket
             activeSocket = socket
             server.close()
             activeServer = null
             socket.soTimeout = TLS_TIMEOUT_MS
+            diagnosticStep = LanProbeDiagnostics.Step.TLS_HANDSHAKE
             socket.startHandshake()
+            diagnosticStep = LanProbeDiagnostics.Step.VERIFY_PIN
             PinnedTlsPeer.requirePinnedTls13(socket.session, verifiedPeerFingerprint)
             emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed. Test link closed; text is still disabled.")
         }
@@ -70,20 +78,25 @@ internal class LanTlsProbe(
         hostIpv4: String
     ) {
         execute {
+            diagnosticStep = LanProbeDiagnostics.Step.WIFI
             val wifi = WifiLanEndpoint.current(context)
                 ?: error("No usable Wi-Fi interface")
             val peer = LocalIpv4Policy.requireSamePrivateSubnet(
                 hostIpv4, wifi.address, wifi.prefixLength
             )
+            diagnosticStep = LanProbeDiagnostics.Step.TLS_SETUP
             val tls = Tls13PeerContext(local.keyManager(), verifiedPeerFingerprint)
             val raw = wifi.network.socketFactory.createSocket()
             activeSocket = raw
-            emit(Phase.CONNECTING, "Connecting to nearby Wi-Fi host • TLS 1.3 only")
+            diagnosticStep = LanProbeDiagnostics.Step.TCP_CONNECT
+            emit(Phase.CONNECTING, "Connecting to the other phone over local Wi-Fi…")
             raw.connect(InetSocketAddress(peer, PORT), CONNECT_TIMEOUT_MS)
             val socket = tls.wrapConnectedClient(raw, peer.hostAddress ?: hostIpv4, PORT)
             activeSocket = socket
             socket.soTimeout = TLS_TIMEOUT_MS
+            diagnosticStep = LanProbeDiagnostics.Step.TLS_HANDSHAKE
             socket.startHandshake()
+            diagnosticStep = LanProbeDiagnostics.Step.VERIFY_PIN
             PinnedTlsPeer.requirePinnedTls13(socket.session, verifiedPeerFingerprint)
             emit(Phase.SUCCEEDED, "Mutual TLS 1.3 handshake passed. Test link closed; text is still disabled.")
         }
@@ -93,8 +106,11 @@ internal class LanTlsProbe(
         executor.execute {
             try {
                 if (!cancelled) action()
-            } catch (_: Exception) {
-                emit(Phase.FAILED, "Secure LAN test failed. Check both phones' Wi-Fi, local IP and verified fingerprints.")
+            } catch (error: Exception) {
+                // Never surface raw exception messages, stack traces, QR data,
+                // IP addresses, certificates or keys to users or logs.
+                val safe = LanProbeDiagnostics.classify(diagnosticStep, error)
+                emit(Phase.FAILED, safe.display())
             } finally {
                 closeSockets()
             }

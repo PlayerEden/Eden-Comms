@@ -7,6 +7,12 @@ Move beyond copying full certificate fingerprints and IP addresses through other
 
 **Security limitation:** This is an opt-in *development handshake test*, not a production-ready secure messenger, full messaging service, or independently audited pairing protocol. The peer's Android Keystore and TLS certificate chain/provider behavior still require real two-phone testing. No application message bytes flow at this stage.
 
+## Physical tester observation — November 4, 2026
+
+A user completed an initial attempt involving **two real phones** and reached identity setup and the QR connection test. At least one phone reported **“Secure LAN test failed”**. **Do not mark the handshake or mutual authentication PASS.** The report does not reveal whether the underlying cause was Wi-Fi isolation, reachability, listening order, TLS provider compatibility or certificate rejection. Screenshots do not establish both devices' exact state or any successful authentication.
+
+**Next diagnostics patch:** Show bounded safe phase/category codes for Wi-Fi, host listen/bind timeout, peer reachability/connect timeout, TLS negotiation and certificate rejection. Never surface raw exceptions, IP addresses or certificate fingerprints in screenshots or logs. Repeat test with host listening first and both devices on the same local Wi-Fi, WAN disconnected. Capture only both phones' safe codes and app versions. Fix the demonstrated cause; do not relax TLS 1.3 or certificate pinning.
+
 ## Why two scans?
 A single host QR gives the joiner the **host's** exact certificate identity but does not independently authenticate the **joiner's** identity to the host. To avoid an unverified or trust-all TLS state, we initially require an explicit *second in-person QR*, shown on the joiner's phone and scanned by the host. That supplies the joiner's exact full fingerprint and binds the response to the host's fresh session nonce.
 
