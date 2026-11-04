@@ -6,7 +6,7 @@
 
 ## Why this stage matters
 
-`SessionSecurityGate` previously exposed `maySendMessage == true` after plain application-provided session strings and two model approvals. This was never connected to production network I/O, but it was an unsafe *future integration trap*. The gate now also checks hard-disabled `ReleaseCapabilities`, and the new `ProductionSessionAuthorization` explicitly separates:
+`SessionSecurityGate` previously exposed `maySendMessage == true` after plain application-provided session strings and two model approvals. This was never connected to production network I/O, but it was an unsafe *future integration trap*. The legacy gate's `maySendMessage` and `mayTransmitAudio` are now permanently **false**—it remains a model-only state machine, even if feature flags change later. The new `ProductionSessionAuthorization` explicitly separates:
 
 1. **Application policy/sequence:** which peer/session was chosen, whether both approvals for that session occurred, and whether all state is revoked on interruption.
 2. **Authenticated evidence:** whether TLS 1.3, the exact peer certificate, freshness and the correct QR/session transcript are actually cryptographically verified. **This model cannot prove those facts.**
@@ -49,8 +49,8 @@ Future trusted adapter requirements:
 | Component | Purpose | Does not do |
 | --- | --- | --- |
 | `ProductionSessionAuthorization` | Thread-synchronized per-attempt state machine. Validates public pin length/distinctness, checks expected identity/transcript, requires local + authenticated-remote events, drops stale callbacks, blocks on mismatches, revokes on transport loss or app pause. | Verify certificates, produce TLS transcript, exchange packets, prove human consent or authorize current release data transfer |
-| `SessionSecurityGate` | Legacy application-state model, now additionally gated by `ReleaseCapabilities` for both text and voice. `modelApprovalsComplete` is explicitly non-production. | Confer secure message permission based solely on arbitrary strings |
-| `ReleaseCapabilities` | Compile-time hard lockdown: `CAN_CONNECT`, `CAN_SEND_MESSAGES`, `CAN_TRANSMIT_VOICE` remain false. | Identify a remote peer or authorize a session |
+| `SessionSecurityGate` | Legacy application-state model. Its text/audio authorization getters always return `false`; `modelApprovalsComplete` is explicitly non-production. | Confer secure message permission based solely on arbitrary strings |
+| `ReleaseCapabilities` | Compile-time hard lockdown: `CAN_CONNECT`, `CAN_SEND_MESSAGES`, `CAN_TRANSMIT_VOICE` remain false. The new policy also gates on these switches; it is not connected to a sender. | Identify a remote peer or authorize a session |
 
 No app UI button, socket, test-probe code or network send was wired to the new model. Production messaging is **not yet implemented**.
 
