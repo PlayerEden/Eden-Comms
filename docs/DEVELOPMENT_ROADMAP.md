@@ -18,6 +18,8 @@
 
 > **L0 engineering evidence (2026-11-04):** Add strict reviewed APK permission allowlist and direct dependency baseline; audit backup/cleartext settings, exported components and generate downloadable CI dependency and launch-surface evidence for future Google Play Data safety review. This is **not a privacy certification** or proof of zero collection. See `docs/L0_DATA_HANDLING_AND_SDK_REGISTER.md` and `scripts/audit_play_surface.py`. Do not add SDKs, permissions or new network data flows without updating this register and reviewing Play disclosures.
 
+> **L1 in-app privacy review (v0.2.10 preview):** Settings and How it works now link to a readable **Privacy & data** screen disclosing local Keystore identity persistence, QR peer/network metadata, temporary test phrases, camera/local-network permissions and privacy limitations. It explicitly says this is **not** the final Google Play policy. A marked working draft exists at `docs/drafts/EDEN_COMMS_PRIVACY_POLICY_WORKING_DRAFT.md`. The publisher's actual legal identity, contact method, final runtime/SDK data audit and stable public HTTPS policy URL remain OPEN gates. No website or publishing identity was invented and no store submission was attempted. Tests cover the in-app disclosure text. Production messaging/PTT remain off.
+
 ## Google Play / North America launch track — starts now, mandatory before release
 
 **Goal:** Publish Eden Comms on Google Play when the app and security are ready, with a **staged North American rollout: U.S. first, Canada second, Mexico third** (rather than committing to simultaneous publication). This is an explicit product goal, **not a claim that any country is launch-cleared**. Other countries/territories need separate eligibility and legal checks.
