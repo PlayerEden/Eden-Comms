@@ -634,6 +634,154 @@ private fun HelpScreen() {
 }
 
 @Composable
+private fun FieldSectionHeader(eyebrow: String, title: String?) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Spacer(
+            modifier = Modifier.width(3.dp)
+                .height(if (title == null) 19.dp else 30.dp)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                eyebrow,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp
+            )
+            if (title != null) Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactModeTile(
+    modifier: Modifier,
+    glyph: Int,
+    title: String,
+    detail: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .heightIn(min = 88.dp)
+            .clickable(role = Role.Button, onClick = onClick),
+        shape = CutCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.44f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                painter = painterResource(glyph),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(23.dp)
+            )
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2
+            )
+            Text(
+                detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun FieldOption(
+    glyph: Int,
+    title: String,
+    detail: String,
+    state: String,
+    onClick: (() -> Unit)? = null
+) {
+    val clickMod = if (onClick == null) Modifier
+        else Modifier.clickable(role = Role.Button, onClick = onClick)
+    Surface(
+        modifier = Modifier.fillMaxWidth().then(clickMod),
+        shape = CutCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(glyph),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(26.dp)
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    detail,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                state,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (onClick != null) {
+                Spacer(Modifier.width(7.dp))
+                Text("›", style = MaterialTheme.typography.titleLarge)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.FieldStep(number: String, title: String) {
+    Surface(
+        modifier = Modifier.weight(1f),
+        color = MaterialTheme.colorScheme.surface,
+        shape = CutCornerShape(5.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                number, color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
 private fun SectionLabel(text: String) {
     Text(
         text,
