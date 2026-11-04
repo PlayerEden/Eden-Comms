@@ -34,8 +34,9 @@ Current Play policy: https://support.google.com/googleplay/android-developer/ans
 | `android.permission.INTERNET` | Yes | Android's network-stack permission, including **local** TCP sockets; not a claim of WAN use |
 | `android.permission.ACCESS_NETWORK_STATE` | Yes | Select/inspect current Wi-Fi network |
 | `android.permission.CAMERA` | Yes | Explicit QR camera scan with runtime permission |
+| `com.edenpractical.comms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | **Merged APK only (AndroidX Core)** | An AndroidX-generated, app-scoped **signature-level** permission used to protect non-exported dynamic broadcast receivers on older Android versions. Not a contacts/location/mic permission; never broadly allow another package's arbitrary custom permission |
 
-No Bluetooth/microphone/contacts/location permissions are intended at L0. An automated **exact allowlist** in `scripts/audit_play_surface.py` checks APK merged permissions; a new or changed permission must trigger code review and explicit baseline update.
+No Bluetooth/microphone/contacts/location permissions are intended at L0. An automated **exact allowlist** in `scripts/audit_play_surface.py` checks the three source permissions **plus exactly one documented, app-package-specific AndroidX-generated merged permission**; a new or changed permission must trigger code review and explicit baseline update. This exception was found by CI when the merged APK first failed the check; it is not a generic permission-prefix bypass. Android developer guidance: https://developer.android.com/agents/skills/security/android-intent-security/SKILL .
 
 App manifest currently has `android:allowBackup="false"`, `android:usesCleartextTraffic="false"`, root exclusions for both cloud backup/device transfer and legacy backup, and just the launcher activity exported. This is a source/packaging configuration claim; verify OS backup behavior on real devices.
 
