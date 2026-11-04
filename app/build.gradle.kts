@@ -16,7 +16,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.1-m1prep"
+        versionName = "0.1.2-m1lanprobe"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

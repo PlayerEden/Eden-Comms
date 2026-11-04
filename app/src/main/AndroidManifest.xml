@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- M0 intentionally requests no network, Bluetooth, location, or microphone permissions. -->
+    <!-- M1f LAN only: Android requires INTERNET for local TCP sockets.
+         ACCESS_NETWORK_STATE identifies the current Wi-Fi interface, even without WAN.
+         No Bluetooth, location, camera, contacts, or microphone permissions yet. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

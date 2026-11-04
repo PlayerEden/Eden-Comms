@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -25,6 +27,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -35,6 +39,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +56,9 @@ import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.model.ConnectionMethod
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
+import com.edenpractical.comms.security.PairingInviteCodec
+import com.edenpractical.comms.transport.LanTlsProbe
+import com.edenpractical.comms.transport.WifiLanEndpoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -131,7 +139,11 @@ private fun EdenCommsApp() {
                         onSettings = { page = "settings" },
                         onHelp = { page = "help" }
                     )
-                    "connect" -> Connect(onIdentity = { page = "identity" })
+                    "connect" -> Connect(
+                        onIdentity = { page = "identity" },
+                        onLanTest = { page = "lan-test" }
+                    )
+                    "lan-test" -> LanHandshakeTest()
                     "identity" -> DeviceIdentitySetup()
                     "settings" -> Settings(
                         darkMode = darkMode,
@@ -245,7 +257,7 @@ private fun Home(
 }
 
 @Composable
-private fun Connect(onIdentity: () -> Unit) {
+private fun Connect(onIdentity: () -> Unit, onLanTest: () -> Unit) {
     Panel(
         title = "Connect nearby",
         detail = "Connection services will arrive in M1–M3. This screen is informational in M0."
@@ -261,6 +273,11 @@ private fun Connect(onIdentity: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
             onClick = onIdentity
         ) { Text("Set up local device identity") }
+        Spacer(Modifier.height(10.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            onClick = onLanTest
+        ) { Text("Test offline Wi-Fi handshake") }
     }
     ConnectionMethod.entries.forEach { method ->
         Panel(title = method.displayName, detail = method.simpleDescription) {
@@ -378,6 +395,163 @@ private fun DeviceIdentitySetup() {
             dismissButton = {
                 TextButton(onClick = { confirmForget = false }) { Text("Cancel") }
             }
+        )
+    }
+}
+
+@Composable
+private fun LanHandshakeTest() {
+    val context = LocalContext.current
+    val repository = remember { AndroidKeystoreIdentity() }
+    val handler = remember { Handler(Looper.getMainLooper()) }
+    var localFingerprint by remember { mutableStateOf<String?>(null) }
+    var wifiAddress by remember { mutableStateOf<String?>(null) }
+    var remoteFingerprintText by rememberSaveable { mutableStateOf("") }
+    var hostIpv4 by rememberSaveable { mutableStateOf("") }
+    var personallyChecked by rememberSaveable { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf("Checking local Wi-Fi and identity…") }
+    var probe by remember { mutableStateOf<LanTlsProbe?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val details = withContext(Dispatchers.IO) {
+                Pair(
+                    repository.existing()?.fingerprintDisplay(),
+                    WifiLanEndpoint.current(context)?.address?.hostAddress
+                )
+            }
+            localFingerprint = details.first
+            wifiAddress = details.second
+            status = when {
+                details.first == null -> "Create a local device identity first (Connection options → Device identity)."
+                details.second == null -> "Join a local Wi-Fi network first. Router internet is not required."
+                else -> "Ready for a one-shot, encrypted TLS handshake test. No messages will be sent."
+            }
+        } catch (_: Exception) {
+            status = "Could not read device identity or Wi-Fi. No connection attempted."
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { probe?.close() }
+    }
+
+    Panel(
+        title = "Offline LAN handshake",
+        detail = "Two phones on the same Wi-Fi, even if the router has no internet."
+    ) {
+        StatusLabel("DEVELOPMENT TEST • NO MESSAGING")
+        Text(status, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "This phone's Wi-Fi address: " + (wifiAddress ?: "Not available"),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            "This phone's public fingerprint:",
+            style = MaterialTheme.typography.labelMedium
+        )
+        Text(
+            localFingerprint ?: "No local identity yet",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = remoteFingerprintText,
+            onValueChange = { remoteFingerprintText = it.take(96) },
+            label = { Text("Other phone's full fingerprint") },
+            placeholder = { Text("64 hex digits; spaces allowed") },
+            minLines = 2
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = personallyChecked,
+                onCheckedChange = { personallyChecked = it }
+            )
+            Text(
+                "I compared this fingerprint with the other physical phone.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = hostIpv4,
+            onValueChange = { hostIpv4 = it.take(15) },
+            label = { Text("Host phone's Wi-Fi IPv4 (Join only)") },
+            placeholder = { Text("192.168.1.10") },
+            singleLine = true
+        )
+        Spacer(Modifier.height(10.dp))
+        val ready = localFingerprint != null && wifiAddress != null && personallyChecked && !busy
+        val start: (Boolean) -> Unit = { joining ->
+            try {
+                val canonical = remoteFingerprintText.filterNot(Char::isWhitespace)
+                val full = if (canonical.startsWith("EC1:", ignoreCase = true))
+                    canonical.substring(4) else canonical
+                val pin = PairingInviteCodec.decode("EC1:" + full.uppercase())
+                // The actual identity/Keystore operation remains on a worker
+                // thread. We never open a socket before explicit confirmation.
+                probe?.close()
+                busy = true
+                status = "Preparing an authenticated local-only TLS handshake…"
+                val connection = LanTlsProbe(context.applicationContext) { event ->
+                    handler.post {
+                        status = event.description
+                        if (event.phase == LanTlsProbe.Phase.SUCCEEDED ||
+                            event.phase == LanTlsProbe.Phase.FAILED ||
+                            event.phase == LanTlsProbe.Phase.CANCELLED
+                        ) busy = false
+                    }
+                }
+                probe = connection
+                val suppliedHost = hostIpv4
+                Thread {
+                    try {
+                        val identity = repository.existing()
+                            ?: throw IllegalStateException("No local identity")
+                        if (joining) connection.join(identity, pin, suppliedHost)
+                        else connection.host(identity, pin)
+                    } catch (_: Exception) {
+                        handler.post {
+                            busy = false
+                            status = "Unable to prepare local TLS identity; no connection opened."
+                        }
+                    }
+                }.apply {
+                    name = "eden-comms-identity-loader"
+                    isDaemon = true
+                    start()
+                }
+            } catch (_: IllegalArgumentException) {
+                status = "Enter the other phone's entire 64-hex-digit fingerprint."
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                modifier = Modifier.weight(1f).height(52.dp),
+                enabled = ready,
+                onClick = { start(false) }
+            ) { Text("Host test") }
+            Button(
+                modifier = Modifier.weight(1f).height(52.dp),
+                enabled = ready && hostIpv4.isNotBlank(),
+                onClick = { start(true) }
+            ) { Text("Join test") }
+        }
+        if (busy) {
+            TextButton(onClick = {
+                probe?.close()
+                busy = false
+                status = "Test cancelled. All sockets were closed."
+            }) { Text("Cancel test") }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "No messages or media are sent. Both phones must enter the other's fingerprint, " +
+                "and the TLS 1.3 handshake must succeed. Close this screen to cancel.",
+            style = MaterialTheme.typography.bodySmall
         )
     }
 }

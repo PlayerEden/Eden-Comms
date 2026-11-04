@@ -1,6 +1,7 @@
 package com.edenpractical.comms.security
 
 import java.security.SecureRandom
+import java.net.Socket
 import javax.net.ssl.KeyManager
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLServerSocket
@@ -32,6 +33,13 @@ internal class Tls13PeerContext(localIdentity: X509KeyManager, expectedPeerSha25
 
     fun unconnectedClientSocket(): SSLSocket =
         (context.socketFactory.createSocket() as SSLSocket).apply {
+            useClientMode = true
+            require(supportedProtocols.contains("TLSv1.3")) { "TLS 1.3 unavailable" }
+            enabledProtocols = arrayOf("TLSv1.3")
+        }
+
+    fun wrapConnectedClient(rawSocket: Socket, peerAddress: String, port: Int): SSLSocket =
+        (context.socketFactory.createSocket(rawSocket, peerAddress, port, true) as SSLSocket).apply {
             useClientMode = true
             require(supportedProtocols.contains("TLSv1.3")) { "TLS 1.3 unavailable" }
             enabledProtocols = arrayOf("TLSv1.3")
