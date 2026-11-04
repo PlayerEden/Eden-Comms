@@ -2,6 +2,9 @@ package com.edenpractical.comms
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Build
+import android.view.View
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -53,6 +56,15 @@ private val DayPanel = Color(0xFFFFFFFF)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Privacy default: prevent OS screen recording, screenshots and recents previews.
+        // This does not prevent external cameras or compromised-device capture.
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Reduce unintended data collection by autofill/content-capture services.
+        window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.decorView.importantForContentCapture =
+                View.IMPORTANT_FOR_CONTENT_CAPTURE_NO_EXCLUDE_DESCENDANTS
+        }
         setContent { EdenCommsApp() }
     }
 }
@@ -125,7 +137,7 @@ private fun EdenCommsApp() {
                 Spacer(modifier = Modifier.height(8.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f))
                 Text(
-                    "EDEN PRACTICAL  /  EC • M0 PREVIEW",
+                    "EDEN PRACTICAL  /  EC • M1 SECURITY PREP",
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f),
                     style = MaterialTheme.typography.labelSmall,
@@ -179,7 +191,7 @@ private fun Home(
             style = MaterialTheme.typography.titleLarge
         )
         Text(
-            "This version does not send messages, establish connections, or encrypt traffic yet.",
+            "This preview does not connect to other phones. Secure pairing and encrypted messaging are still under development.",
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(12.dp))
@@ -272,7 +284,7 @@ private fun Settings(darkMode: Boolean, onDarkModeChange: (Boolean) -> Unit) {
     }
     Panel(
         title = "Device permissions",
-        detail = "This M0 build does not request Bluetooth, microphone, location, or network access."
+        detail = "This build does not request Bluetooth, microphone, location, or network access."
     ) {
         Text(
             "Later builds will request only the permissions needed for features you choose.",
@@ -304,8 +316,28 @@ private fun HowItWorks() {
         )
     }
     Panel(
+        title = "What verified means",
+        detail = "Finding another phone is not the same as trusting it."
+    ) {
+        Text(
+            "1. Discover nearby device. 2. Establish an authenticated encrypted channel. " +
+                "3. Both people confirm a matching security code. Until then, messages stay locked.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+    Panel(
+        title = "Screen privacy",
+        detail = "This preview blocks screenshots and screen sharing by default."
+    ) {
+        Text(
+            "The device's screen-capture restrictions reduce accidental exposure but cannot " +
+                "stop someone from photographing the screen or using a compromised phone.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+    Panel(
         title = "Current development status",
-        detail = "This is M0, an interface and project foundation only."
+        detail = "M1 security preparation; no encryption or messaging is enabled."
     ) {
         Text(
             if (ReleaseCapabilities.CAN_SEND_MESSAGES) "Messaging is available."
