@@ -80,12 +80,18 @@ internal fun LocalPairingTestScreen() {
         probe = null
     }
 
-    fun reset() {
-        stopTest()
+    fun clearTemporaryPairing() {
+        // QR fingerprints/nonces are public but privacy-sensitive metadata.
+        // Drop Compose references when no longer needed (not secure erase).
         hostInvite = null
         joinReply = null
         peerPin = null
         qrText = ""
+    }
+
+    fun reset() {
+        stopTest()
+        clearTemporaryPairing()
         details = ""
         showDetails = false
         passed = false
@@ -175,6 +181,7 @@ internal fun LocalPairingTestScreen() {
                         LanDemoSession.Phase.CONNECTING -> status =
                             "Show your code to the other phone. Connecting automatically…"
                         LanDemoSession.Phase.READY -> {
+                            clearTemporaryPairing()
                             passed = true
                             details = event.description
                             status = "Connected for the two-phone test."
@@ -190,12 +197,14 @@ internal fun LocalPairingTestScreen() {
                             }
                         }
                         LanDemoSession.Phase.ENDED -> {
+                            clearTemporaryPairing()
                             details = event.description
                             status = "Test connection ended."
                             testLines.clear()
                             stage = "result"
                         }
                         LanDemoSession.Phase.FAILED -> {
+                            clearTemporaryPairing()
                             passed = false
                             details = event.description
                             status = "Couldn't connect. Check both phones are on the same Wi-Fi."
@@ -216,6 +225,7 @@ internal fun LocalPairingTestScreen() {
             )
         } catch (_: Exception) {
             stopTest()
+            clearTemporaryPairing()
             stage = "result"
             passed = false
             details = "Pairing codes were invalid, expired, or the Wi-Fi network changed."
@@ -251,6 +261,7 @@ internal fun LocalPairingTestScreen() {
             ) {
                 val hadConnected = stage == "demo"
                 stopTest()
+                clearTemporaryPairing()
                 testLines.clear()
                 passed = hadConnected
                 details = "The app went into the background, closing the local test socket."
@@ -263,6 +274,8 @@ internal fun LocalPairingTestScreen() {
         onDispose {
             lifecycleOwner?.lifecycle?.removeObserver(observer)
             latestProbe?.close()
+            clearTemporaryPairing()
+            testLines.clear()
         }
     }
 
@@ -413,8 +426,12 @@ internal fun LocalPairingTestScreen() {
                             pair.forEach { phrase ->
                                 OutlinedButton(
                                     onClick = {
-                                        if (probe?.sendPreset(phrase.id) != true) {
-                                            status = "The test is no longer connected."
+                                        when (probe?.sendPreset(phrase.id)) {
+                                            LanDemoSession.SendResult.QUEUED -> Unit
+                                            LanDemoSession.SendResult.BUSY ->
+                                                status = "Sending… Try again in a moment."
+                                            LanDemoSession.SendResult.NOT_CONNECTED, null ->
+                                                status = "The test is no longer connected."
                                         }
                                     },
                                     modifier = Modifier.weight(1f).heightIn(min = 52.dp),
@@ -432,6 +449,7 @@ internal fun LocalPairingTestScreen() {
                             probe = null
                             attemptVersion += 1
                             ending?.endByUser()
+                            clearTemporaryPairing()
                             details = "Test ended on this phone."
                             status = "Test ended."
                             testLines.clear()
