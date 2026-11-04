@@ -6,17 +6,17 @@ test -f "$APK"
 test -x "$AAPT"
 PERMISSIONS="$("$AAPT" dump permissions "$APK")"
 echo "$PERMISSIONS"
-# M1f LAN test permits only INTERNET (needed for local TCP sockets) and
-# ACCESS_NETWORK_STATE (select the Wi-Fi network without WAN/cellular fallback).
-# Bluetooth, microphone, location, camera, contacts remain prohibited.
-if echo "$PERMISSIONS" | grep -Eq "uses-permission:.*android.permission.(BLUETOOTH|BLUETOOTH_CONNECT|BLUETOOTH_SCAN|RECORD_AUDIO|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|CAMERA|READ_CONTACTS|READ_SMS)"; then
+# M2 QR test permits INTERNET (local TCP sockets), ACCESS_NETWORK_STATE
+# (local Wi-Fi selection), and CAMERA (explicit in-app QR scan only).
+# Bluetooth, microphone, contacts and location remain prohibited.
+if echo "$PERMISSIONS" | grep -Eq "uses-permission:.*android.permission.(BLUETOOTH|BLUETOOTH_CONNECT|BLUETOOTH_SCAN|RECORD_AUDIO|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|READ_CONTACTS|READ_SMS)"; then
   echo "FAIL: preliminary app unexpectedly requests sensitive communication permissions" >&2
   exit 1
 fi
-for REQUIRED in INTERNET ACCESS_NETWORK_STATE; do
+for REQUIRED in INTERNET ACCESS_NETWORK_STATE CAMERA; do
   if ! echo "$PERMISSIONS" | grep -q "android.permission.$REQUIRED"; then
     echo "FAIL: missing required LAN test permission $REQUIRED" >&2
     exit 1
   fi
 done
-echo "PASS: required LAN-only permissions present; sensitive extras absent"
+echo "PASS: expected LAN + opt-in QR camera permissions; prohibited permissions absent"

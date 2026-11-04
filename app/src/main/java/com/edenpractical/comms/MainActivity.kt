@@ -43,6 +43,7 @@ import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
+import com.edenpractical.comms.pairing.LocalPairingTestScreen
 import com.edenpractical.comms.security.PairingInviteCodec
 import com.edenpractical.comms.transport.LanTlsProbe
 import com.edenpractical.comms.transport.WifiLanEndpoint
@@ -179,7 +180,8 @@ private fun EdenCommsApp() {
                                 onHelp = { navigate("help") }
                             )
                             "connect" -> NearbyScreen(onLocalWifi = { navigate("wifi") })
-                            "wifi" -> LocalWifiScreen()
+                            "wifi" -> LocalWifiScreen(onTryPairing = { navigate("pairing-test") })
+                            "pairing-test" -> LocalPairingTestScreen()
                             "ptt" -> PushToTalkScreen()
                             "settings" -> SettingsScreen(
                                 darkMode = darkMode,
@@ -215,6 +217,7 @@ private fun EdenCommsApp() {
 private fun titleForPage(page: String): String = when (page) {
     "connect" -> "Connect nearby"
     "wifi" -> "Local Wi-Fi"
+    "pairing-test" -> "QR connection test"
     "ptt" -> "Voice / PTT"
     "settings" -> "Settings"
     "developer" -> "Developer tools"
@@ -385,7 +388,7 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
 }
 
 @Composable
-private fun LocalWifiScreen() {
+private fun LocalWifiScreen(onTryPairing: () -> Unit) {
     FieldSectionHeader("LOCAL WI-FI", "Connect two phones")
     FieldFrame(accent = true) {
         Image(
@@ -422,8 +425,14 @@ private fun LocalWifiScreen() {
             ) { Text("JOIN") }
         }
     }
+    Button(
+        onClick = onTryPairing,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        shape = CutCornerShape(7.dp)
+    ) { Text("TEST QR PAIRING") }
     Text(
-        "Coming next: show or scan a QR code, confirm the other phone, then connect.",
+        "Development test: two in-person QR scans, then a TLS 1.3 check. " +
+            "Text and voice are still disabled.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )

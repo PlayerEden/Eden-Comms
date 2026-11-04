@@ -48,6 +48,12 @@ class NavigationHistoryTest {
         assertEquals(listOf("home"), NavigationHistory.pop(route))
     }
 
+    @Test fun pairingTestReturnsToWifiThenConnectionChoice() {
+        val history = listOf("home", "connect", "wifi", "pairing-test")
+        assertEquals("wifi", NavigationHistory.pop(history).last())
+        assertEquals("connect", NavigationHistory.pop(NavigationHistory.pop(history)).last())
+    }
+
     @Test fun screensPreserveOrderForSaveableHistory() {
         val stack = NavigationHistory.push(
             NavigationHistory.push(listOf("home"), "connect"), "settings"
