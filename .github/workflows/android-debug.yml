@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - main
-      - planning/**
-      - feat/**
   pull_request:
   workflow_dispatch:
 
