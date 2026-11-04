@@ -37,13 +37,15 @@ class LanProbeDiagnosticsTest {
         )
         assertEquals(LanProbeDiagnostics.Code.HOST_NOT_ACCEPTING, failure.code)
         assertFalse(failure.display().contains("SECRET"))
-        assert(failure.display().contains("Start listening"))
+        assert(failure.display().contains("Complete both QR scans"))
+        assertFalse(failure.display().contains("Start listening"))
     }
 
     @Test fun hostWaitTimeoutHasSpecificInstruction() {
         val failure = d.classify(LanProbeDiagnostics.Step.WAIT_FOR_PEER, SocketTimeoutException())
         assertEquals(LanProbeDiagnostics.Code.HOST_WAIT_TIMEOUT, failure.code)
-        assert(failure.display().contains("Start listening first"))
+        assert(failure.display().contains("Keep both apps open"))
+        assertFalse(failure.display().contains("Start listening"))
     }
 
     @Test fun certificateFailureOverridesGenericTlsFailure() {
