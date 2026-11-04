@@ -249,10 +249,13 @@ internal fun LocalPairingTestScreen() {
             if (event == Lifecycle.Event.ON_STOP &&
                 stage !in listOf("checking", "choose", "result", "identityError")
             ) {
+                val hadConnected = stage == "demo"
                 stopTest()
-                passed = false
-                details = "The app left the screen, so the connection test was cancelled."
-                status = "Connection cancelled. Start again when both phones are ready."
+                testLines.clear()
+                passed = hadConnected
+                details = "The app went into the background, closing the local test socket."
+                status = if (hadConnected) "Test connection ended when the app left the screen."
+                    else "Connection cancelled. Start again when both phones are ready."
                 stage = "result"
             }
         }
