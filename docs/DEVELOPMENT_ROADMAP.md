@@ -1,6 +1,28 @@
 # Eden Comms — Development Roadmap v0.1
 Status: proposal. **Do not implement all planned features at once.** Small mergeable steps, demonstrable Android APKs, security checkpoints, and rollbackable releases.
 
+## Priority decision: reliable offline-local communication first (2026-11-03)
+**Ship the local foundation before working on remote internet communication, relays or long-range radio.** Prioritize **one** dependable local transport rather than partially implementing three. Recommended first: two phones on the same Wi-Fi/LAN using a router **with its WAN/internet connection physically disconnected**; actual router Wi-Fi remains on. A hotspot or direct link can be added after this path works. Bluetooth Classic can be an alternative first transport if LAN proves impractical, but is otherwise a follow-up, not a simultaneous blocker.
+
+### Narrow vertical-slice order
+1. Establish locally protected device identity and authenticated **mutual TLS 1.3** handshake; no trust-all certificates, no plaintext fallback, no independent message transmission before authentication and user verification.
+2. Implement the **real LAN connection**: host and join via local discovery or explicitly selected peer, with consent on both phones, cancellation/timeouts and understandable failure states. Internet/WAN must not be required.
+3. Connect the existing framing and in-memory message state to the authenticated channel. Demonstrate one text message each way, acknowledgment and disconnect. **Session-only** is default with no intentional persistent chat transcript.
+4. Run a focused **two-phone test** with internet disabled at the router, cellular data disabled on both phones, and no cloud account; test peer swap/MITM, wrong pins, dropped connection and unexpected network requests.
+5. Fix reliability, low-memory/low-battery behavior and confusing UI before introducing a second transport. Test APKs stay development builds, not full public releases.
+
+### First genuinely useful APK acceptance gate
+- Two Android phones can establish a user-approved, authenticated encrypted session on the same local Wi-Fi.
+- Both can exchange short text **with the router's internet/WAN disconnected**; no cloud service, cellular data or account required.
+- A wrong/unverified peer cannot read or exchange application messages; peer verification and transport errors fail closed.
+- The chat screen indicates the real connection/verification status, not a simulated success.
+- Disconnect closes the channel, stops discovery and clears session-only messages from app-managed memory where possible.
+- Basic crash/reconnect/radio-off tests pass, with at least one pair of real phones and a trace showing no external service dependency.
+- Provide an **internal debug APK** for tester feedback. Independent security review is still required before public security promises or a production release.
+
+### Explicitly deferred
+**Different internet connections / remote P2P, STUN/TURN relays, hosted services, VPN convenience integration, LoRa hardware, group chat and voice** are deferred until the core offline local build works reliably. Bluetooth and Wi-Fi Direct remain important nearby options, but not prerequisites for the first LAN text success.
+
 ## Platform and implementation approach
 - Android first; native **Kotlin + Jetpack Compose** UI and Android connectivity APIs.
 - Shared core message envelope, peer identity, authenticated session, and message handling; transports plug in via interface rather than duplicating crypto.
