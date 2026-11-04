@@ -35,6 +35,16 @@ Each region can be configured independently via Play Console **Test and release 
 - [ ] **Manual** SDK/vendor data-processing + transitive license/vulnerability assessment, real-device network capture and OS backup/transfer verification. Automated static evidence **cannot** establish zero SDK collection or complete Data safety declarations.
 - [ ] Create and verify a public app-specific privacy policy URL, clear in-app policy link, publisher support information, Data safety review and legal sign-offs when those facts are ready. Do **not** invent URLs or claim done.
 
+## L1 — user-facing privacy transparency (2026-11-04)
+
+- [x] Implement an offline **Privacy & data** preview explainer accessible through both Settings and How it works, with accurate statements about temporary pairing, public QR identity/IP, persistent Android Keystore key, theme preference, temporary test phrases, requested permissions and limitations.
+- [x] Add JVM checks for the text (development-only status, no unsupported claims) and app navigation wiring. See `app/src/main/java/com/edenpractical/comms/privacy/PrivacyPreviewContent.kt`.
+- [x] Draft a publisher-specific *working policy document* with explicit missing facts at `docs/drafts/EDEN_COMMS_PRIVACY_POLICY_WORKING_DRAFT.md`. This draft is **not** the governing policy and is not linked as an active URL.
+- [ ] Verify exact publisher legal name/Play listing identity, monitored privacy inquiry contact and support mechanisms; do not invent personal addresses.
+- [ ] Perform manual vendor and runtime processing review; finalize the actual **release** capabilities, retention and third-party disclosures.
+- [ ] Obtain region-specific counsel review as required; create a stable public HTTPS non-editable policy webpage, globally accessible without login or geofence. Verify its contents and effective date.
+- [ ] Add the validated **same** policy URL inside the app and to the Play Console listing. Check the final Data safety answers. Only then mark privacy-policy requirement ready.
+
 ## Legal research checklist — not a substitute for counsel
 
 ### United States / export compliance
