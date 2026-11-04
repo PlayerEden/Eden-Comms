@@ -188,6 +188,9 @@ internal fun LocalPairingTestScreen() {
                             stage = "demo"
                         }
                         LanDemoSession.Phase.SENT, LanDemoSession.Phase.RECEIVED -> {
+                            // Events from writer and reader threads can be queued
+                            // around disconnect. Never resurrect an ended transcript.
+                            if (stage != "demo") return@post
                             val phrase = event.phraseId?.let(TestPacketCodec::phrase)
                             if (phrase != null) {
                                 val fromThisPhone = event.phase == LanDemoSession.Phase.SENT
