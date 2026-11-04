@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -33,6 +34,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +50,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.model.ConnectionMethod
 import com.edenpractical.comms.model.ReleaseCapabilities
+import com.edenpractical.comms.security.AndroidKeystoreIdentity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Night = Color(0xFF0F1B24)
 private val NightPanel = Color(0xFF192D3A)
@@ -124,7 +131,8 @@ private fun EdenCommsApp() {
                         onSettings = { page = "settings" },
                         onHelp = { page = "help" }
                     )
-                    "connect" -> Connect()
+                    "connect" -> Connect(onIdentity = { page = "identity" })
+                    "identity" -> DeviceIdentitySetup()
                     "settings" -> Settings(
                         darkMode = darkMode,
                         onDarkModeChange = {
@@ -237,7 +245,7 @@ private fun Home(
 }
 
 @Composable
-private fun Connect() {
+private fun Connect(onIdentity: () -> Unit) {
     Panel(
         title = "Connect nearby",
         detail = "Connection services will arrive in M1–M3. This screen is informational in M0."
@@ -248,6 +256,11 @@ private fun Connect() {
             "We won't offer a fake connect button or claim a secure link before it exists.",
             style = MaterialTheme.typography.bodyMedium
         )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            onClick = onIdentity
+        ) { Text("Set up local device identity") }
     }
     ConnectionMethod.entries.forEach { method ->
         Panel(title = method.displayName, detail = method.simpleDescription) {
@@ -257,6 +270,115 @@ private fun Connect() {
                 style = MaterialTheme.typography.labelMedium
             )
         }
+    }
+}
+
+@Composable
+private fun DeviceIdentitySetup() {
+    // No identity is created at app startup. Reading existing public
+    // identity state and key generation happen off the UI thread.
+    val repository = remember { AndroidKeystoreIdentity() }
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var fingerprint by remember { mutableStateOf<String?>(null) }
+    var status by remember { mutableStateOf("Checking this phone…") }
+    var confirmForget by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        busy = true
+        try {
+            fingerprint = withContext(Dispatchers.IO) {
+                repository.existing()?.fingerprintDisplay()
+            }
+            status = if (fingerprint == null) "No identity created on this phone."
+                else "Local public identity is ready. No connection is active."
+        } catch (_: Exception) {
+            status = "Could not inspect Android Keystore. No network connection was attempted."
+        } finally {
+            busy = false
+        }
+    }
+
+    Panel(
+        title = "Local device identity",
+        detail = "Required before secure nearby connections. Created only if you choose."
+    ) {
+        StatusLabel("OFFLINE • NOT CONNECTED")
+        Spacer(Modifier.height(12.dp))
+        Text(status, style = MaterialTheme.typography.bodyMedium)
+        if (fingerprint != null) {
+            Spacer(Modifier.height(10.dp))
+            Text("Public certificate fingerprint", style = MaterialTheme.typography.labelMedium)
+            Text(
+                fingerprint ?: "",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                "This identifies your local key, not a verified other person. QR pairing and LAN are still being built.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            Spacer(Modifier.height(10.dp))
+            Button(
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = !busy,
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        try {
+                            val display = withContext(Dispatchers.IO) {
+                                repository.createWithConsent().fingerprintDisplay()
+                            }
+                            fingerprint = display
+                            status = "Local identity created. No connection is active."
+                        } catch (_: Exception) {
+                            status = "Identity creation failed on this device. No connection was enabled."
+                        } finally {
+                            busy = false
+                        }
+                    }
+                }
+            ) { Text(if (busy) "Working…" else "Create local identity") }
+        }
+        if (fingerprint != null) {
+            Spacer(Modifier.height(10.dp))
+            TextButton(
+                enabled = !busy,
+                onClick = { confirmForget = true }
+            ) { Text("Forget this identity") }
+        }
+    }
+
+    if (confirmForget) {
+        AlertDialog(
+            onDismissRequest = { confirmForget = false },
+            title = { Text("Forget local identity?") },
+            text = {
+                Text(
+                    "Other phones will no longer recognize this identity. You'll need to pair again. This does not erase messages on other phones."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmForget = false
+                    scope.launch {
+                        busy = true
+                        try {
+                            withContext(Dispatchers.IO) { repository.forgetWithConsent() }
+                            fingerprint = null
+                            status = "Local identity forgotten."
+                        } catch (_: Exception) {
+                            status = "Android Keystore could not remove the identity."
+                        } finally {
+                            busy = false
+                        }
+                    }
+                }) { Text("Forget identity") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmForget = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
