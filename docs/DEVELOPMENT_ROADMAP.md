@@ -35,6 +35,8 @@
 
 **Stop rule:** No production publication, public security claims, unrestricted messaging or PTT simply because CI succeeds. Legal scope, device QA and crypto verification must be separately accepted. Play policies and laws can change: recheck official requirements before each country's launch.
 
+> **M2g v0.2.11 channel-binding compatibility diagnostic:** After the existing debug-only two-QR/mutual TLS1.3 session proof, the app now attempts Android's standardized RFC 9266 TLS exporter on API31+ *only to report a local support status* on the fixed-phrase test screen. It never stores/displays/transmits the 32-byte output, changes no wire packets or user-message/voice flags, and **does not implement consent or confirm both phones match**. JVM preflight/negative tests and CI audit boundary added. Real two-phone capability QA and independent reviewed approval protocol remain pending; Android API26–30 may still install but cannot use this standard Android exporter. See `docs/M2G_TLS_EXPORTER_COMPATIBILITY_DIAGNOSTIC.md`.
+
 ## Current next steps — ordered by security and real-device evidence
 
 1. **Finish M2b physical evidence.** Confirm success on both screens for v0.2.3; repeat with router WAN disabled; test invalid/stale QRs, wrong identities, network loss, cancellation and older-device behavior. Capture only sanitized outcomes, no live QR/IPs.
