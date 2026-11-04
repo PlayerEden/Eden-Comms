@@ -36,6 +36,18 @@ class NavigationHistoryTest {
         assertEquals(listOf("home"), NavigationHistory.pop(emptyList()))
     }
 
+    @Test fun nearbyWifiScreenReturnsToConnectionMethods() {
+        var route = listOf("home")
+        route = NavigationHistory.push(route, "connect")
+        route = NavigationHistory.push(route, "wifi")
+        assertEquals("connect", NavigationHistory.pop(route).last())
+    }
+
+    @Test fun pushToTalkPreviewReturnsHomeWithoutEnablingMessaging() {
+        val route = NavigationHistory.push(listOf("home"), "ptt")
+        assertEquals(listOf("home"), NavigationHistory.pop(route))
+    }
+
     @Test fun screensPreserveOrderForSaveableHistory() {
         val stack = NavigationHistory.push(
             NavigationHistory.push(listOf("home"), "connect"), "settings"
