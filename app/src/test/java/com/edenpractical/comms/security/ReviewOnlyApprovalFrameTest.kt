@@ -46,10 +46,10 @@ class ReviewOnlyApprovalFrameTest {
 
     @Test fun senderRoleAndChannelTranscriptMustBothMatch() {
         val packet = frame.packet(frame.Decision.APPROVE, frame.Role.JOINER, sessionA)
-        assertTrue(packet.matchesExpected(frame.Role.JOINER, sessionA))
-        assertFalse(packet.matchesExpected(frame.Role.PRESENTER, sessionA))
-        assertFalse(packet.matchesExpected(frame.Role.JOINER, sessionB))
-        assertFalse(packet.matchesExpected(frame.Role.JOINER, ByteArray(1)))
+        assertTrue(packet.matchesExpectedApprovalProposal(frame.Role.JOINER, sessionA))
+        assertFalse(packet.matchesExpectedApprovalProposal(frame.Role.PRESENTER, sessionA))
+        assertFalse(packet.matchesExpectedApprovalProposal(frame.Role.JOINER, sessionB))
+        assertFalse(packet.matchesExpectedApprovalProposal(frame.Role.JOINER, ByteArray(1)))
     }
 
     @Test fun inputAndReturnedCommitmentArraysCannotModifyPacket() {
@@ -58,7 +58,7 @@ class ReviewOnlyApprovalFrameTest {
         userInput.fill(0)
         val returned = packet.commitment
         returned.fill(0)
-        assertTrue(packet.matchesExpected(frame.Role.PRESENTER, sessionA))
+        assertTrue(packet.matchesExpectedApprovalProposal(frame.Role.PRESENTER, sessionA))
         assertArrayEquals(sessionA, frame.decode(frame.encode(packet)).commitment)
     }
 
@@ -66,5 +66,6 @@ class ReviewOnlyApprovalFrameTest {
         val decline = frame.packet(frame.Decision.DECLINE, frame.Role.JOINER, sessionA)
         assertEquals(frame.Decision.DECLINE, frame.decode(frame.encode(decline)).decision)
         assertFalse(frame.decode(frame.encode(decline)).decision == frame.Decision.APPROVE)
+        assertFalse(decline.matchesExpectedApprovalProposal(frame.Role.JOINER, sessionA))
     }
 }
