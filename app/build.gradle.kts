@@ -15,8 +15,8 @@ android {
         applicationId = "com.edenpractical.comms"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.2.7-audit-hardening"
+        versionCode = 7
+        versionName = "0.2.8-session-policy-only"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
