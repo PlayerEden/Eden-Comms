@@ -16,6 +16,21 @@
 
 > **Previous failure history:** Initial two-phone test: generic failure → `PEER-UNREACHABLE` → `TLS-HANDSHAKE-FAILED` on a Galaxy A32 5G / Android 13. The v2 Keystore repair was a plausible signing-interop fix, not proof of root cause. Preserve this history for regressions.
 
+## Google Play / North America launch track — starts now, mandatory before release
+
+**Goal:** Publish Eden Comms on Google Play when the app and security are ready, with a **staged North American rollout: U.S. first, Canada second, Mexico third** (rather than committing to simultaneous publication). This is an explicit product goal, **not a claim that any country is launch-cleared**. Other countries/territories need separate eligibility and legal checks.
+
+**Living checklist:** [`docs/GOOGLE_PLAY_NORTH_AMERICA_LAUNCH_READINESS.md`](GOOGLE_PLAY_NORTH_AMERICA_LAUNCH_READINESS.md). Track this work **in parallel with** the connection/security milestones—not after code is finished.
+
+- **Start now:** Evaluate U.S. BIS encryption export classification/notification including already-public repository/APK artifacts; inventory cryptography, third-party licenses, SDK data flows, public claims, target audience, country restrictions and account/business structure. Seek appropriate qualified legal counsel for jurisdiction-specific questions.
+- **Before external beta:** Choose/verify Play developer account, privacy-policy hosting and in-app link, Data safety mapping, support contacts, intended age groups, security review plan, signed build pipeline and production test plan.
+- **Before U.S. production:** Clear independent crypto review and two-physical-phone tests; complete Play testing/eligibility, App Bundle/Play App Signing, store disclosures/content rating, API target policy, permissions, export legal assessment and staged-release/rollback readiness.
+- **Before Canada:** Evaluate PIPEDA and applicable provincial rules (including Quebec Law 25), localization/French requirements, actual data processing, and region-specific device/support QA.
+- **Before Mexico:** Evaluate the current federal private-sector data privacy law, any required Spanish notices/translations, local consumer/distribution issues, and region-specific device/support QA.
+- **After launch:** Monitor policy/law changes, compatibility, incidents, security updates, transparency, retention and license obligations. Add each country deliberately in Play Console.
+
+**Stop rule:** No production publication, public security claims, unrestricted messaging or PTT simply because CI succeeds. Legal scope, device QA and crypto verification must be separately accepted. Play policies and laws can change: recheck official requirements before each country's launch.
+
 ## Current next steps — ordered by security and real-device evidence
 
 1. **Finish M2b physical evidence.** Confirm success on both screens for v0.2.3; repeat with router WAN disabled; test invalid/stale QRs, wrong identities, network loss, cancellation and older-device behavior. Capture only sanitized outcomes, no live QR/IPs.
@@ -88,6 +103,12 @@ Status: proposal. **Do not implement all planned features at once.** Small merge
 **Gate:** verify mode semantics after process kill, restart, OS restore/transfer, update, and notification handling; no misleading deletion claims.
 **Deliverable:** EC-M5 beta APK.
 
+## Parallel milestone L — Google Play & North America legal/distribution readiness
+
+**Begins during development**, alongside M2 security and M3–M6 work; do not postpone until app-store submission. Follow the dedicated [Google Play & North America launch checklist](GOOGLE_PLAY_NORTH_AMERICA_LAUNCH_READINESS.md), including independent legal review and per-country gates. Define a U.S. production launch first, with Canada and Mexico added only after country-specific approval.
+
+**Gate:** U.S. export/Play/security/privacy and tester requirements resolved before U.S. publication; Canada/Mexico have separate documented legal, localization, support and QA sign-offs before their Play Console regions are enabled.
+
 ## Milestone M6 — Privacy/security audit and release candidate
 - Independently review authenticated key exchange, key lifecycle, replay/downgrade resistance, message framing, auth failures, transport changes, local encryption, logs and backups.
 - Static checks, dependency audit, Android permission/network audit, manual packet capture, MITM and peer spoof simulations; avoid storing sensitive material in public issue attachments.
@@ -111,6 +132,9 @@ Status: proposal. **Do not implement all planned features at once.** Small merge
 5. Implement LAN discovery/connect first; test local-only, then two phones.
 
 ## Open decisions
+
+- **Launch scope accepted as planning target:** U.S. first; Canada and Mexico conditional phases. Decide Play publisher account type (Personal/Organization), responsible legal entity, support channel, audience age bracket, free-only vs monetized, translation level and legal reviewer early.
+- Confirm that Canada and Mexico are desirable market launches after the legal/privacy assessment; Google Play country targeting is not equivalent to approval of the country's regulatory requirements.
 - Android minSdk and test devices.
 - **Resolved direction:** ephemeral/session-only peer trust by default; optional explicitly chosen, per-peer public-identity trust for up to 30 days. Implementation remains gated on verified local authentication.
 - Handling of background notifications while in a live session.
