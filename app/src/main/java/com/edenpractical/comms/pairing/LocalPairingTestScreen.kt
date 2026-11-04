@@ -84,7 +84,8 @@ internal fun LocalPairingTestScreen() {
     }
 
     fun startRole(role: String) {
-        if (loading) return
+        // The buttons are disabled while loading; continuation after explicit
+        // identity consent also needs to enter this flow before loading clears.
         pendingRole = role
         if (identity == null) {
             showIdentityConsent = true
