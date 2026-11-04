@@ -23,6 +23,8 @@ Keep choices explicit; proposed items are not locked.
 | D-018 | 2026-11-03 | Default session-only remains unchanged; no indefinite, cloud-synced or automatically backed-up chat content; no guarantees of remote deletion or provable flash erasure | Accepted security principle |
 | D-019 | 2026-11-03 | Suggested per-chat retention presets: 1 hour, 24 hours, 7 days, 14 days, 30 days; expiry measured from local first receipt/sending and never extended by rereading | Proposed UX/implementation |
 | D-020 | 2026-11-03 | Changing to a shorter TTL deletes aged local messages immediately; longer TTL never revives/extends old messages; app filters expired content before display | Proposed implementation guardrail |
+| D-021 | 2026-11-03 | Eden Comms should be lightweight by design: minimize storage, RAM, CPU, battery and network/radio use; no unnecessary always-on background service or discovery | Accepted product direction |
+| D-022 | 2026-11-03 | Optimize resources without sacrificing encryption, peer authentication, accessibility or reliability; measure overhead before publishing numeric claims | Required design constraint |
 
 The [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md) sets mandatory security/no-ship gates for all milestones. The [Data Retention and Expiry design](DATA_RETENTION_AND_EXPIRY.md) specifies the 30-day ceiling and deletion limitations.
 
