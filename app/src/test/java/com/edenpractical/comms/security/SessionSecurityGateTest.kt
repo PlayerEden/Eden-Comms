@@ -29,8 +29,10 @@ class SessionSecurityGateTest {
         assertTrue(gate.localCodeConfirmed("transcript-A"))
         assertFalse(gate.maySendMessage)
         assertTrue(gate.remoteCodeConfirmed("transcript-A"))
-        assertTrue(gate.maySendMessage)
-        assertTrue(gate.mayTransmitAudio)
+        assertTrue(gate.modelApprovalsComplete)
+        // Application-state confirmations cannot override release feature gates.
+        assertFalse(gate.maySendMessage)
+        assertFalse(gate.mayTransmitAudio)
     }
 
     @Test fun remoteConfirmationAloneDoesNotUnlock() {
@@ -65,7 +67,8 @@ class SessionSecurityGateTest {
         gate.authenticatedChannelEstablished("alice", "session-A")
         gate.localCodeConfirmed("session-A")
         gate.remoteCodeConfirmed("session-A")
-        assertTrue(gate.maySendMessage)
+        assertTrue(gate.modelApprovalsComplete)
+        assertFalse(gate.maySendMessage)
         gate.transportLost()
         assertEquals(SessionPhase.DISCONNECTED, gate.phase)
         assertFalse(gate.maySendMessage)
