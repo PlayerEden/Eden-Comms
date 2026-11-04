@@ -15,8 +15,8 @@ android {
         applicationId = "com.edenpractical.comms"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.2.9-approval-research-only"
+        versionCode = 9
+        versionName = "0.2.10-privacy-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
