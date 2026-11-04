@@ -39,10 +39,12 @@ internal object ReviewOnlyApprovalFrame {
 
         val commitment: ByteArray get() = copy.copyOf()
 
-        fun matchesExpected(
+        /** Matching a proposal is NOT a cryptographic authorization. */
+        fun matchesExpectedApprovalProposal(
             expectedRemoteRole: Role,
             expectedChannelCommitment: ByteArray
-        ): Boolean = role == expectedRemoteRole &&
+        ): Boolean = decision == Decision.APPROVE &&
+            role == expectedRemoteRole &&
             expectedChannelCommitment.size == COMMITMENT_BYTES &&
             MessageDigest.isEqual(copy, expectedChannelCommitment)
     }
