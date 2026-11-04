@@ -5,6 +5,7 @@ import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.security.cert.CertificateException
+import java.security.InvalidKeyException
 import javax.net.ssl.SSLHandshakeException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -69,6 +70,15 @@ class LanProbeDiagnosticsTest {
             d.classify(LanProbeDiagnostics.Step.TLS_SETUP, IllegalStateException("keystore secret")).code)
         assertFalse(d.classify(LanProbeDiagnostics.Step.TLS_SETUP, IllegalStateException("keystore secret"))
             .display().contains("keystore secret"))
+    }
+
+    @Test fun failedLocalSigningIsDistinctFromGeneralTlsNegotiation() {
+        val tls = SSLHandshakeException("sensitive key alias")
+        tls.initCause(InvalidKeyException("SECRET-PRIVATE-KEY"))
+        val failure = d.classify(LanProbeDiagnostics.Step.TLS_HANDSHAKE, tls)
+        assertEquals(LanProbeDiagnostics.Code.LOCAL_SIGNING_FAILED, failure.code)
+        assertFalse(failure.display().contains("SECRET"))
+        assertFalse(failure.display().contains("alias"))
     }
 
     @Test fun timeoutDuringHandshakeIsNotMislabeledAsHostTimeout() {

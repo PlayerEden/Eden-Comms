@@ -1,5 +1,7 @@
 # Eden Comms — Development Roadmap v0.1
 
+> **Compatibility / security checkpoint — November 4, 2026:** Physical Android 13 Galaxy A32 5G pairing advanced from TCP reachability problems to **TLS-HANDSHAKE-FAILED**. This is a development failure, **not** evidence that Android 13 is too old. Research points to a possible Keystore digest-permission interop issue: v1 keys authorized only SHA-256, whereas Android TLS key usage may request DIGEST_NONE. M2c implements explicitly consented v2 identity replacement (never automatic), raw-signature authorization and more precise but private failure categories. Next: actual two-phone retest; no communications features enabled. See `docs/ANDROID_DEVICE_COMPATIBILITY_RESEARCH_2026-11.md`.
+
 > **Active checkpoint — November 4, 2026:** The roadmap below is the original broad plan. Actual work is now at the **two-phone QR / pinned TLS test**. The Android app, native visual baseline, opt-in Keystore identity, and in-app QR exchange are built; the user's two-phone attempt reported **Secure LAN test failed**. A successful authenticated encrypted connection has **not** yet been demonstrated, and text/PTT are disabled. GitHub PRs are stacked and unmerged; review/merge bottom-up once milestones pass.
 
 ## Current next steps — ordered by security and real-device evidence

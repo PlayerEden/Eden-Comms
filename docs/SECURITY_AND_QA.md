@@ -8,6 +8,16 @@ We **do not** promise to hide that radios/devices are communicating, prevent IP/
 
 A shared LAN router can observe network metadata even if message contents are end-to-end encrypted. Android/Google/OEM system services may continue their own networking independently of Eden Comms. `INTERNET` permission may be necessary for Android local TCP sockets, even if the app never calls an internet endpoint.
 
+## Android Keystore / compatibility policy
+
+- A real Android 13 physical test reached **TLS-HANDSHAKE-FAILED** after network connectivity improved. Treat as unresolved TLS interop, not as proof that the handset is outdated.
+- Android guidance: TLS authentication keys may need `DIGEST_NONE`, whereas our earlier local EC identity authorized only SHA-256. Versioned new identities are configured for `DIGEST_SHA256` (valid self-signed certificate) and `DIGEST_NONE` (raw ECDSA for TLS provider) and need real-device verification.
+- Existing v1 identity is **never silently overwritten**. Explicit, user-confirmed upgrade generates/validates v2 before deleting v1; saved remote pins/previous QRs become invalid and require fresh in-person verification. No contacts, phone serial, IMEI or private-key bytes are stored.
+- Continue requiring pinned TLS 1.3 on each side; do not downgrade for Android 8–9 without a separately reviewed provider/protocol. Android 10+ is an initial communication target, not a verified support guarantee.
+- Keystore algorithm authorization is a prerequisite only, **not proof of a successful TLS handshake**. Share safe categorical errors, never raw SSL exception messages or key material.
+
+Research and QA matrix: `docs/ANDROID_DEVICE_COMPATIBILITY_RESEARCH_2026-11.md`.
+
 ## Non-negotiable security requirements
 - End-to-end encryption of application messages, attachment data and audio over **every** transport.
 - Authenticated peer verification with QR or short authentication string; state plainly when a connection is not yet verified. No silent MITM acceptance.

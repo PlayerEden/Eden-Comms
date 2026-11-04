@@ -4,6 +4,8 @@ import java.net.BindException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
+import java.security.InvalidKeyException
+import java.security.SignatureException
 import java.security.cert.CertificateException
 import javax.net.ssl.SSLException
 import javax.net.ssl.SSLHandshakeException
@@ -32,6 +34,7 @@ internal object LanProbeDiagnostics {
         CONNECT_TIMEOUT,
         HANDSHAKE_TIMEOUT,
         CERTIFICATE_REJECTED,
+        LOCAL_SIGNING_FAILED,
         TLS_HANDSHAKE_FAILED,
         CONNECTION_DROPPED,
         UNKNOWN
@@ -56,6 +59,10 @@ internal object LanProbeDiagnostics {
             has(SocketTimeoutException::class.java) && step == Step.TCP_CONNECT ->
                 Code.CONNECT_TIMEOUT
             has(SocketTimeoutException::class.java) -> Code.HANDSHAKE_TIMEOUT
+            step == Step.TLS_HANDSHAKE && (
+                has(InvalidKeyException::class.java) ||
+                has(SignatureException::class.java)
+            ) -> Code.LOCAL_SIGNING_FAILED
             has(SSLHandshakeException::class.java) || has(SSLException::class.java) ->
                 Code.TLS_HANDSHAKE_FAILED
             step == Step.WIFI -> Code.WIFI_UNAVAILABLE
@@ -79,6 +86,7 @@ internal object LanProbeDiagnostics {
             Code.CONNECT_TIMEOUT -> "The connection timed out. Check that both phones share Wi-Fi and the host is listening."
             Code.HANDSHAKE_TIMEOUT -> "The encrypted handshake timed out. Try again with both screens open."
             Code.CERTIFICATE_REJECTED -> "The expected device identity wasn't verified. Start a new pairing; never bypass verification."
+            Code.LOCAL_SIGNING_FAILED -> "This phone's private key couldn't complete the TLS signature. Check the device identity's signing permissions in the QR test."
             Code.TLS_HANDSHAKE_FAILED -> "TLS couldn't authenticate the connection. A device compatibility or identity issue needs investigation."
             Code.CONNECTION_DROPPED -> "The connection stopped during authentication. Retry with both screens open."
             Code.UNKNOWN -> "The connection test couldn't finish. No messages or audio were sent."

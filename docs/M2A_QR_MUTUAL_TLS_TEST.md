@@ -27,6 +27,14 @@ Screenshots show the Host QR but do not establish that the Host scanned the repl
 - Observe and record the Host and Join status codes independently. If Host says **LISTEN-UNAVAILABLE**, inspect binding; if Join says **HOST-NOT-ACCEPTING**, ensure the Host is still listening; if **NETWORK-UNREACHABLE** or timeout, inspect Wi-Fi isolation/routing; if handshake error appears, only then investigate TLS identity.
 - No real text or audio is enabled. No diagnostics containing raw IPs, QR payloads or fingerprints should be shared publicly. Because QR contains a time-limited network address and public identity data, avoid posting live QR screenshots.
 
+## Third physical test — November 4, 2026: TLS handshake failed
+
+Following connection listener/timing corrections, user tested with a **Samsung Galaxy A32 5G running Android 13** and another Android phone; at least one phone reported `TLS-HANDSHAKE-FAILED`. That is evidence the test reached TLS negotiation; **it is NOT evidence of completed authentication or secure messaging**. The exact failure cause remains unconfirmed.
+
+Android docs describe `DIGEST_NONE` as usually necessary for Keystore keys used by TLS/SSL signing. Our v1 EC key allowed only SHA-256, so test a new explicitly approved **v2 dual-digest identity** (SHA-256 + NONE), with new public fingerprint and new QR scans. Do **not** silently rotate or weaken pins. Source: https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder
+
+The new app must classify identity signing failures privately; then test **both phones** and document sanitized results. A valid Android 13 TLS 1.3 provider exists, so an older handset is not the presumed cause. Full details: `docs/ANDROID_DEVICE_COMPATIBILITY_RESEARCH_2026-11.md`.
+
 ## Why two scans?
 A single host QR gives the joiner the **host's** exact certificate identity but does not independently authenticate the **joiner's** identity to the host. To avoid an unverified or trust-all TLS state, we initially require an explicit *second in-person QR*, shown on the joiner's phone and scanned by the host. That supplies the joiner's exact full fingerprint and binds the response to the host's fresh session nonce.
 

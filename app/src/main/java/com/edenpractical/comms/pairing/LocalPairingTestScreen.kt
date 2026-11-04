@@ -36,6 +36,10 @@ internal fun LocalPairingTestScreen() {
     val handler = remember { Handler(Looper.getMainLooper()) }
 
     var identity by remember { mutableStateOf<LocalTlsIdentity?>(null) }
+    var signingStatus by remember {
+        mutableStateOf(AndroidKeystoreIdentity.TlsSigningStatus.NOT_CREATED)
+    }
+    var showUpgradeConfirmation by remember { mutableStateOf(false) }
     var wifi by remember { mutableStateOf<WifiLanEndpoint.Link?>(null) }
     var stage by remember { mutableStateOf("checking") }
     var status by remember { mutableStateOf("Checking this phone…") }
@@ -55,10 +59,15 @@ internal fun LocalPairingTestScreen() {
     LaunchedEffect(Unit) {
         try {
             val available = withContext(Dispatchers.IO) {
-                Pair(repository.existing(), WifiLanEndpoint.current(context))
+                Triple(
+                    repository.existing(),
+                    WifiLanEndpoint.current(context),
+                    repository.tlsSigningStatus()
+                )
             }
             identity = available.first
             wifi = available.second
+            signingStatus = available.third
             stage = "choose"
             status = if (available.second == null) "Connect both phones to the same Wi-Fi."
                 else if (available.first == null) "Create this phone's identity to begin."
@@ -145,10 +154,12 @@ internal fun LocalPairingTestScreen() {
                         scope.launch {
                             loading = true
                             try {
-                                identity = withContext(Dispatchers.IO) {
-                                    repository.createWithConsent()
+                                val details = withContext(Dispatchers.IO) {
+                                    Pair(repository.createWithConsent(), repository.tlsSigningStatus())
                                 }
-                                status = "Identity ready on this phone. Choose Host or Join."
+                                identity = details.first
+                                signingStatus = details.second
+                                status = "Identity ready. Choose Host or Join."
                             } catch (_: Exception) {
                                 status = "Identity creation failed on this phone."
                             } finally {
@@ -159,7 +170,31 @@ internal fun LocalPairingTestScreen() {
                 ) { Text("Create device identity") }
             }
 
-            if (stage == "choose" && identity != null) {
+            if (stage == "choose" && identity != null &&
+                signingStatus == AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY
+            ) {
+                Text(
+                    "This phone has an older test identity. Android may need a different " +
+                        "signing permission to complete TLS. Update it before pairing again.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Button(
+                    enabled = !loading,
+                    onClick = { showUpgradeConfirmation = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                ) { Text("Update this phone's identity") }
+            }
+
+            if (stage == "choose" && identity != null &&
+                signingStatus != AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY
+            ) {
+                if (signingStatus == AndroidKeystoreIdentity.TlsSigningStatus.INSPECTION_UNAVAILABLE) {
+                    Text(
+                        "This phone couldn't report its signing permissions. " +
+                            "TLS will still have to authenticate successfully.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         enabled = wifi != null && !loading,
@@ -308,6 +343,50 @@ internal fun LocalPairingTestScreen() {
                 "Messaging and Voice / PTT remain disabled until full security testing passes.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    if (showUpgradeConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showUpgradeConfirmation = false },
+            title = { Text("Update this phone's identity?") },
+            text = {
+                Text(
+                    "This creates a new Android Keystore identity with TLS-compatible " +
+                        "signing permissions. The old identity is replaced only after " +
+                        "the new one is verified. Both phones must scan fresh QR codes. " +
+                        "Any old pairing fingerprints will no longer match."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUpgradeConfirmation = false
+                        scope.launch {
+                            loading = true
+                            try {
+                                val result = withContext(Dispatchers.IO) {
+                                    Pair(
+                                        repository.upgradeLegacyWithConsent(),
+                                        repository.tlsSigningStatus()
+                                    )
+                                }
+                                identity = result.first
+                                signingStatus = result.second
+                                reset()
+                                status = "New identity ready. Restart the QR exchange on both phones."
+                            } catch (_: Exception) {
+                                status = "Identity update failed. The original identity should still be available."
+                            } finally {
+                                loading = false
+                            }
+                        }
+                    }
+                ) { Text("Update identity") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUpgradeConfirmation = false }) { Text("Cancel") }
+            }
         )
     }
 }
