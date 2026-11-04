@@ -411,6 +411,14 @@ internal fun LocalPairingTestScreen() {
                     Text("Only predefined test phrases are available. No personal messages, voice, or saved history.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Status describes THIS phone only. The RFC exporter output is
+                    // never displayed/transmitted; this is not bilateral approval.
+                    Text(details,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Channel-binding readiness is a compatibility check only — not consent or a released messenger.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Sent from here: $sentCount  •  Received here: $receivedCount",
                         style = MaterialTheme.typography.labelMedium)
                     if (testLines.isEmpty()) {
