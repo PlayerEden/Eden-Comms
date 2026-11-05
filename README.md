@@ -51,6 +51,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [Consolidated two-phone test worksheet (NOT TESTED)](docs/M2K_BATCH_PHONE_QA_WORKSHEET.md)
 - [Internal signed test APK setup, safety and human gate](docs/M2L_INTERNAL_TEST_SIGNING.md)
 - [Current development batch plan (code vs future hardware/security gates)](docs/NO_PHONE_DEVELOPMENT_BATCH_2026_11_05.md)
+- [M2o transport-neutral lifecycle groundwork — status model only, unwired](docs/M2O_TRANSPORT_NEUTRAL_LIFECYCLE.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
