@@ -46,8 +46,6 @@ internal class LanDemoSession(
         private const val CONNECT_TIMEOUT_MS = 7_000
         private const val AUTH_TIMEOUT_MS = 15_000
         private const val HEARTBEAT_MS = 8_000L
-        private const val PEER_SILENCE_MS = 32_000L
-        private const val MAX_DEMO_SESSION_MS = 10 * 60_000L
     }
 
     init {
@@ -269,8 +267,11 @@ internal class LanDemoSession(
                 close()
                 return@scheduleAtFixedRate
             }
-            if (now - connectedAtMs >= MAX_DEMO_SESSION_MS ||
-                now - lastReceivedMs > PEER_SILENCE_MS
+            if (DemoSessionLivenessPolicy.endReason(
+                    nowMs = now,
+                    startedMs = connectedAtMs,
+                    lastReceivedMs = lastReceivedMs
+                ) != null
             ) {
                 emitTerminal(Phase.ENDED, "The test session ended or the peer stopped responding.")
                 close()
