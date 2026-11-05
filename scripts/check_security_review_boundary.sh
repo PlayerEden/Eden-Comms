@@ -155,7 +155,7 @@ fi
 SECURITY="$MAIN/com/edenpractical/comms/security"
 test -f "$SECURITY/DebugTlsChannelAgreement.kt"
 test -f "$SECURITY/DebugExporterBindingFrame.kt"
-if ! grep -Fq 'DebugTlsChannelAgreement.verify(socket, isPresenter = isHost)' \
+if ! grep -Fq 'debugConsentCommitment = DebugTlsChannelAgreement.verify(' \
   "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt"; then
   echo "FAIL: debug test no longer verifies matching TLS exporter before READY" >&2
   exit 1
@@ -178,4 +178,29 @@ if grep -REn --include='*.kt' \
   exit 1
 fi
 
-echo "PASS: M2w RFC9266 comparison stays debug-only; M2v approvals test-only; chat wire unwired; release send/voice off"
+# M2x requires actual debug control packets to contain a verified, current
+# QR+challenge+TLS-exporter transcript commitment. The codec cannot use the
+# legacy 3-byte generic APPROVE/DECLINE wire shape.
+CONSENT_SOURCE="$MAIN/com/edenpractical/comms/security/DebugApprovalCommitment.kt"
+TEST_CODEC="$MAIN/com/edenpractical/comms/protocol/TestPacketCodec.kt"
+DEBUG_LAN="$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt"
+test -f "$CONSENT_SOURCE"
+grep -Fq 'val sessionCommitment: List<Byte>' "$TEST_CODEC"
+grep -Fq 'COMMITMENT_BYTES = 32' "$TEST_CODEC"
+grep -Fq 'requireCurrentConsentCommitment(packet)' "$DEBUG_LAN"
+grep -Fq 'TestPacketCodec.approve(commitment)' "$DEBUG_LAN"
+grep -Fq 'TestPacketCodec.decline(commitment)' "$DEBUG_LAN"
+for SYMBOL in DebugApprovalCommitment SessionProofChallenges; do
+  for FILE in $(grep -Rl --include='*.kt' "$SYMBOL" "$MAIN" || true); do
+    case "$FILE" in
+      "$SECURITY/SessionProofExchange.kt"|\
+      "$SECURITY/DebugApprovalCommitment.kt"|\
+      "$SECURITY/DebugTlsChannelAgreement.kt"|\
+      "$DEBUG_LAN") ;;
+      *) echo "FAIL: debug consent transcript used outside approved test boundary: $FILE" >&2
+         exit 1 ;;
+    esac
+  done
+done
+
+echo "PASS: M2x approvals scoped to QR/challenges/exporter, debug-only; typed chat and release flags still off"
