@@ -22,12 +22,19 @@ The current user cannot access both phones during ordinary work hours. We can im
 - **Must be done by a human later:** generate a dedicated test signing keystore outside the repo; configure `internal-test` protected environment secrets and approval; make two manual signed runs; prove a real in-place upgrade. Until then, issue #27 **remains open**.
 - Use [M2l setup and safety documentation](M2L_INTERNAL_TEST_SIGNING.md) and [issue #27](https://github.com/PlayerEden/Eden-Comms/issues/27).
 
-## Current M2n no-phone transcript work (this branch)
+## M2n session-only debug transcript (PR #35 integrated)
 
 - The fixed-phrase UI now has an immutable, bounded **in-RAM session-only ledger**: exact known IDs only, distinct local TLS writes and local receives, at most 8 visible activity entries and no message history after End.
 - Separate event-admission checks reject stale callback generations, late READY after END and phrases before READY; full 8-bit phrase/control field negative tests add packet fuzz coverage.
 - Full technical scope and independent device/authorization gates: [M2n ledger QA](M2N_EPHEMERAL_TRANSCRIPT_EVENT_QA.md).
 - **This is not a production conversation subsystem.** Typed user messages and audio are still disabled and will require separate reviewed cryptography, authorization and real hardware testing.
+
+## M2o transport-neutral lifecycle model (this isolated development PR)
+
+- Added an actual Kotlin **state-only** attempt reducer with monotonic generations and exact token identity; represents status for future LAN/Bluetooth/Wi-Fi Direct methods without creating any radio connection.
+- Rejects duplicate/out-of-order lifecycle transitions, foreign or stale callbacks and callbacks after termination. Concurrent cancellation/READY behavior and planned method metadata are covered by JVM tests.
+- There is **no** arbitrary message, packet, audio, encryption or authorization API. The reducer is intentionally **unwired to the live Android UI/transport**; CI security review-boundary checks reject accidental use in app main sources until a separate reviewed integration.
+- [M2o model and test matrix](M2O_TRANSPORT_NEUTRAL_LIFECYCLE.md). Hardware testing and real transport adapters remain pending.
 
 ## Other safe development work we can do with no phone
 

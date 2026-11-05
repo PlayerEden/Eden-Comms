@@ -54,6 +54,16 @@ for CLASS in ReviewOnlyChannelCommitment ReviewOnlyBilateralApproval; do
   fi
 done
 
+# M2o is an isolated state-only design model. It is compiled but must NOT
+# be plugged into networking, user permission prompts, or production send/audio
+# until its adapter and the authentication boundary receive separate review.
+MODEL="$MAIN/com/edenpractical/comms/transport/NearbySessionLifecycle.kt"
+test -f "$MODEL"
+if grep -RFn --include='*.kt' --exclude='NearbySessionLifecycle.kt' 'NearbySessionLifecycle' "$MAIN"; then
+  echo "FAIL: unreviewed M2o lifecycle model was wired into app code" >&2
+  exit 1
+fi
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -65,4 +75,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: M2f/M2h protocol and policy simulation remain unwired; exporter diagnostic limited to demo; release gates off"
+echo "PASS: M2f/M2h/M2o review models remain unwired; exporter diagnostic limited to demo; release gates off"
