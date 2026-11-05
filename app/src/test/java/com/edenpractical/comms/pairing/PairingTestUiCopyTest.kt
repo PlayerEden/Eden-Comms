@@ -29,13 +29,13 @@ class PairingTestUiCopyTest {
     @Test fun approvalIsASeparateStageAndMayEndAfterSuccessfulTls() {
         assertEquals("LOCAL CONNECTION • TWO-PERSON TEST APPROVAL",
             copy.progress("approval"))
-        assertEquals("Test link ended before both approvals",
+        assertEquals("Test link ended before final agreement",
             copy.resultHeading(false, tlsAndQrReady = true))
         val summary = copy.resultSummary(
             false, sent = 0, received = 0, tlsAndQrReady = true
         )
         assertTrue(summary.contains("TLS/QR/channel-binding test passed"))
-        assertTrue(summary.contains("were not observed"))
+        assertTrue(summary.contains("final two-way confirmations were not completed"))
         assertFalse(summary.contains("No personal messages"))
     }
 
