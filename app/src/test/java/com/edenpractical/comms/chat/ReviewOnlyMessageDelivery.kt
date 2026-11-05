@@ -69,10 +69,9 @@ internal class ReviewOnlyMessageDelivery {
     @Synchronized
     fun markSimulatedFailure(attempt: Attempt, id: Long): Boolean {
         if (attempt !== active || phase != Phase.SIMULATED_APPROVED) return false
-        if (messages[id] !in setOf(
-                ConversationStatusGuide.Step.QUEUED,
-                ConversationStatusGuide.Step.WRITTEN_TO_CHANNEL
-            )
+        val status = messages[id]
+        if (status != ConversationStatusGuide.Step.QUEUED &&
+            status != ConversationStatusGuide.Step.WRITTEN_TO_CHANNEL
         ) return false
         messages[id] = ConversationStatusGuide.Step.FAILED
         return true
