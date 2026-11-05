@@ -36,12 +36,19 @@ The current user cannot access both phones during ordinary work hours. We can im
 - There is **no** arbitrary message, packet, audio, encryption or authorization API. The reducer is intentionally **unwired to the live Android UI/transport**; CI security review-boundary checks reject accidental use in app main sources until a separate reviewed integration.
 - [M2o model and test matrix](M2O_TRANSPORT_NEUTRAL_LIFECYCLE.md). Hardware testing and real transport adapters remain pending.
 
-## M2p virtual transport adapter and fault-injection QA (this isolated PR)
+## M2p virtual transport adapter and fault-injection QA (PR #37 merged)
 
 - Added a **JVM-test-only** virtual adapter for the M2o lifecycle, with deterministic delayed event callbacks and explicit simulated LAN/Bluetooth/Wi-Fi Direct methods. It does **not** activate any radio or crypto.
 - Fault matrix exercises delayed READY after cancellation, same-millisecond callback ordering, early/duplicate event rejection, 90-second timeout, network failures, stale callbacks crossing attempt reset, background exit, bounded queue and seeded cancellation stress.
 - The security script forbids moving this simulator into Android `app/src/main` or referencing it from real communication paths. Both `ReleaseCapabilities` and the real network/debug-only boundaries remain unchanged.
 - [M2p fault matrix and limits](M2P_VIRTUAL_TRANSPORT_FAULT_MATRIX.md).
+
+## M2q actual debug-LAN connection stage observability (this isolated PR)
+
+- The real fixed-phrase LAN test now emits **fixed progress labels** for TLS negotiation, peer identity checking, reciprocal QR proof and the final READY exchange. UI only accepts progress for the current unfinished attempt, without implying verification was successful.
+- Disconnects and handshake failures are categorized through safe enum values: timeout vs READY rejection, Wi-Fi changes, peer silence, ten-minute session limit, malformed packets and transport interruption.
+- The per-phone opt-in QA report now includes last operation **started** and final fixed failure/end codes, never raw IPs, QR data, peer identity, messages or exception text.
+- No production text/voice or Bluetooth/Wi-Fi Direct transport was activated. See [M2q LAN status + failure QA](M2Q_LAN_STATUS_AND_FAILURE_QA.md); physical T01–T16 acceptance remains NOT TESTED.
 
 ## Other safe development work we can do with no phone
 

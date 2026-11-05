@@ -59,6 +59,25 @@ class LocalQaReportTest {
         }
     }
 
+    @Test fun fixedLanCheckpointsAndTerminalCategoriesAreOptionalAndSafe() {
+        val fail = sample(ready = false, written = 0, received = 0).copy(
+            lastCheckpoint = com.edenpractical.comms.transport.LanDemoStatus.Progress.BOTH_READY,
+            failureCode = com.edenpractical.comms.transport.LanProbeDiagnostics.Code.READY_TIMEOUT
+        )
+        val failure = LocalQaReport.format(fail)
+        assertTrue(failure.contains("Last connection operation STARTED: BOTH_READY"))
+        assertTrue(failure.contains("Handshake failure category: READY_TIMEOUT"))
+        assertTrue(failure.contains("not proof it finished successfully"))
+        assertFalse(failure.contains("SECRET-QR"))
+        val ended = sample().copy(
+            lastCheckpoint = com.edenpractical.comms.transport.LanDemoStatus.Progress.QR_PROOF,
+            endCode = com.edenpractical.comms.transport.LanDemoStatus.EndCode.WIFI_CHANGED
+        )
+        val report = LocalQaReport.format(ended)
+        assertTrue(report.contains("Connection end category: WIFI_CHANGED"))
+        assertTrue(report.contains("Handshake failure category: NOT_RECORDED"))
+    }
+
     @Test fun outcomeAndRoleAreFixedLabelsNotRawNetworkErrors() {
         for (role in LocalQaReport.Role.values()) {
             for (finish in LocalQaReport.Finish.values()) {

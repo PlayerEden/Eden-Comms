@@ -1,5 +1,8 @@
 package com.edenpractical.comms.pairing
 
+import com.edenpractical.comms.transport.LanDemoStatus
+import com.edenpractical.comms.transport.LanProbeDiagnostics
+
 /**
  * A deliberately non-sensitive, human-shareable observation of ONE PHONE'S
  * debug-only fixed-phrase test. No QR tokens, certificates, Wi-Fi addresses,
@@ -27,7 +30,10 @@ internal object LocalQaReport {
         val reachedReady: Boolean,
         val writtenToTls: Int,
         val receivedHere: Int,
-        val finish: Finish
+        val finish: Finish,
+        val lastCheckpoint: LanDemoStatus.Progress? = null,
+        val endCode: LanDemoStatus.EndCode? = null,
+        val failureCode: LanProbeDiagnostics.Code? = null
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -51,6 +57,13 @@ internal object LocalQaReport {
             "Preset phrases written to local TLS: ${observation.writtenToTls}",
             "Preset phrases received by this app: ${observation.receivedHere}",
             "Finish: ${observation.finish.label}",
+            "Last connection operation STARTED: " +
+                (observation.lastCheckpoint?.name ?: "NOT_RECORDED"),
+            "Connection end category: " +
+                (observation.endCode?.name ?: "NOT_RECORDED"),
+            "Handshake failure category: " +
+                (observation.failureCode?.name ?: "NOT_RECORDED"),
+            "An operation STARTED is not proof it finished successfully.",
             "TLS writes are NOT delivery or read receipts.",
             "Physical peer verification and no-WAN behavior require separate QA.",
             "No QR, IP, keys, identities, or phrase contents are included."

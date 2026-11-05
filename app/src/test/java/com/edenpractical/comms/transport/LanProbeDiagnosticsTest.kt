@@ -83,6 +83,24 @@ class LanProbeDiagnosticsTest {
         assertFalse(failure.display().contains("alias"))
     }
 
+    @Test fun finalReadyExchangeFailureIsDistinctFromQrProof() {
+        val timeout = d.classify(
+            LanProbeDiagnostics.Step.READY_EXCHANGE,
+            SocketTimeoutException("SECRET-READY")
+        )
+        assertEquals(LanProbeDiagnostics.Code.READY_TIMEOUT, timeout.code)
+        assertFalse(timeout.display().contains("SECRET"))
+        val unexpected = d.classify(
+            LanProbeDiagnostics.Step.READY_EXCHANGE,
+            com.edenpractical.comms.protocol.TestPacketException()
+        )
+        assertEquals(LanProbeDiagnostics.Code.READY_REJECTED, unexpected.code)
+        assertFalse(unexpected.display().contains("SECRET"))
+        assertEquals(LanProbeDiagnostics.Code.SESSION_BINDING_REJECTED,
+            d.classify(LanProbeDiagnostics.Step.SESSION_BINDING,
+                com.edenpractical.comms.protocol.TestPacketException()).code)
+    }
+
     @Test fun timeoutDuringHandshakeIsNotMislabeledAsHostTimeout() {
         assertEquals(LanProbeDiagnostics.Code.HANDSHAKE_TIMEOUT,
             d.classify(LanProbeDiagnostics.Step.TLS_HANDSHAKE, SocketTimeoutException()).code)

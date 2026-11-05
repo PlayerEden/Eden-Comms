@@ -21,7 +21,7 @@ import javax.net.ssl.SSLPeerUnverifiedException
  */
 internal object LanProbeDiagnostics {
     enum class Step {
-        WIFI, TLS_SETUP, BIND, WAIT_FOR_PEER, TCP_CONNECT, TLS_HANDSHAKE, VERIFY_PIN, SESSION_BINDING
+        WIFI, TLS_SETUP, BIND, WAIT_FOR_PEER, TCP_CONNECT, TLS_HANDSHAKE, VERIFY_PIN, SESSION_BINDING, READY_EXCHANGE
     }
 
     enum class Code {
@@ -39,6 +39,8 @@ internal object LanProbeDiagnostics {
         TLS_HANDSHAKE_FAILED,
         SESSION_BINDING_REJECTED,
         SESSION_BINDING_TIMEOUT,
+        READY_TIMEOUT,
+        READY_REJECTED,
         CONNECTION_DROPPED,
         UNKNOWN
     }
@@ -60,6 +62,8 @@ internal object LanProbeDiagnostics {
             has(SessionProofException::class.java) -> Code.SESSION_BINDING_REJECTED
             has(SocketTimeoutException::class.java) && step == Step.SESSION_BINDING ->
                 Code.SESSION_BINDING_TIMEOUT
+            has(SocketTimeoutException::class.java) && step == Step.READY_EXCHANGE ->
+                Code.READY_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.WAIT_FOR_PEER ->
                 Code.HOST_WAIT_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.TCP_CONNECT ->
@@ -78,6 +82,7 @@ internal object LanProbeDiagnostics {
             step == Step.TCP_CONNECT -> Code.PEER_UNREACHABLE
             step == Step.TLS_HANDSHAKE -> Code.CONNECTION_DROPPED
             step == Step.SESSION_BINDING -> Code.SESSION_BINDING_REJECTED
+            step == Step.READY_EXCHANGE -> Code.READY_REJECTED
             step == Step.VERIFY_PIN -> Code.CERTIFICATE_REJECTED
             else -> Code.UNKNOWN
         }
@@ -97,6 +102,8 @@ internal object LanProbeDiagnostics {
             Code.TLS_HANDSHAKE_FAILED -> "TLS couldn't authenticate the connection. A device compatibility or identity issue needs investigation."
             Code.SESSION_BINDING_REJECTED -> "Both phones did not confirm the same QR session. Start again with two fresh QR scans."
             Code.SESSION_BINDING_TIMEOUT -> "The QR session check timed out. Keep both screens open and try again."
+            Code.READY_TIMEOUT -> "The final readiness check timed out. Keep both apps open and start again with fresh codes."
+            Code.READY_REJECTED -> "The phones did not finish the same test readiness exchange. Restart both tests using fresh codes."
             Code.CONNECTION_DROPPED -> "The connection stopped during authentication. Retry with both screens open."
             Code.UNKNOWN -> "The connection test couldn't finish. No messages or audio were sent."
         }

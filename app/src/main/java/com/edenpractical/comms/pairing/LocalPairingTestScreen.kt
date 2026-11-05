@@ -28,6 +28,8 @@ import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.protocol.TestPacketCodec
+import com.edenpractical.comms.transport.LanDemoStatus
+import com.edenpractical.comms.transport.LanProbeDiagnostics
 import com.edenpractical.comms.transport.LanDemoSession
 import com.edenpractical.comms.transport.LocalIpv4Policy
 import com.edenpractical.comms.transport.WifiLanEndpoint
@@ -82,6 +84,9 @@ internal fun LocalPairingTestScreen() {
     var transcript by remember { mutableStateOf(DebugSessionTranscript.fresh()) }
     var qaRole by remember { mutableStateOf(LocalQaReport.Role.NOT_SELECTED) }
     var qaFinish by remember { mutableStateOf(LocalQaReport.Finish.NOT_RECORDED) }
+    var qaLastCheckpoint by remember { mutableStateOf<LanDemoStatus.Progress?>(null) }
+    var qaEndCode by remember { mutableStateOf<LanDemoStatus.EndCode?>(null) }
+    var qaFailureCode by remember { mutableStateOf<LanProbeDiagnostics.Code?>(null) }
     val latestProbe by rememberUpdatedState(probe)
 
     fun stopTest() {
@@ -110,6 +115,9 @@ internal fun LocalPairingTestScreen() {
         transcript = DebugSessionTranscript.fresh()
         qaRole = LocalQaReport.Role.NOT_SELECTED
         qaFinish = LocalQaReport.Finish.NOT_RECORDED
+        qaLastCheckpoint = null
+        qaEndCode = null
+        qaFailureCode = null
         pendingRole = null
         stage = "choose"
         status = "Choose how to begin."
@@ -187,6 +195,9 @@ internal fun LocalPairingTestScreen() {
             }
             stopTest()
             transcript = DebugSessionTranscript.fresh()
+            qaLastCheckpoint = null
+            qaEndCode = null
+            qaFailureCode = null
             val thisAttempt = attemptVersion
             val connection = LanDemoSession(context.applicationContext) { event ->
                 handler.post {
@@ -194,10 +205,28 @@ internal fun LocalPairingTestScreen() {
                             thisAttempt, attemptVersion
                         )) return@post
                     when (event.phase) {
-                        LanDemoSession.Phase.LISTENING -> status =
-                            "Waiting for the other phone to connect…"
-                        LanDemoSession.Phase.CONNECTING -> status =
-                            "Show your code to the other phone. Connecting automatically…"
+                        LanDemoSession.Phase.LISTENING -> {
+                            if (DebugSessionEventAdmission.canAcceptReady(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) status = "Waiting for the other phone to connect…"
+                        }
+                        LanDemoSession.Phase.CONNECTING -> {
+                            if (DebugSessionEventAdmission.canAcceptReady(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) status = "Connecting to the other phone over local Wi-Fi…"
+                        }
+                        LanDemoSession.Phase.PROGRESS -> {
+                            // These labels describe the current operation,
+                            // never a verified connection or user approval.
+                            if (DebugSessionEventAdmission.canAcceptReady(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) {
+                                event.progress?.let { progress ->
+                                    qaLastCheckpoint = progress
+                                    status = progress.display
+                                }
+                            }
+                        }
                         LanDemoSession.Phase.READY -> {
                             // A delayed READY can arrive after an END from a
                             // different socket thread. Never reopen the UI.
@@ -227,6 +256,8 @@ internal fun LocalPairingTestScreen() {
                         }
                         LanDemoSession.Phase.ENDED -> {
                             qaFinish = LocalQaReport.Finish.REMOTE_OR_LINK_STOPPED
+                            qaEndCode = event.endCode
+                            qaFailureCode = null
                             clearTemporaryPairing()
                             details = event.description
                             status = "Test connection ended."
@@ -235,6 +266,8 @@ internal fun LocalPairingTestScreen() {
                         }
                         LanDemoSession.Phase.FAILED -> {
                             qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
+                            qaFailureCode = event.failureCode
+                            qaEndCode = null
                             clearTemporaryPairing()
                             details = event.description
                             status = "Couldn't connect. Check both phones are on the same Wi-Fi."
@@ -621,7 +654,10 @@ internal fun LocalPairingTestScreen() {
                                 reachedReady = transcript.reachedReady,
                                 writtenToTls = transcript.writtenToTls,
                                 receivedHere = transcript.receivedHere,
-                                finish = qaFinish
+                                finish = qaFinish,
+                                lastCheckpoint = qaLastCheckpoint,
+                                endCode = qaEndCode,
+                                failureCode = qaFailureCode
                             )
                             try {
                                 val clipboard = context.getSystemService(
