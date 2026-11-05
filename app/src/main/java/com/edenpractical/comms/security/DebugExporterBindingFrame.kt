@@ -44,11 +44,16 @@ internal object DebugExporterBindingFrame {
             val expectedRole = if (expectedPeerIsPresenter) PRESENTER else JOINER
             if (!received.copyOfRange(0, 4).contentEquals(MAGIC) ||
                 received[4].toInt() != VERSION ||
-                received[5].toInt() != expectedRole ||
-                !MessageDigest.isEqual(
-                    received.copyOfRange(6, RECORD_BYTES), expectedLocalValue
-                )
+                received[5].toInt() != expectedRole
             ) throw DebugExporterMismatchException()
+            val peerValue = received.copyOfRange(6, RECORD_BYTES)
+            try {
+                if (!MessageDigest.isEqual(peerValue, expectedLocalValue)) {
+                    throw DebugExporterMismatchException()
+                }
+            } finally {
+                peerValue.fill(0)
+            }
         } finally {
             received.fill(0)
         }
