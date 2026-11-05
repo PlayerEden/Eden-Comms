@@ -1,0 +1,113 @@
+name: Internal signed test APK
+
+# Intentionally never runs on pull_request, pull_request_target, workflow_run or push.
+# The owner must manually start this on main, with protected environment secrets.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eden-comms-internal-test-apk
+  cancel-in-progress: false
+
+jobs:
+  internal-test:
+    name: Manually sign verified development APK
+    runs-on: ubuntu-latest
+    environment: internal-test
+    timeout-minutes: 40
+    steps:
+      - name: Guard repository, main branch and authorized actor
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "PlayerEden/Eden-Comms"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_ACTOR" = "PlayerEden"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - name: Allocate monotonically increasing internal versionCode
+        run: |
+          set -euo pipefail
+          code=$((10000 + GITHUB_RUN_NUMBER))
+          test "$code" -gt 11 && test "$code" -le 2100000000
+          echo "EDEN_INTERNAL_CODE=$code" >> "$GITHUB_ENV"
+          echo "Internal test versionCode: $code"
+      - name: Build and test without ANY signing secrets in Gradle
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug \
+            "-PedenInternalTestVersionCode=$EDEN_INTERNAL_CODE"
+      - name: Review-only security boundary
+        run: bash scripts/check_security_review_boundary.sh
+      - name: Run Play-surface and APK evidence unit tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Sign APK with protected internal-test-only identity
+        env:
+          EC_INTERNAL_KEYSTORE_BASE64: ${{ secrets.EC_INTERNAL_KEYSTORE_BASE64 }}
+          EC_INTERNAL_KEYSTORE_PASSWORD: ${{ secrets.EC_INTERNAL_KEYSTORE_PASSWORD }}
+          EC_INTERNAL_KEY_ALIAS: ${{ secrets.EC_INTERNAL_KEY_ALIAS }}
+          EC_INTERNAL_KEY_PASSWORD: ${{ secrets.EC_INTERNAL_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bash scripts/sign_internal_test_apk.sh \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/internal-test/eden-comms-internal-test.apk
+      - name: Verify exact persistent signer pin and internal APK identity
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.EC_INTERNAL_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_CERT_SHA256"
+          python3 scripts/audit_apk_identity.py \
+            --apk app/build/outputs/apk/internal-test/eden-comms-internal-test.apk \
+            --output-dir app/build/play-evidence/internal-test \
+            --internal-test-version-code "$EDEN_INTERNAL_CODE" \
+            --expected-signer-sha256 "$EXPECTED_CERT_SHA256"
+      - name: Audit signed APK permissions, backup and dependencies
+        run: |
+          set -euo pipefail
+          bash scripts/check_preview_permissions.sh \
+            app/build/outputs/apk/internal-test/eden-comms-internal-test.apk
+          python3 scripts/audit_play_surface.py \
+            --apk app/build/outputs/apk/internal-test/eden-comms-internal-test.apk \
+            --output-dir app/build/play-evidence/internal-test
+          gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath \
+            > app/build/play-evidence/internal-test/releaseRuntimeClasspath.txt
+      - name: Publish exact signed APK SHA-256
+        run: |
+          set -euo pipefail
+          cd app/build/outputs/apk/internal-test
+          sha256sum eden-comms-internal-test.apk > eden-comms-internal-test.apk.sha256
+          cat eden-comms-internal-test.apk.sha256
+      - name: Upload internal test artifact (not a Play release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: eden-comms-internal-test-${{ github.run_number }}-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/internal-test/eden-comms-internal-test.apk
+            app/build/outputs/apk/internal-test/eden-comms-internal-test.apk.sha256
+            app/build/play-evidence/internal-test/apk-identity.json
+            app/build/play-evidence/internal-test/apk-identity.md
+            app/build/play-evidence/internal-test/launch-surface.json
+            app/build/play-evidence/internal-test/launch-surface.md
+            app/build/play-evidence/internal-test/releaseRuntimeClasspath.txt
+          if-no-files-found: error
+          retention-days: 14
