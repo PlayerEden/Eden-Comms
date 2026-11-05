@@ -37,6 +37,28 @@ jobs:
           gradle-version: '9.3.1'
       - name: Run unit tests and build APK
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Smoke-test internal APK re-signing with a disposable CI-only key
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt \
+            -keystore "$RUNNER_TEMP/disposable-ci-keystore.jks" \
+            -alias disposable-ci \
+            -keyalg RSA -keysize 2048 -validity 1 \
+            -dname "CN=CI Disposable Signing Test" \
+            -storepass CI_DISPOSABLE_TEST_ONLY \
+            -keypass CI_DISPOSABLE_TEST_ONLY >/dev/null 2>&1
+          export EC_INTERNAL_KEYSTORE_BASE64
+          EC_INTERNAL_KEYSTORE_BASE64="$(base64 -w0 "$RUNNER_TEMP/disposable-ci-keystore.jks")"
+          export EC_INTERNAL_KEYSTORE_PASSWORD="CI_DISPOSABLE_TEST_ONLY"
+          export EC_INTERNAL_KEY_ALIAS="disposable-ci"
+          export EC_INTERNAL_KEY_PASSWORD="CI_DISPOSABLE_TEST_ONLY"
+          bash scripts/sign_internal_test_apk.sh \
+            app/build/outputs/apk/debug/app-debug.apk \
+            "$RUNNER_TEMP/eden-ci-signing-smoke.apk"
+          python3 scripts/audit_apk_identity.py \
+            --apk "$RUNNER_TEMP/eden-ci-signing-smoke.apk" \
+            --output-dir "$RUNNER_TEMP/eden-ci-signing-smoke-evidence" >/dev/null
+          rm -f "$RUNNER_TEMP/disposable-ci-keystore.jks" "$RUNNER_TEMP/eden-ci-signing-smoke.apk"
       - name: Enforce review-only security boundary
         run: bash scripts/check_security_review_boundary.sh
       - name: Audit M1 preparation permissions
