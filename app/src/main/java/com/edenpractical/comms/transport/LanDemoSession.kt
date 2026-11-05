@@ -145,6 +145,7 @@ internal class LanDemoSession(
     ) {
         sockets.requireOpen()
         socket.soTimeout = AUTH_TIMEOUT_MS
+        requireStableWifi()
         currentStep = LanProbeDiagnostics.Step.TLS_HANDSHAKE
         emitProgress(LanDemoStatus.Progress.TLS_NEGOTIATING)
         socket.startHandshake()
@@ -152,6 +153,7 @@ internal class LanDemoSession(
         emitProgress(LanDemoStatus.Progress.PEER_IDENTITY)
         PinnedTlsPeer.requirePinnedTls13(socket.session, expectedPin)
         sockets.requireOpen()
+        requireStableWifi()
 
         currentStep = LanProbeDiagnostics.Step.SESSION_BINDING
         emitProgress(LanDemoStatus.Progress.QR_PROOF)
@@ -162,12 +164,14 @@ internal class LanDemoSession(
         }
 
         sockets.requireOpen()
+        requireStableWifi()
 
         // DEVELOPMENT DIAGNOSTIC ONLY. This reads a standard exporter on the
         // live verified TLS 1.3 socket but DOES NOT expose its bytes, change
         // the QR proof, send extra packets or authorize user messages.
         val exporterDiagnostic = TlsExporterReadiness.probeAfterVerifiedDemoProof(socket)
         sockets.requireOpen()
+        requireStableWifi()
 
         // Both ends have performed QR transcript checks before any preset text.
         // A separate small READY exchange prevents showing the test as connected
@@ -187,6 +191,7 @@ internal class LanDemoSession(
         }
 
         sockets.requireOpen()
+        requireStableWifi()
         socket.soTimeout = 0
         connectedAtMs = SystemClock.elapsedRealtime()
         lastReceivedMs = connectedAtMs
@@ -244,16 +249,27 @@ internal class LanDemoSession(
         }
     }
 
-    /** UI ended test; try a bounded CLOSE packet but never block the UI. */
+    /**
+     * UI cancellation is immediate and irreversible. A best-effort CLOSE goes
+     * through the writer, but a *separate* scheduled task forces socket close
+     * after 1.2 seconds if that writer is blocked behind pending output.
+     */
     fun endByUser() {
         if (!ending.compareAndSet(false, true)) return
         if (!ready || stopped.get()) { close(); return }
-        try {
-            writer.execute {
-                try { sendPacket(TestPacketCodec.close()) } catch (_: Exception) {}
-                finally { close() }
-            }
-        } catch (_: RuntimeException) { close() }
+        LanGracefulStop.begin(
+            scheduleHardClose = { delay, action ->
+                pulses.schedule({ action() }, delay, TimeUnit.MILLISECONDS)
+            },
+            enqueueClose = {
+                writer.execute {
+                    try { sendPacket(TestPacketCodec.close()) }
+                    catch (_: Exception) { /* Best effort only. */ }
+                    finally { close() }
+                }
+            },
+            hardClose = { close() }
+        )
     }
 
     private fun sendPacket(packet: TestPacketCodec.Packet) {
@@ -272,11 +288,10 @@ internal class LanDemoSession(
             val now = SystemClock.elapsedRealtime()
             val link = wifiLink
             val current = WifiLanEndpoint.current(context)
-            if (link == null || current == null ||
-                link.network != current.network ||
-                link.address != current.address ||
-                link.prefixLength != current.prefixLength
-            ) {
+            if (link == null || !WifiLinkContinuity.unchanged(
+                    link.network, link.address, link.prefixLength,
+                    current?.network, current?.address, current?.prefixLength
+                )) {
                 emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.WIFI_CHANGED)
                 close()
                 return@scheduleAtFixedRate
@@ -318,6 +333,19 @@ internal class LanDemoSession(
         }, HEARTBEAT_MS, HEARTBEAT_MS, TimeUnit.MILLISECONDS)
     }
 
+    /**
+     * Revalidate the initial Wi-Fi network after each expensive authentication
+     * stage. No roaming/fallback is permitted within a reciprocal QR session.
+     */
+    private fun requireStableWifi() {
+        val initial = wifiLink ?: throw LanWifiChangedException()
+        val current = WifiLanEndpoint.current(context)
+        if (!WifiLinkContinuity.unchanged(
+                initial.network, initial.address, initial.prefixLength,
+                current?.network, current?.address, current?.prefixLength
+            )) throw LanWifiChangedException()
+    }
+
     private fun connectTcp(
         wifi: WifiLanEndpoint.Link,
         peer: InetAddress,
@@ -328,11 +356,11 @@ internal class LanDemoSession(
             if (retryWhileWaiting &&
                 SystemClock.elapsedRealtime() - started >= LanConnectRetryPolicy.MAX_WAIT_MS
             ) throw SocketTimeoutException("Local test connection retry window ended")
-            val current = WifiLanEndpoint.current(context) ?: throw SocketException("Wi-Fi lost")
-            if (current.network != wifi.network ||
-                current.address != wifi.address ||
-                current.prefixLength != wifi.prefixLength
-            ) throw SocketException("Wi-Fi changed")
+            val current = WifiLanEndpoint.current(context)
+            if (!WifiLinkContinuity.unchanged(
+                    wifi.network, wifi.address, wifi.prefixLength,
+                    current?.network, current?.address, current?.prefixLength
+                )) throw LanWifiChangedException()
 
             val raw = wifi.network.socketFactory.createSocket()
             sockets.ownSocket(raw)
