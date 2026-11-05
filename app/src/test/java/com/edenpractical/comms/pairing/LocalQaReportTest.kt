@@ -78,6 +78,20 @@ class LocalQaReportTest {
         assertTrue(report.contains("Handshake failure category: NOT_RECORDED"))
     }
 
+    @Test fun consentEvidenceIsSeparatedFromTlsReadiness() {
+        val localOnly = sample(ready = false, written = 0, received = 0).copy(
+            tlsAndQrReady = true, localApprovalWritten = true,
+            peerApprovalObserved = false
+        )
+        val text = LocalQaReport.format(localOnly)
+        assertTrue(text.contains("Pinned TLS/QR test link ready: YES"))
+        assertTrue(text.contains("Local debug approval written to TLS: YES"))
+        assertTrue(text.contains("Peer debug approval observed here: NO"))
+        assertTrue(text.contains("Reached debug READY: NO"))
+        assertTrue(text.contains("NOT independently reviewed human authorization"))
+        assertFalse(text.contains("CERTIFICATE"))
+    }
+
     @Test fun outcomeAndRoleAreFixedLabelsNotRawNetworkErrors() {
         for (role in LocalQaReport.Role.values()) {
             for (finish in LocalQaReport.Finish.values()) {

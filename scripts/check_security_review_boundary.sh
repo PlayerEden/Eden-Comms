@@ -125,6 +125,30 @@ if grep -RFn --include='*.kt' --exclude='ProposedChatWireCodec.kt' \
   exit 1
 fi
 
+# M2v experimental APPROVE/DECLINE is restricted to the existing
+# debuggable four-preset LAN test and its on-screen human decision UI.
+# A successful debug approval does NOT unlock normal text or voice and
+# must not reference the production authorization policy.
+if ! grep -Fq 'FLAG_DEBUGGABLE' "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt"; then
+  echo "FAIL: experimental debug consent transport lost its debuggable-only guard" >&2
+  exit 1
+fi
+for FILE in $(grep -Rl --include='*.kt' 'DebugApprovalGate' "$MAIN" || true); do
+  case "$FILE" in
+    "$MAIN/com/edenpractical/comms/transport/DebugApprovalGate.kt"|\
+    "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt"|\
+    "$MAIN/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt") ;;
+    *) echo "FAIL: unreviewed debug approval model referenced outside experiment: $FILE" >&2
+       exit 1 ;;
+  esac
+done
+if grep -REn --include='*.kt' 'ProposedChatWireCodec|ProductionSessionAuthorization|ReviewOnlyBilateralApproval' \
+  "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt" \
+  "$MAIN/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt"; then
+  echo "FAIL: debug approval test incorrectly linked to general messaging or policy model" >&2
+  exit 1
+fi
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -136,4 +160,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: reviewed boundaries intact; M2u chat wire unwired; test-only approvals/ACK simulators isolated; production send/voice flags off"
+echo "PASS: M2v debug-only approvals isolated from real text; M2u chat wire unwired; production send/voice flags off"

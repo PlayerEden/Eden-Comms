@@ -33,7 +33,10 @@ internal object LocalQaReport {
         val finish: Finish,
         val lastCheckpoint: LanDemoStatus.Progress? = null,
         val endCode: LanDemoStatus.EndCode? = null,
-        val failureCode: LanProbeDiagnostics.Code? = null
+        val failureCode: LanProbeDiagnostics.Code? = null,
+        val tlsAndQrReady: Boolean = false,
+        val localApprovalWritten: Boolean = false,
+        val peerApprovalObserved: Boolean = false
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -54,6 +57,12 @@ internal object LocalQaReport {
             "Android API: ${observation.androidApiLevel}",
             "QR role: ${observation.role.label}",
             "Reached debug READY: ${if (observation.reachedReady) "YES" else "NO"}",
+            "Pinned TLS/QR test link ready: ${if (observation.tlsAndQrReady) "YES" else "NO"}",
+            "Local debug approval written to TLS: " +
+                if (observation.localApprovalWritten) "YES" else "NO",
+            "Peer debug approval observed here: " +
+                if (observation.peerApprovalObserved) "YES" else "NO",
+            "These observations are NOT independently reviewed human authorization.",
             "Preset phrases written to local TLS: ${observation.writtenToTls}",
             "Preset phrases received by this app: ${observation.receivedHere}",
             "Finish: ${observation.finish.label}",

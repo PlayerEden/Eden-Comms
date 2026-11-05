@@ -39,15 +39,20 @@ internal class LanDemoSession(
     private val context: Context,
     private val report: (Event) -> Unit
 ) : AutoCloseable {
-    enum class Phase { LISTENING, CONNECTING, PROGRESS, READY, SENT, RECEIVED, ENDED, FAILED }
-    enum class SendResult { QUEUED, BUSY, NOT_CONNECTED }
+    enum class Phase {
+        LISTENING, CONNECTING, PROGRESS, READY, APPROVAL_UPDATE, APPROVAL_COMPLETE,
+        SENT, RECEIVED, ENDED, FAILED
+    }
+    enum class SendResult { QUEUED, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
+    enum class ApprovalResult { QUEUED, ALREADY_PENDING, NOT_CONNECTED }
     data class Event(
         val phase: Phase,
         val description: String,
         val phraseId: Int? = null,
         val progress: LanDemoStatus.Progress? = null,
         val endCode: LanDemoStatus.EndCode? = null,
-        val failureCode: LanProbeDiagnostics.Code? = null
+        val failureCode: LanProbeDiagnostics.Code? = null,
+        val approvalState: DebugApprovalGate.State? = null
     )
 
     companion object {
@@ -57,6 +62,7 @@ internal class LanDemoSession(
         private const val AUTH_TIMEOUT_MS = 15_000
         private const val HEARTBEAT_MS = 8_000L
         private const val PRE_READY_WIFI_CHECK_MS = 2_000L
+        private const val APPROVAL_TIMEOUT_MS = 90_000L
     }
 
     init {
@@ -85,6 +91,8 @@ internal class LanDemoSession(
     private val sockets = SessionSocketRegistry()
     private val sendBudget = DemoSendBudget(2)
     private val heartbeatQueued = AtomicBoolean(false)
+    private val approvalQueued = AtomicBoolean(false)
+    private val approvalGate = DebugApprovalGate()
     private val ending = AtomicBoolean(false)
     private val terminal = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
@@ -209,8 +217,9 @@ internal class LanDemoSession(
         preReadyWifiMonitor?.cancel(false)
         emit(Event(
             Phase.READY,
-            "Pinned TLS 1.3 + QR test passed. Local channel-binding check: " +
-                exporterDiagnostic.safeDescription + "."
+            "Pinned TLS 1.3 + QR test passed. Await two explicit experimental " +
+                "approvals before exchanging preset phrases. Local exporter " +
+                "compatibility: " + exporterDiagnostic.safeDescription + "."
         ))
         startHeartbeat()
 
@@ -221,8 +230,23 @@ internal class LanDemoSession(
                 is TestPacketCodec.Packet -> {
                     lastReceivedMs = SystemClock.elapsedRealtime()
                     when (packet.type) {
-                        TestPacketCodec.Type.PRESET ->
+                        TestPacketCodec.Type.PRESET -> {
+                            if (!approvalGate.maySendPreset()) throw TestPacketException()
                             emit(Event(Phase.RECEIVED, "Preset received", packet.phraseId))
+                        }
+                        TestPacketCodec.Type.APPROVE -> {
+                            val state = approvalGate.peerObserved()
+                            if (state == DebugApprovalGate.State.INVALID ||
+                                state == DebugApprovalGate.State.CLOSED ||
+                                state == DebugApprovalGate.State.DECLINED
+                            ) throw TestPacketException()
+                            emitApprovalState(state)
+                        }
+                        TestPacketCodec.Type.DECLINE -> {
+                            approvalGate.decline()
+                            emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.PEER_DECLINED)
+                            return
+                        }
                         TestPacketCodec.Type.HEARTBEAT -> Unit
                         TestPacketCodec.Type.CLOSE -> {
                             emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.PEER_ENDED)
@@ -238,12 +262,14 @@ internal class LanDemoSession(
 
     fun sendPreset(id: Int): SendResult {
         if (!ready || stopped.get() || ending.get()) return SendResult.NOT_CONNECTED
+        if (!approvalGate.maySendPreset()) return SendResult.AWAITING_APPROVAL
         val packet = TestPacketCodec.preset(id)
         if (!sendBudget.tryAcquire()) return SendResult.BUSY
         return try {
             writer.execute {
                 try {
-                    if (!ready || stopped.get() || ending.get()) return@execute
+                    if (!ready || stopped.get() || ending.get() ||
+                        !approvalGate.maySendPreset()) return@execute
                     sendPacket(packet)
                     emit(Event(Phase.SENT, "Test phrase written to TLS (not a receipt)", id))
                 } catch (_: IOException) {
@@ -261,20 +287,85 @@ internal class LanDemoSession(
     }
 
     /**
+     * Explicit local tap sends a debug-only control over the already pinned,
+     * QR-proved and READY test socket. Only a completed TLS write counts as a
+     * local test approval. This is NOT production mutual human consent.
+     */
+    fun approveForTest(): ApprovalResult {
+        if (!ready || stopped.get() || ending.get()) return ApprovalResult.NOT_CONNECTED
+        if (approvalGate.snapshot() !in setOf(
+                DebugApprovalGate.State.WAITING, DebugApprovalGate.State.PEER_ONLY
+            )) return ApprovalResult.ALREADY_PENDING
+        if (!approvalQueued.compareAndSet(false, true)) return ApprovalResult.ALREADY_PENDING
+        return try {
+            writer.execute {
+                try {
+                    if (!ready || stopped.get() || ending.get()) return@execute
+                    sendPacket(TestPacketCodec.approve())
+                    val state = approvalGate.localWritten()
+                    if (state == DebugApprovalGate.State.INVALID ||
+                        state == DebugApprovalGate.State.CLOSED ||
+                        state == DebugApprovalGate.State.DECLINED
+                    ) {
+                        throw TestPacketException()
+                    }
+                    emitApprovalState(state)
+                } catch (_: IOException) {
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                    close()
+                } finally {
+                    approvalQueued.set(false)
+                }
+            }
+            ApprovalResult.QUEUED
+        } catch (_: RuntimeException) {
+            approvalQueued.set(false)
+            ApprovalResult.NOT_CONNECTED
+        }
+    }
+
+    /** Explicit DECLINE: attempt a fixed TLS control, then close fail-closed. */
+    fun declineForTest() {
+        if (!ending.compareAndSet(false, true)) return
+        approvalGate.decline()
+        if (!ready || stopped.get()) { close(); return }
+        stopWithControl(TestPacketCodec.decline())
+    }
+
+    private fun emitApprovalState(state: DebugApprovalGate.State) {
+        when (state) {
+            DebugApprovalGate.State.BOTH_OBSERVED ->
+                emit(Event(Phase.APPROVAL_COMPLETE,
+                    "Both debug approvals observed by this phone; preset test only.",
+                    approvalState = state))
+            DebugApprovalGate.State.LOCAL_ONLY, DebugApprovalGate.State.PEER_ONLY ->
+                emit(Event(Phase.APPROVAL_UPDATE,
+                    "Approval observation updated; waiting for both phones.",
+                    approvalState = state))
+            else -> Unit
+        }
+    }
+
+    /**
      * UI cancellation is immediate and irreversible. A best-effort CLOSE goes
      * through the writer, but a *separate* scheduled task forces socket close
      * after 1.2 seconds if that writer is blocked behind pending output.
      */
     fun endByUser() {
         if (!ending.compareAndSet(false, true)) return
+        approvalGate.close()
         if (!ready || stopped.get()) { close(); return }
+        stopWithControl(TestPacketCodec.close())
+    }
+
+    private fun stopWithControl(control: TestPacketCodec.Packet) {
         LanGracefulStop.begin(
             scheduleHardClose = { delay, action ->
                 cancellationTimer.schedule({ action() }, delay, TimeUnit.MILLISECONDS)
             },
             enqueueClose = {
                 writer.execute {
-                    try { sendPacket(TestPacketCodec.close()) }
+                    try { sendPacket(control) }
                     catch (_: Exception) { /* Best effort only. */ }
                     finally { close() }
                 }
@@ -304,6 +395,13 @@ internal class LanDemoSession(
                     current?.network, current?.address, current?.prefixLength
                 )) {
                 emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.WIFI_CHANGED)
+                close()
+                return@scheduleAtFixedRate
+            }
+            if (!approvalGate.maySendPreset() &&
+                now - connectedAtMs >= APPROVAL_TIMEOUT_MS
+            ) {
+                emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.APPROVAL_TIMED_OUT)
                 close()
                 return@scheduleAtFixedRate
             }
@@ -463,6 +561,7 @@ internal class LanDemoSession(
         if (!stopped.compareAndSet(false, true)) return
         ready = false
         ending.set(true)
+        approvalGate.close()
         sockets.close()
         preReadyWifiMonitor?.cancel(false)
         pulses.shutdownNow()

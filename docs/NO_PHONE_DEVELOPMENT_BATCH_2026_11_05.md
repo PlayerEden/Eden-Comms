@@ -77,6 +77,13 @@ The current user cannot access both phones during ordinary work hours. We can im
 - Standard design direction: use existing mutual pinned TLS 1.3 + reviewed RFC 9266 channel/session binding and **both human approvals**, not a homegrown extra encryption layer. Current `SSLSockets` exporter support and Android device behavior remain to be verified.
 - [M2u codec and real messaging security gate](M2U_BOUNDED_TEXT_WIRE_AND_SECURITY_GATE.md); [core M3 implementation and reviewer checklist](https://github.com/PlayerEden/Eden-Comms/issues/42).
 
+## M2v debug-only approval feature (experimental, two phones pending)
+
+- A new Approve / Decline stage follows pinned TLS, two reciprocal QR codes and READY.
+- Both phones must independently approve before any of the four fixed preset phrases can be sent.
+- Controls are transmitted through the existing debuggable test connection. Peer observation, local write, decline and timeout have distinct status labels and QA fields.
+- These controls do **not** authorize ordinary messages or voice; security review and physical two-phone evidence are pending. [M2v QA specification](M2V_DEBUG_BILATERAL_APPROVAL_TEST.md).
+
 ## Other safe development work we can do with no phone
 
 1. Build code-only policy, protocol and UI regression tests, including malformed QR/frame cases, retries, timeouts, stale callbacks, lifecycle cleanup and low-memory/large-font navigation checks where automation supports them.

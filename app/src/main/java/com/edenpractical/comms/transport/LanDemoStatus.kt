@@ -20,6 +20,8 @@ internal object LanDemoStatus {
 
     enum class EndCode(val display: String) {
         PEER_ENDED("The other phone ended the test."),
+        PEER_DECLINED("The other person declined the debug test connection."),
+        APPROVAL_TIMED_OUT("Both test approvals were not observed in time."),
         WIFI_CHANGED("Wi-Fi changed. The test connection was closed."),
         SESSION_LIMIT("The ten-minute test session limit was reached."),
         PEER_SILENT("No response from the other phone. The test was closed."),

@@ -5,7 +5,7 @@ import java.io.InputStream
 import java.io.OutputStream
 
 /**
- * Fixed, non-user-supplied test phrases for a DEVELOPMENT-ONLY local TLS
+ * Fixed, non-user-supplied test phrases and approval control for DEVELOPMENT-ONLY local TLS
  * session. This is NOT a production messaging format or an endorsement of
  * sending sensitive information through an unaudited application.
  *
@@ -18,6 +18,9 @@ internal object TestPacketCodec {
     private const val PRESET = 2
     private const val HEARTBEAT = 3
     private const val CLOSE = 4
+    // Explicit consent experiment, DEBUG-only, not a reviewed auth protocol.
+    private const val APPROVE = 5
+    private const val DECLINE = 6
 
     data class Phrase(val id: Int, val label: String)
     val phrases: List<Phrase> = listOf(
@@ -27,7 +30,7 @@ internal object TestPacketCodec {
         Phrase(4, "Can you read this?")
     )
 
-    enum class Type { READY, PRESET, HEARTBEAT, CLOSE }
+    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE }
     data class Packet(val type: Type, val phraseId: Int = 0)
 
     fun phrase(id: Int): String = phrases.firstOrNull { it.id == id }?.label
@@ -40,6 +43,8 @@ internal object TestPacketCodec {
     }
     fun heartbeat(): Packet = Packet(Type.HEARTBEAT)
     fun close(): Packet = Packet(Type.CLOSE)
+    fun approve(): Packet = Packet(Type.APPROVE)
+    fun decline(): Packet = Packet(Type.DECLINE)
 
     fun encode(packet: Packet): ByteArray {
         val wireType = when (packet.type) {
@@ -47,6 +52,8 @@ internal object TestPacketCodec {
             Type.PRESET -> PRESET
             Type.HEARTBEAT -> HEARTBEAT
             Type.CLOSE -> CLOSE
+            Type.APPROVE -> APPROVE
+            Type.DECLINE -> DECLINE
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
@@ -61,6 +68,8 @@ internal object TestPacketCodec {
             PRESET -> Type.PRESET
             HEARTBEAT -> Type.HEARTBEAT
             CLOSE -> Type.CLOSE
+            APPROVE -> Type.APPROVE
+            DECLINE -> Type.DECLINE
             else -> throw TestPacketException()
         }
         val id = bytes[2].toInt() and 0xFF
