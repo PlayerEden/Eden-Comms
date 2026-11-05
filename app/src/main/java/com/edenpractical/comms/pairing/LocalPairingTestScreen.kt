@@ -771,11 +771,11 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("End test and disconnect") }
                 }
                 "result" -> {
-                    Text(PairingTestUiCopy.resultHeading(transcript.reachedReady),
+                    Text(PairingTestUiCopy.resultHeading(transcript.reachedReady, qaTlsReady),
                         fontWeight = FontWeight.SemiBold)
                     Text(PairingTestUiCopy.resultSummary(
                         transcript.reachedReady,
-                        transcript.writtenToTls, transcript.receivedHere
+                        transcript.writtenToTls, transcript.receivedHere, qaTlsReady
                     ),
                         style = MaterialTheme.typography.bodySmall)
                     if (details.isNotEmpty()) {
