@@ -31,6 +31,8 @@ import com.edenpractical.comms.protocol.TestPacketCodec
 import com.edenpractical.comms.transport.LanDemoStatus
 import com.edenpractical.comms.transport.LanProbeDiagnostics
 import com.edenpractical.comms.transport.LanDemoSession
+import com.edenpractical.comms.transport.LanWifiChangedException
+import com.edenpractical.comms.transport.WifiLinkContinuity
 import com.edenpractical.comms.transport.LocalIpv4Policy
 import com.edenpractical.comms.transport.WifiLanEndpoint
 import com.edenpractical.comms.ui.FieldFrame
@@ -94,6 +96,15 @@ internal fun LocalPairingTestScreen() {
         attemptVersion += 1
         probe?.close()
         probe = null
+    }
+
+    fun wifiIsOriginalPairingLink(): Boolean {
+        val initial = wifi ?: return false
+        val now = WifiLanEndpoint.current(context)
+        return WifiLinkContinuity.unchanged(
+            initial.network, initial.address, initial.prefixLength,
+            now?.network, now?.address, now?.prefixLength
+        )
     }
 
     fun clearTemporaryPairing() {
@@ -179,6 +190,7 @@ internal fun LocalPairingTestScreen() {
             return
         }
         try {
+            if (!wifiIsOriginalPairingLink()) throw LanWifiChangedException()
             LocalPairingQrCodec.requireFresh(invite, System.currentTimeMillis() / 1000)
             val binding = SessionProofBinding(
                 invite.certificateSha256, reply.certificateSha256, invite.nonce, reply.nonce
@@ -286,13 +298,18 @@ internal fun LocalPairingTestScreen() {
             else connection.join(
                 own, expected, invite.wifiIp, binding, retryWhileWaiting = true
             )
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
             stopTest()
             clearTemporaryPairing()
             stage = "result"
             transcript = transcript.finish()
-            details = "Pairing codes were invalid, expired, or the Wi-Fi network changed."
+            if (e is LanWifiChangedException) {
+                qaFailureCode = LanProbeDiagnostics.Code.WIFI_CHANGED
+                details = "Wi-Fi changed during pairing. Restart both phones' tests with fresh QR codes."
+            } else {
+                details = "The codes may be invalid or expired. Verify both phones and start with fresh QR codes."
+            }
             status = "Couldn't start the test. Start again with fresh codes."
         }
     }
@@ -337,6 +354,8 @@ internal fun LocalPairingTestScreen() {
         lifecycleOwner?.lifecycle?.addObserver(observer)
         onDispose {
             lifecycleOwner?.lifecycle?.removeObserver(observer)
+            // Invalidate already posted callbacks before closing the socket.
+            attemptVersion += 1
             latestProbe?.close()
             clearTemporaryPairing()
             transcript = transcript.finish()
@@ -447,6 +466,7 @@ internal fun LocalPairingTestScreen() {
                             onPayload = { payload ->
                                 try {
                                     if (stage == "scanHost") {
+                                        if (!wifiIsOriginalPairingLink()) throw LanWifiChangedException()
                                         val invite = LocalPairingQrCodec.decodeHost(payload)
                                         val link = WifiLanEndpoint.current(context)
                                             ?: error("Wi-Fi unavailable")
@@ -463,6 +483,7 @@ internal fun LocalPairingTestScreen() {
                                         stage = "showReply"
                                         runProbe(false)
                                     } else if (stage == "scanReply") {
+                                        if (!wifiIsOriginalPairingLink()) throw LanWifiChangedException()
                                         val invite = hostInvite ?: error("No active invitation")
                                         val reply = LocalPairingQrCodec.decodeJoin(payload, invite)
                                         joinReply = reply
@@ -470,14 +491,24 @@ internal fun LocalPairingTestScreen() {
                                         stage = "connecting"
                                         runProbe(true)
                                     }
+                                } catch (e: LanWifiChangedException) {
+                                    // Never reuse a QR/pin across a different
+                                    // network after roaming.
+                                    reset()
+                                    wifi = WifiLanEndpoint.current(context)
+                                    status = "Wi-Fi changed. Start pairing again with fresh codes."
                                 } catch (_: Exception) {
                                     status = "That code didn't work. Try scanning again."
                                     scanRevision += 1
                                 }
                             },
                             onCameraError = {
-                                cameraError = true
-                                status = it
+                                // CameraX may report a late failure after a
+                                // user cancels; never overwrite another screen.
+                                if (stage == "scanHost" || stage == "scanReply") {
+                                    cameraError = true
+                                    status = it
+                                }
                             }
                         )
                     }
