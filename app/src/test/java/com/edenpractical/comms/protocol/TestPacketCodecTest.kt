@@ -51,6 +51,31 @@ class TestPacketCodecTest {
         }
     }
 
+    @Test fun everyUnsignedByteValueOutsideFourPresetIdsFailsClosed() {
+        // Exhaust the entire 8-bit phrase field rather than sampling errors.
+        for (id in 0..255) {
+            val raw = byteArrayOf(1, 2, id.toByte())
+            if (id in 1..4) {
+                assertEquals(codec.preset(id), codec.decode(raw))
+            } else {
+                assertThrows(TestPacketException::class.java) {
+                    codec.decode(raw)
+                }
+            }
+        }
+    }
+
+    @Test fun everyNonzeroControlPayloadIsRejected() {
+        for (kind in listOf(1, 3, 4)) {
+            for (id in 1..255) {
+                val raw = byteArrayOf(1, kind.toByte(), id.toByte())
+                assertThrows(TestPacketException::class.java) {
+                    codec.decode(raw)
+                }
+            }
+        }
+    }
+
     @Test fun userSuppliedOrUnknownTextCannotBeEncoded() {
         assertThrows(IllegalArgumentException::class.java) { codec.preset(99) }
         assertThrows(IllegalArgumentException::class.java) {
