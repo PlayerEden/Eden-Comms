@@ -40,7 +40,7 @@ The original [Product Vision](PRODUCT_VISION.md) promises a usable **Connect →
 
 ## Next actual feature delivery sequence
 
-1. **M2t:** Build the transport-independent *conversation presentation contract*: message author/source proof categories, safe status transitions, send eligibility and explicit typed UI mapping—with no transport adapter yet. Don't permit a local fake event to masquerade as verified network receipt.
+1. **M2t (implemented, no real messaging):** Native UI status-explainer and canonical local/future message meanings, plus a JVM-only receipt ordering reducer. [M2t details](M2T_MESSAGE_DELIVERY_STATUS_CONTRACT.md). Do **not** promote simulated ACKs into the Android app.
 2. **M2u (review gate):** Complete and independently assess the chosen cryptographic protocol/library, live authenticated reciprocal consent and message framing; test hostile/failure scenarios before enabling arbitrary text.
 3. **M2v:** Integrate real LAN two-way text behind approved authorization and prove no-WAN operation on both devices, then replace the UI preview's local-only behavior through a separately reviewed implementation. Only there do real `SENT/DELIVERED` labels become meaningful.
 4. After proven LAN chat, implement opt-in discovery, Bluetooth and Wi-Fi Direct transport adapters, then PTT, and separate peer/message retention as the original milestones prescribe.

@@ -57,12 +57,18 @@ The current user cannot access both phones during ordinary work hours. We can im
 - Safe `WIFI_CHANGED` classification and JVM boundary tests, without new permissions, network services or production capabilities.
 - Physical Android timing and two-phone behavior are still NOT TESTED: [M2r audit](M2R_WIFI_CANCELLATION_RECOVERY_QA.md).
 
-## M2s product-facing chat UI (this feature PR)
+## M2s product-facing chat UI (PR #40 merged)
 
 - **Home → Text now opens the first true native conversation layout** with an editable composer, outgoing/local bubbles, optional labeled fictional incoming examples, 280-character counter, local time labels, and clear/end controls.
 - Messages are **NOT sent**: this is an explicit local presentation sandbox, never a peer session, delivered receipt or authorization. No transport/crypto/database dependencies are permitted in the preview by CI security gate.
 - All text resides only in in-memory Compose `remember` state and is cleared on End, foreground exit, or navigation away. Preview history is capped at 12 entries; `ReleaseCapabilities` remain false.
 - Source implementation, privacy disclosures and next core feature gates: [M2s chat preview](M2S_CHAT_UI_LOCAL_PREVIEW.md). Two actual phones and secure text acceptance remain NOT TESTED.
+
+## M2t canonical message statuses and test-only receipt contract (this PR)
+
+- Home → Text now includes optional **What will message statuses mean?** with clear current-vs-future labels. Actual chat entries still say **Local preview • not sent**; no fake received/delivered/read messages.
+- The review-only JVM reducer demonstrates status ordering and stale/failure rejection with numeric IDs only, capped metadata and explicit simulated callbacks. It cannot send messages, verify approvals, or authenticate receipts; CI forbids inclusion in Android main sources.
+- Detailed [M2t status and future real-message gates](M2T_MESSAGE_DELIVERY_STATUS_CONTRACT.md). Independent protocol/security review and actual two-phone messaging remain pending.
 
 ## Other safe development work we can do with no phone
 

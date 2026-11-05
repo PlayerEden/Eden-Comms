@@ -17,9 +17,13 @@ internal class LocalChatPreview private constructor(
         TYPED_HERE, EXAMPLE_NOT_RECEIVED
     }
 
-    enum class DisplayState(val label: String) {
-        LOCAL_ONLY("Local preview • not sent"),
-        FAKE_SAMPLE("Example only • not received")
+    enum class DisplayState {
+        LOCAL_ONLY, FAKE_SAMPLE;
+
+        val label: String get() = when (this) {
+            LOCAL_ONLY -> ConversationStatusGuide.Step.LOCAL_PREVIEW.label
+            FAKE_SAMPLE -> "Example only • not received"
+        }
     }
 
     data class Entry(

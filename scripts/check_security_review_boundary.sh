@@ -95,6 +95,24 @@ if grep -REn --include='*.kt' \
   exit 1
 fi
 
+# M2t is a presentation vocabulary and TEST-ONLY hypothetical delivery
+# reducer. A fake peer-app acknowledgment is never production authorization.
+STATUS_GUIDE="$CHAT/ConversationStatusGuide.kt"
+TEST_REDUCER="app/src/test/java/com/edenpractical/comms/chat/ReviewOnlyMessageDelivery.kt"
+test -f "$STATUS_GUIDE" && test -f "$TEST_REDUCER"
+if find "$MAIN" -name 'ReviewOnlyMessageDelivery.kt' -print -quit | grep -q .; then
+  echo "FAIL: unreviewed delivery simulator moved into shipped Android sources" >&2
+  exit 1
+fi
+if grep -RFn --include='*.kt' 'ReviewOnlyMessageDelivery' "$MAIN"; then
+  echo "FAIL: production app references simulated message delivery evidence" >&2
+  exit 1
+fi
+if ! grep -Fq 'currentLiveSteps: Set<Step> = setOf(Step.LOCAL_PREVIEW)' "$STATUS_GUIDE"; then
+  echo "FAIL: unreviewed chat status was exposed as a live message state" >&2
+  exit 1
+fi
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -106,4 +124,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: M2f/M2h/M2o models unwired; M2p simulator JVM-only; M2s preview local-only; exporter demo-only; release gates off"
+echo "PASS: M2f/M2h/M2o models unwired; M2p/M2t delivery simulators JVM-only; M2s chat local-only; release gates off"
