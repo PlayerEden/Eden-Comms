@@ -113,6 +113,18 @@ if ! grep -Fq 'currentLiveSteps: Set<Step> = setOf(Step.LOCAL_PREVIEW)' "$STATUS
   exit 1
 fi
 
+# M2u includes an ACTUAL bounded Unicode/ACK packet parser in main sources,
+# but it is an UNREVIEWED INNER PAYLOAD candidate, not an authorized send path.
+# Any integration into sockets, UI, trust checks or packet dispatch must be a
+# separate change with independent protocol review and device QA.
+CHAT_WIRE="$MAIN/com/edenpractical/comms/protocol/ProposedChatWireCodec.kt"
+test -f "$CHAT_WIRE"
+if grep -RFn --include='*.kt' --exclude='ProposedChatWireCodec.kt' \
+  'ProposedChatWireCodec' "$MAIN"; then
+  echo "FAIL: proposed text wire candidate referenced from live application sources" >&2
+  exit 1
+fi
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -124,4 +136,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: M2f/M2h/M2o models unwired; M2p/M2t delivery simulators JVM-only; M2s chat local-only; release gates off"
+echo "PASS: reviewed boundaries intact; M2u chat wire unwired; test-only approvals/ACK simulators isolated; production send/voice flags off"

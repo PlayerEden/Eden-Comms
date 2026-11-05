@@ -64,11 +64,18 @@ The current user cannot access both phones during ordinary work hours. We can im
 - All text resides only in in-memory Compose `remember` state and is cleared on End, foreground exit, or navigation away. Preview history is capped at 12 entries; `ReleaseCapabilities` remain false.
 - Source implementation, privacy disclosures and next core feature gates: [M2s chat preview](M2S_CHAT_UI_LOCAL_PREVIEW.md). Two actual phones and secure text acceptance remain NOT TESTED.
 
-## M2t canonical message statuses and test-only receipt contract (this PR)
+## M2t canonical message statuses and test-only receipt contract (PR #41 merged)
 
 - Home → Text now includes optional **What will message statuses mean?** with clear current-vs-future labels. Actual chat entries still say **Local preview • not sent**; no fake received/delivered/read messages.
 - The review-only JVM reducer demonstrates status ordering and stale/failure rejection with numeric IDs only, capped metadata and explicit simulated callbacks. It cannot send messages, verify approvals, or authenticate receipts; CI forbids inclusion in Android main sources.
 - Detailed [M2t status and future real-message gates](M2T_MESSAGE_DELIVERY_STATUS_CONTRACT.md). Independent protocol/security review and actual two-phone messaging remain pending.
+
+## M2u bounded actual text wire candidate (this PR)
+
+- Implemented Kotlin **TEXT/ACK** inner payload codec with strict UTF-8, fixed version and flags, positive 64-bit message IDs, a 280-code-point/1120-byte text limit and zero-payload ACK. Deterministic cross-device wire examples and extensive malformed-input tests exist.
+- The codec is a real binary serializer/parser in `app/src/main` but **not wired to the socket or user chat**. A CI check prevents its invocation by any other production app source until independent protocol review.
+- Standard design direction: use existing mutual pinned TLS 1.3 + reviewed RFC 9266 channel/session binding and **both human approvals**, not a homegrown extra encryption layer. Current `SSLSockets` exporter support and Android device behavior remain to be verified.
+- [M2u codec and real messaging security gate](M2U_BOUNDED_TEXT_WIRE_AND_SECURITY_GATE.md); [core M3 implementation and reviewer checklist](https://github.com/PlayerEden/Eden-Comms/issues/42).
 
 ## Other safe development work we can do with no phone
 
