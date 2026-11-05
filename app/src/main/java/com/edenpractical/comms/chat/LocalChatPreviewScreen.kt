@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -163,26 +164,52 @@ internal fun LocalChatPreviewScreen(onPairingTest: () -> Unit) {
         ) {
             Text("ADD TO LOCAL PREVIEW", fontWeight = FontWeight.Bold)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                onClick = {
-                    session = session.clear()
-                    draft = ""
-                    notice = "Local preview cleared."
-                },
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                shape = CutCornerShape(5.dp)
-            ) { Text("Clear") }
-            OutlinedButton(
-                onClick = {
-                    session = session.end()
-                    draft = ""
-                    notice = "Preview session ended; in-memory bubbles erased."
-                },
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                shape = CutCornerShape(5.dp)
-            ) { Text("End preview") }
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val stacked = maxWidth < 350.dp || LocalDensity.current.fontScale >= 1.3f
+            if (stacked) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            session = session.clear()
+                            draft = ""
+                            notice = "Local preview cleared."
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        shape = CutCornerShape(5.dp)
+                    ) { Text("Clear local preview") }
+                    OutlinedButton(
+                        onClick = {
+                            session = session.end()
+                            draft = ""
+                            notice = "Preview session ended; in-memory bubbles erased."
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        shape = CutCornerShape(5.dp)
+                    ) { Text("End preview") }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {
+                            session = session.clear()
+                            draft = ""
+                            notice = "Local preview cleared."
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = CutCornerShape(5.dp)
+                    ) { Text("Clear") }
+                    OutlinedButton(
+                        onClick = {
+                            session = session.end()
+                            draft = ""
+                            notice = "Preview session ended; in-memory bubbles erased."
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = CutCornerShape(5.dp)
+                    ) { Text("End preview") }
+                }
+            }
         }
     } else {
         Text("Preview ended — no content retained by this screen.",
