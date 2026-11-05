@@ -5,6 +5,8 @@ import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import com.edenpractical.comms.security.SessionProofException
+import com.edenpractical.comms.security.DebugExporterMismatchException
+import com.edenpractical.comms.security.DebugExporterUnavailableException
 import java.security.InvalidKeyException
 import java.security.SignatureException
 import java.security.cert.CertificateException
@@ -21,7 +23,7 @@ import javax.net.ssl.SSLPeerUnverifiedException
  */
 internal object LanProbeDiagnostics {
     enum class Step {
-        WIFI, TLS_SETUP, BIND, WAIT_FOR_PEER, TCP_CONNECT, TLS_HANDSHAKE, VERIFY_PIN, SESSION_BINDING, READY_EXCHANGE
+        WIFI, TLS_SETUP, BIND, WAIT_FOR_PEER, TCP_CONNECT, TLS_HANDSHAKE, VERIFY_PIN, SESSION_BINDING, CHANNEL_BINDING, READY_EXCHANGE
     }
 
     enum class Code {
@@ -40,6 +42,9 @@ internal object LanProbeDiagnostics {
         TLS_HANDSHAKE_FAILED,
         SESSION_BINDING_REJECTED,
         SESSION_BINDING_TIMEOUT,
+        EXPORTER_UNAVAILABLE,
+        EXPORTER_MISMATCH,
+        EXPORTER_TIMEOUT,
         READY_TIMEOUT,
         READY_REJECTED,
         CONNECTION_DROPPED,
@@ -61,9 +66,13 @@ internal object LanProbeDiagnostics {
             has(BindException::class.java) -> Code.LISTEN_UNAVAILABLE
             has(NoRouteToHostException::class.java) -> Code.NETWORK_UNREACHABLE
             has(ConnectException::class.java) -> Code.HOST_NOT_ACCEPTING
+            has(DebugExporterMismatchException::class.java) -> Code.EXPORTER_MISMATCH
+            has(DebugExporterUnavailableException::class.java) -> Code.EXPORTER_UNAVAILABLE
             has(SessionProofException::class.java) -> Code.SESSION_BINDING_REJECTED
             has(SocketTimeoutException::class.java) && step == Step.SESSION_BINDING ->
                 Code.SESSION_BINDING_TIMEOUT
+            has(SocketTimeoutException::class.java) && step == Step.CHANNEL_BINDING ->
+                Code.EXPORTER_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.READY_EXCHANGE ->
                 Code.READY_TIMEOUT
             has(SocketTimeoutException::class.java) && step == Step.WAIT_FOR_PEER ->
@@ -84,6 +93,7 @@ internal object LanProbeDiagnostics {
             step == Step.TCP_CONNECT -> Code.PEER_UNREACHABLE
             step == Step.TLS_HANDSHAKE -> Code.CONNECTION_DROPPED
             step == Step.SESSION_BINDING -> Code.SESSION_BINDING_REJECTED
+            step == Step.CHANNEL_BINDING -> Code.EXPORTER_MISMATCH
             step == Step.READY_EXCHANGE -> Code.READY_REJECTED
             step == Step.VERIFY_PIN -> Code.CERTIFICATE_REJECTED
             else -> Code.UNKNOWN
@@ -105,6 +115,9 @@ internal object LanProbeDiagnostics {
             Code.TLS_HANDSHAKE_FAILED -> "TLS couldn't authenticate the connection. A device compatibility or identity issue needs investigation."
             Code.SESSION_BINDING_REJECTED -> "Both phones did not confirm the same QR session. Start again with two fresh QR scans."
             Code.SESSION_BINDING_TIMEOUT -> "The QR session check timed out. Keep both screens open and try again."
+            Code.EXPORTER_UNAVAILABLE -> "This Android TLS provider could not perform the experimental channel-binding check; no fallback is allowed."
+            Code.EXPORTER_MISMATCH -> "Both phones did not confirm matching experimental TLS channel bindings. Start again with fresh QR codes."
+            Code.EXPORTER_TIMEOUT -> "The experimental channel-binding check timed out. Keep both screens open and retry."
             Code.READY_TIMEOUT -> "The final readiness check timed out. Keep both apps open and start again with fresh codes."
             Code.READY_REJECTED -> "The phones did not finish the same test readiness exchange. Restart both tests using fresh codes."
             Code.CONNECTION_DROPPED -> "The connection stopped during authentication. Retry with both screens open."
