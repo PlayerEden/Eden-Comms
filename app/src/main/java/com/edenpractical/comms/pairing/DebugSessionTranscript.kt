@@ -70,6 +70,16 @@ internal object DebugSessionEventAdmission {
     fun current(callbackAttempt: Int, activeAttempt: Int): Boolean =
         callbackAttempt == activeAttempt
 
+    fun canAcceptReady(
+        callbackAttempt: Int,
+        activeAttempt: Int,
+        visibleStage: String,
+        transcript: DebugSessionTranscript
+    ): Boolean =
+        current(callbackAttempt, activeAttempt) &&
+            (visibleStage == "connecting" || visibleStage == "showReply") &&
+            transcript.state == DebugSessionTranscript.State.WAITING
+
     fun canRecord(
         callbackAttempt: Int,
         activeAttempt: Int,
