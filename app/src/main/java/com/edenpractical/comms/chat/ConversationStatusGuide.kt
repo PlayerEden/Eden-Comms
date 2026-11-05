@@ -26,7 +26,7 @@ internal object ConversationStatusGuide {
         ),
         QUEUED(
             "Waiting to send",
-            "Future only: the app accepted a message locally; it has not written it to a connection.",
+            "Future only: the app accepted a message locally; not written to a connection yet.",
             false
         ),
         WRITTEN_TO_CHANNEL(
