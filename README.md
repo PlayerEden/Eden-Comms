@@ -58,6 +58,8 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [M2r Wi-Fi roaming and bounded test cancellation audit (device QA pending)](docs/M2R_WIFI_CANCELLATION_RECOVERY_QA.md)
 - [M2s actual chat UI screen, local preview, and real-text security gates](docs/M2S_CHAT_UI_LOCAL_PREVIEW.md)
 - [M2t message-status guide, future ACK meanings and review-only delivery test contract](docs/M2T_MESSAGE_DELIVERY_STATUS_CONTRACT.md)
+- [M2u actual bounded UTF-8 TEXT/ACK parser (unwired) and real LAN security gate](docs/M2U_BOUNDED_TEXT_WIRE_AND_SECURITY_GATE.md)
+- [Core M3 real secure LAN text implementation and independent review tracking](https://github.com/PlayerEden/Eden-Comms/issues/42)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
