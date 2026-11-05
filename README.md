@@ -61,6 +61,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [M2u actual bounded UTF-8 TEXT/ACK parser (unwired) and real LAN security gate](docs/M2U_BOUNDED_TEXT_WIRE_AND_SECURITY_GATE.md)
 - [Core M3 real secure LAN text implementation and independent review tracking](https://github.com/PlayerEden/Eden-Comms/issues/42)
 - [M2v actual two-phone debug approval flow, security limits and physical QA](docs/M2V_DEBUG_BILATERAL_APPROVAL_TEST.md)
+- [M2w required matching TLS 1.3 RFC 9266 exporter binding before debug READY](docs/M2W_DEBUG_TLS_CHANNEL_BINDING_MATCH.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
