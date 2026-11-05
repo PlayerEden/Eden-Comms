@@ -17,6 +17,10 @@ internal object PairingTestUiCopy {
         else -> null
     }
 
+    /** Keeps QR controls and preset phrases reachable at narrow widths / large text. */
+    fun useStackedActions(availableWidthDp: Float, fontScale: Float): Boolean =
+        availableWidthDp < 360f || fontScale >= 1.3f
+
     fun resultHeading(reachedReady: Boolean): String =
         if (reachedReady) "Test connection established" else "Connection not established"
 
