@@ -26,6 +26,15 @@ class PairingTestUiCopyTest {
         assertNull(copy.progress("identityError"))
     }
 
+    @Test fun narrowOrLargeTextUsesOneColumnActions() {
+        assertTrue(copy.useStackedActions(320f, 1f))
+        assertTrue(copy.useStackedActions(359f, 1f))
+        assertTrue(copy.useStackedActions(400f, 1.3f))
+        assertTrue(copy.useStackedActions(500f, 2f))
+        assertFalse(copy.useStackedActions(360f, 1f))
+        assertFalse(copy.useStackedActions(600f, 1.2f))
+    }
+
     @Test fun summaryNeverClaimsDeliveryOrRealMessagingPermission() {
         val summary = copy.resultSummary(true, sent = 3, received = 2)
         assertEquals("Test connection established", copy.resultHeading(true))
