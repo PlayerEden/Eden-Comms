@@ -1,6 +1,8 @@
 package com.edenpractical.comms.transport
 
 import com.edenpractical.comms.model.ConnectionMethod
+import com.edenpractical.comms.transport.NearbySessionLifecycle.EndReason
+import com.edenpractical.comms.transport.NearbySessionLifecycle.Phase
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -12,9 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NearbySessionLifecycleTest {
-    private val Phase = NearbySessionLifecycle.Phase
-    private val EndReason = NearbySessionLifecycle.EndReason
-
     private fun start(
         model: NearbySessionLifecycle,
         method: ConnectionMethod = ConnectionMethod.LAN
