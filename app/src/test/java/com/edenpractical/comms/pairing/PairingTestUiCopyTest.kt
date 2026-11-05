@@ -34,7 +34,7 @@ class PairingTestUiCopyTest {
         val summary = copy.resultSummary(
             false, sent = 0, received = 0, tlsAndQrReady = true
         )
-        assertTrue(summary.contains("TLS/QR test link passed"))
+        assertTrue(summary.contains("TLS/QR/channel-binding test passed"))
         assertTrue(summary.contains("were not observed"))
         assertFalse(summary.contains("No personal messages"))
     }

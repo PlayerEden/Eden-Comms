@@ -39,6 +39,10 @@ Use **one deliberate hands-on session** after the no-device CI passes are merged
 | T20 | B declines before A approval; prompt stop on both phones and safe reason | NOT TESTED | NOT TESTED |
 | T21 | Approval limit (~90s) expires; session closes without false ready stage | NOT TESTED | NOT TESTED |
 | T22 | Cancel/background/Wi-Fi switch while awaiting approval; no stale approval accepted after new pairing | NOT TESTED | NOT TESTED |
+| T23 | Two API 31+ devices compare identical RFC 9266 exporter binding after QR/TLS, then reach approval | NOT TESTED | NOT TESTED |
+| T24 | Controlled malformed/wrong-role/mismatched exporter frame aborts before READY; no presets | NOT TESTED | NOT TESTED |
+| T25 | Unsupported exporter/API below 31 fails closed with safe category; no QR-only fallback | NOT TESTED | NOT TESTED |
+| T26 | Pre-M2w and M2w APK pairing incompatibility fails closed; no phantom approvals/presets | NOT TESTED | NOT TESTED |
 
 Start a *new* pairing session with fresh QR codes for each applicable test. Never reuse an active QR from earlier screenshots. A single passing run does **not** complete negative/network/device/installation tests.
 

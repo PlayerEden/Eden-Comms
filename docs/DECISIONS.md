@@ -29,6 +29,7 @@ Keep choices explicit; proposed items are not locked.
 | D-023 | 2026-11-03 | Prioritize dependable two-phone local Wi-Fi/LAN without WAN over simultaneously adding Bluetooth, Wi-Fi Direct or remote internet relays. | Accepted sequencing |
 | D-024 | 2026-11-03 | First functional text milestone requires mutually verified and authorized two-device encrypted connection, genuine two-way delivery with internet/cellular unavailable, failure-case QA and session-only default. | Milestone acceptance gate; not yet passed |
 | D-025 | 2026-11-05 | Only the debug QR/TLS four-phrase experiment may exchange explicit local Approve/Decline controls. Both phones must act before the preset screen. Real text and voice still require a separately reviewed, session-bound authorization design and physical QA. | Experimental implementation; real two-phone verification pending |
+| D-026 | 2026-11-05 | The debug TLS/QR test must compare matching RFC 9266 channel-binding values from both phones before READY and Approve/Decline. API/provider unavailability, mismatch, invalid record or timeout stop the test; no weaker fallback. The check is not production authorization. | Experimental implementation; independent review and hardware test pending |
 
 The [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md) and [Data Retention and Expiry design](DATA_RETENTION_AND_EXPIRY.md) were preserved from the separately diverged early planning branch. Their requirements are product direction, not evidence that features have been implemented or audited.
 

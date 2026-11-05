@@ -11,7 +11,7 @@ import org.junit.Test
 class LanDemoStatusTest {
     @Test fun everyProgressLabelNamesAnInProgressOperationNotApproval() {
         val steps = LanDemoStatus.Progress.values()
-        assertEquals(4, steps.size)
+        assertEquals(5, steps.size)
         assertTrue(steps.all { it.display.isNotBlank() && it.display.endsWith("…") })
         for (label in steps.map { it.display }) {
             assertFalse(label.contains("Connected —"))

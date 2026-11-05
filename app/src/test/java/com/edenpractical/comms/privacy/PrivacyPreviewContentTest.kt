@@ -27,6 +27,8 @@ class PrivacyPreviewContentTest {
             "appearance setting",
             "Wi-Fi address",
             "public certificate",
+            "TLS channel-binding value",
+            "encrypted local",
             "Camera",
             "INTERNET",
             "ACCESS_NETWORK_STATE",

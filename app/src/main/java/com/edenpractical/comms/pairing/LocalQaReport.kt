@@ -57,7 +57,7 @@ internal object LocalQaReport {
             "Android API: ${observation.androidApiLevel}",
             "QR role: ${observation.role.label}",
             "Reached debug READY: ${if (observation.reachedReady) "YES" else "NO"}",
-            "Pinned TLS/QR test link ready: ${if (observation.tlsAndQrReady) "YES" else "NO"}",
+            "Pinned TLS/QR/channel-binding test link ready: ${if (observation.tlsAndQrReady) "YES" else "NO"}",
             "Local debug approval written to TLS: " +
                 if (observation.localApprovalWritten) "YES" else "NO",
             "Peer debug approval observed here: " +

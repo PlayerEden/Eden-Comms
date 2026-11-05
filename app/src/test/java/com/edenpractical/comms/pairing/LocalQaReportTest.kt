@@ -84,7 +84,7 @@ class LocalQaReportTest {
             peerApprovalObserved = false
         )
         val text = LocalQaReport.format(localOnly)
-        assertTrue(text.contains("Pinned TLS/QR test link ready: YES"))
+        assertTrue(text.contains("Pinned TLS/QR/channel-binding test link ready: YES"))
         assertTrue(text.contains("Local debug approval written to TLS: YES"))
         assertTrue(text.contains("Peer debug approval observed here: NO"))
         assertTrue(text.contains("Reached debug READY: NO"))

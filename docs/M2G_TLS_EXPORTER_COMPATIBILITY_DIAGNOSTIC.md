@@ -1,5 +1,8 @@
 # M2g — Live TLS 1.3 exporter compatibility diagnostic (debug fixed-phrase test)
 
+> **Historical document (M2g).** The statements below accurately describe the older *one-phone* diagnostic when M2g shipped. **M2w supersedes that flow** with a required RFC 9266 two-phone exporter equality exchange **inside the pinned TLS socket** before READY, which does transmit 32-byte channel-binding values to the peer. See [M2w current protocol and API 31+ fail-closed requirements](M2W_DEBUG_TLS_CHANNEL_BINDING_MATCH.md). Do not interpret the historical “no bytes exchanged” text as current behavior.
+
+
 **Prepared:** November 4, 2026  
 **Status:** Implemented as a **non-authorizing development diagnostic**. Requires CI verification and future two-physical-phone testing; **not** an authenticated bilateral approval protocol, cryptographic audit, or production messaging feature.  
 **Depends on:** M2f test-only protocol proposal, M2e unwired authorization model, existing v0.2.7 debug LAN fixed-phrase test, L0/L1 privacy work.

@@ -117,6 +117,24 @@ class LanProbeDiagnosticsTest {
         }
     }
 
+    @Test fun mismatchedOrUnavailableExporterNeverLooksLikeTlsSuccess() {
+        val step = LanProbeDiagnostics.Step.CHANNEL_BINDING
+        val conditions = listOf(
+            com.edenpractical.comms.security.DebugExporterMismatchException() to
+                LanProbeDiagnostics.Code.EXPORTER_MISMATCH,
+            com.edenpractical.comms.security.DebugExporterUnavailableException() to
+                LanProbeDiagnostics.Code.EXPORTER_UNAVAILABLE,
+            SocketTimeoutException("SECRET-192.168.1.2") to
+                LanProbeDiagnostics.Code.EXPORTER_TIMEOUT
+        )
+        for ((error, expected) in conditions) {
+            val failure = d.classify(step, error)
+            assertEquals(expected, failure.code)
+            assertFalse(failure.display().contains("SECRET"))
+            assertFalse(failure.display().contains("192."))
+        }
+    }
+
     @Test fun timeoutDuringHandshakeIsNotMislabeledAsHostTimeout() {
         assertEquals(LanProbeDiagnostics.Code.HANDSHAKE_TIMEOUT,
             d.classify(LanProbeDiagnostics.Step.TLS_HANDSHAKE, SocketTimeoutException()).code)

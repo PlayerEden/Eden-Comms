@@ -41,7 +41,7 @@ internal object PairingTestUiCopy {
                 "This phone wrote $sent preset phrase(s) to TLS and received $received. " +
                     "Sent does not mean delivered or read. The on-screen phrase list was cleared."
             tlsAndQrReady ->
-                "The debug TLS/QR test link passed, but both experimental human " +
+                "The debug TLS/QR/channel-binding test passed, but both experimental human " +
                     "approvals were not observed here. No preset conversation began. " +
                     "This is not independently reviewed messaging authorization."
             else ->
