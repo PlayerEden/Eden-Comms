@@ -42,6 +42,7 @@ import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
+import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.pairing.LocalPairingTestScreen
@@ -508,6 +509,7 @@ private fun SettingsScreen(
     onDeveloper: () -> Unit,
     onPrivacy: () -> Unit
 ) {
+    var showHistoryHelp by remember { mutableStateOf(false) }
     SectionLabel("APPEARANCE")
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
@@ -535,7 +537,15 @@ private fun SettingsScreen(
         onClick = onPrivacy
     )
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text("Message history", fontWeight = FontWeight.SemiBold)
+        Row(modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Message history", modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold)
+            TextButton(
+                onClick = { showHistoryHelp = true },
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) { Text("What does this mean?") }
+        }
         Text(
             "Session-only by default (once messaging is available)",
             style = MaterialTheme.typography.bodySmall,
@@ -555,6 +565,22 @@ private fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    if (showHistoryHelp) {
+        AlertDialog(
+            onDismissRequest = { showHistoryHelp = false },
+            title = { Text(ContextualPrivacyHelp.SESSION_ONLY_TITLE) },
+            text = { Text(ContextualPrivacyHelp.SESSION_ONLY_BODY) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showHistoryHelp = false
+                    onPrivacy()
+                }) { Text("Privacy & data") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHistoryHelp = false }) { Text("Close") }
+            }
+        )
+    }
 }
 
 @Composable

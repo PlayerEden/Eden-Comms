@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
@@ -67,6 +68,7 @@ internal fun LocalPairingTestScreen() {
     var passed by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var showIdentityConsent by remember { mutableStateOf(false) }
+    var showPairingHelp by remember { mutableStateOf(false) }
     var showUpgradeConfirmation by remember { mutableStateOf(false) }
     var pendingRole by remember { mutableStateOf<String?>(null) }
     var hostInvite by remember { mutableStateOf<LocalPairingQrCodec.HostInvite?>(null) }
@@ -105,6 +107,7 @@ internal fun LocalPairingTestScreen() {
         clearTemporaryPairing()
         details = ""
         showDetails = false
+        showPairingHelp = false
         cameraError = false
         passed = false
         testLines.clear()
@@ -379,6 +382,10 @@ internal fun LocalPairingTestScreen() {
                         "You will scan one more code to verify both phones.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(
+                        onClick = { showPairingHelp = true },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) { Text("Why scan two codes?") }
                 }
                 "showHost" -> {
                     Text("1 of 2 • Let the other person scan this code.",
@@ -642,6 +649,17 @@ internal fun LocalPairingTestScreen() {
                 "Normal text messaging, history and Voice / PTT remain disabled.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    if (showPairingHelp) {
+        AlertDialog(
+            onDismissRequest = { showPairingHelp = false },
+            title = { Text(ContextualPrivacyHelp.PAIRING_TITLE) },
+            text = { Text(ContextualPrivacyHelp.PAIRING_BODY) },
+            confirmButton = {
+                TextButton(onClick = { showPairingHelp = false }) { Text("Got it") }
+            }
         )
     }
 
