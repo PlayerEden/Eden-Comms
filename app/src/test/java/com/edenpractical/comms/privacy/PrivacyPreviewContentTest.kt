@@ -16,11 +16,12 @@ class PrivacyPreviewContentTest {
     @Test fun currentDataFlowsArePresentAndUnderstandable() {
         val text = PrivacyPreviewContent.sections.joinToString(" ") { it.description }
         assertEquals(6, PrivacyPreviewContent.sections.size)
-        assertTrue("Local text preview must be disclosed",
+        assertTrue("The preview must be disclosed as on-device UI only",
             text.contains("local") && text.contains("keyboard") &&
-                text.contains("never") || text.contains("does not intentionally save"))
+                text.contains("does not intentionally save or transmit"))
         assertTrue("Peer messaging must still be unavailable",
-            text.contains("real messaging") || text.contains("exchanged with another phone"))
+            text.contains("real messaging") &&
+                text.contains("exchanged with another phone"))
         listOf(
             "Android Keystore",
             "appearance setting",
