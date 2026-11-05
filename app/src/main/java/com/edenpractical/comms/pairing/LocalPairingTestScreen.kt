@@ -10,6 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -55,6 +60,7 @@ internal fun LocalPairingTestScreen() {
     var status by remember { mutableStateOf("Checking this phone…") }
     var details by remember { mutableStateOf("") }
     var showDetails by remember { mutableStateOf(false) }
+    var cameraError by remember { mutableStateOf(false) }
     var passed by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var showIdentityConsent by remember { mutableStateOf(false) }
@@ -94,6 +100,7 @@ internal fun LocalPairingTestScreen() {
         clearTemporaryPairing()
         details = ""
         showDetails = false
+        cameraError = false
         passed = false
         testLines.clear()
         sentCount = 0
@@ -135,6 +142,7 @@ internal fun LocalPairingTestScreen() {
                 peerPin = null
                 qrText = ""
                 scanRevision += 1
+                cameraError = false
                 stage = "scanHost"
                 status = "Point your camera at the code on their phone."
             }
@@ -291,7 +299,13 @@ internal fun LocalPairingTestScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         FieldFrame(accent = true) {
-            Text(status, style = MaterialTheme.typography.bodyMedium)
+            PairingTestUiCopy.progress(stage)?.let { progress ->
+                Text(progress, style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            Text(status, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             when (stage) {
                 "checking" -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
                 "choose" -> {
@@ -311,19 +325,40 @@ internal fun LocalPairingTestScreen() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("Check Wi-Fi again") }
                     } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
-                                onClick = { startRole("show") },
-                                enabled = !loading,
-                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                                shape = CutCornerShape(6.dp)
-                            ) { Text("Show a code") }
-                            OutlinedButton(
-                                onClick = { startRole("scan") },
-                                enabled = !loading,
-                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                                shape = CutCornerShape(6.dp)
-                            ) { Text("Scan a code") }
+                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                            val stack = PairingTestUiCopy.useStackedActions(
+                                maxWidth.value, LocalDensity.current.fontScale)
+                            if (stack) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { startRole("show") },
+                                        enabled = !loading,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                        shape = CutCornerShape(6.dp)
+                                    ) { Text("Show a code") }
+                                    OutlinedButton(
+                                        onClick = { startRole("scan") },
+                                        enabled = !loading,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                        shape = CutCornerShape(6.dp)
+                                    ) { Text("Scan a code") }
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Button(
+                                        onClick = { startRole("show") },
+                                        enabled = !loading,
+                                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                        shape = CutCornerShape(6.dp)
+                                    ) { Text("Show a code") }
+                                    OutlinedButton(
+                                        onClick = { startRole("scan") },
+                                        enabled = !loading,
+                                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                        shape = CutCornerShape(6.dp)
+                                    ) { Text("Scan a code") }
+                                }
+                            }
                         }
                     }
                     if (loading) CircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -339,6 +374,7 @@ internal fun LocalPairingTestScreen() {
                     Button(
                         onClick = {
                             scanRevision += 1
+                            cameraError = false
                             stage = "scanReply"
                             status = "Now scan the code shown on the other phone."
                         },
@@ -382,8 +418,21 @@ internal fun LocalPairingTestScreen() {
                                     scanRevision += 1
                                 }
                             },
-                            onCameraError = { status = it }
+                            onCameraError = {
+                                cameraError = true
+                                status = it
+                            }
                         )
+                    }
+                    if (cameraError) {
+                        OutlinedButton(
+                            onClick = {
+                                cameraError = false
+                                scanRevision += 1
+                                status = "Restarting the QR camera…"
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("Restart camera") }
                     }
                     TextButton(onClick = { reset() }) { Text("Cancel") }
                 }
@@ -411,43 +460,87 @@ internal fun LocalPairingTestScreen() {
                     Text("Only predefined test phrases are available. No personal messages, voice, or saved history.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // Status describes THIS phone only. The RFC exporter output is
-                    // never displayed/transmitted; this is not bilateral approval.
-                    Text(details,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Channel-binding readiness is a compatibility check only — not consent or a released messenger.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Sent from here: $sentCount  •  Received here: $receivedCount",
+                    // A connected debug socket is not user consent or authorization
+                    // to send real text. Keep provider diagnostics behind a disclosure.
+                    TextButton(onClick = { showDetails = !showDetails }) {
+                        Text(if (showDetails) "Hide technical link status" else "Technical link status")
+                    }
+                    if (showDetails) {
+                        Text(details,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("This phone's channel-binding result is a compatibility check, not bilateral approval.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("Written to TLS here: $sentCount  •  Received here: $receivedCount",
                         style = MaterialTheme.typography.labelMedium)
                     if (testLines.isEmpty()) {
-                        Text("Choose a phrase below. Watch the other phone receive it.",
+                        Text("No preset phrases yet. Send one and compare both phones.",
                             style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("RECENT TEST ACTIVITY • LAST 8",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(verticalArrangement = Arrangement.spacedBy(7.dp),
+                            modifier = Modifier.fillMaxWidth()) {
                             testLines.forEach { line ->
-                                Text((if (line.fromThisPhone) "You: " else "Other phone: ") + line.phrase,
-                                    style = MaterialTheme.typography.bodyMedium)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = if (line.fromThisPhone) Arrangement.End
+                                        else Arrangement.Start
+                                ) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(0.9f),
+                                        shape = CutCornerShape(6.dp),
+                                        color = if (line.fromThisPhone)
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text(
+                                                if (line.fromThisPhone) "You • Written to TLS"
+                                                else "Other phone • Received",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(line.phrase, style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                    TestPacketCodec.phrases.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pair.forEach { phrase ->
-                                OutlinedButton(
-                                    onClick = {
-                                        when (probe?.sendPreset(phrase.id)) {
-                                            LanDemoSession.SendResult.QUEUED -> Unit
-                                            LanDemoSession.SendResult.BUSY ->
-                                                status = "Sending… Try again in a moment."
-                                            LanDemoSession.SendResult.NOT_CONNECTED, null ->
-                                                status = "The test is no longer connected."
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val columns = if (PairingTestUiCopy.useStackedActions(
+                            maxWidth.value, LocalDensity.current.fontScale)) 1 else 2
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TestPacketCodec.phrases.chunked(columns).forEach { group ->
+                                Row(modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    group.forEach { phrase ->
+                                        OutlinedButton(
+                                            onClick = {
+                                                when (probe?.sendPreset(phrase.id)) {
+                                                    LanDemoSession.SendResult.QUEUED -> Unit
+                                                    LanDemoSession.SendResult.BUSY ->
+                                                        status = "Sending… Try again in a moment."
+                                                    LanDemoSession.SendResult.NOT_CONNECTED, null ->
+                                                        status = "The test is no longer connected."
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+                                            shape = CutCornerShape(6.dp)
+                                        ) {
+                                            Text(phrase.label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 3)
                                         }
-                                    },
-                                    modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                                    shape = CutCornerShape(6.dp)
-                                ) { Text(phrase.label, style = MaterialTheme.typography.bodySmall) }
+                                    }
+                                }
                             }
                         }
                     }
@@ -470,21 +563,15 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("End test and disconnect") }
                 }
                 "result" -> {
-                    Text(if (passed) "✓ Test connection established" else "Connection not completed",
+                    Text(PairingTestUiCopy.resultHeading(passed),
                         fontWeight = FontWeight.SemiBold)
-                    Text(if (passed)
-                        "Test finished. Sent: $sentCount • Received: $receivedCount. Chat history is cleared."
-                        else "No test messages were sent. The connection is closed.",
-                        style = MaterialTheme.typography.bodySmall)
-                    Text("Voice and normal messaging remain disabled.",
+                    Text(PairingTestUiCopy.resultSummary(passed, sentCount, receivedCount),
                         style = MaterialTheme.typography.bodySmall)
                     if (details.isNotEmpty()) {
-                        TextButton(onClick = { showDetails = !showDetails }) {
-                            Text(if (showDetails) "Hide technical details" else "Technical details")
-                        }
-                        if (showDetails) Text(details,
-                            style = MaterialTheme.typography.bodySmall)
+                        Text(details, style = MaterialTheme.typography.bodyMedium)
                     }
+                    Text("Voice and normal messaging remain disabled.",
+                        style = MaterialTheme.typography.bodySmall)
                     Button(
                         onClick = { reset() },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)

@@ -65,14 +65,16 @@ internal object LocalQrArtwork {
 @Composable
 internal fun LocalPairingQrDisplay(payload: String) {
     val bitmap = remember(payload) { LocalQrArtwork.render(payload).asImageBitmap() }
-    Box(
+    BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Never clip the QR at narrow widths or large display sizes.
+        val qrSize = minOf(maxWidth, 248.dp)
         Image(
             bitmap = bitmap,
             contentDescription = "Pairing QR code. Scan with the other phone's Eden Comms app.",
-            modifier = Modifier.size(248.dp)
+            modifier = Modifier.size(qrSize)
                 .background(Color.White, RoundedCornerShape(6.dp)).padding(8.dp)
         )
     }
