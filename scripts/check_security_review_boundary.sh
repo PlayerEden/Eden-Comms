@@ -77,6 +77,24 @@ if grep -RFn --include='*.kt' 'ScriptedNearbyTransportAdapter' "$MAIN"; then
   exit 1
 fi
 
+# M2s is a real chat UI layout, but ONLY a local presentation sandbox.
+# Never let it silently gain transport/crypto APIs, persistent chat storage,
+# saveable Compose transcript state, or live peer authority. Future reviewed
+# network integration requires explicitly replacing this guard in its own PR.
+CHAT="$MAIN/com/edenpractical/comms/chat"
+test -f "$CHAT/LocalChatPreview.kt"
+test -f "$CHAT/LocalChatPreviewScreen.kt"
+if grep -REn --include='*.kt' \
+  '^(import com\.edenpractical\.comms\.(security|transport|protocol)\.|import java\.net\.|import android\.bluetooth\.|import android\.net\.wifi\.)' "$CHAT"; then
+  echo "FAIL: M2s local preview imported network, protocol or authentication code" >&2
+  exit 1
+fi
+if grep -REn --include='*.kt' \
+  '(rememberSaveable|SharedPreferences|openFileOutput|SQLiteDatabase|sendPacket\(|Socket\(|DataStore|LocalTlsIdentity)' "$CHAT"; then
+  echo "FAIL: M2s text preview gained persistence or network send capability" >&2
+  exit 1
+fi
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -88,4 +106,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: M2f/M2h/M2o models unwired; M2p simulator JVM-only; exporter limited to demo; release gates off"
+echo "PASS: M2f/M2h/M2o models unwired; M2p simulator JVM-only; M2s preview local-only; exporter demo-only; release gates off"

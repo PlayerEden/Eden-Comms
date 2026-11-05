@@ -11,9 +11,10 @@ internal object PrivacyPreviewContent {
     const val heading = "Privacy & data"
     const val status = "DEVELOPMENT PREVIEW"
     const val introduction =
-        "Eden Comms currently offers a local, temporary QR and encrypted-link " +
-        "test. You cannot send your own messages or voice yet. Do not use " +
-        "this experimental build for sensitive conversations."
+        "Eden Comms currently offers a temporary local QR/TLS connection test " +
+        "and a separate text-screen layout preview. Text typed into the preview " +
+        "never leaves this phone. You cannot send your own messages or voice to " +
+        "another person yet. Do not use this build for sensitive conversations."
 
     data class Section(val heading: String, val description: String)
 
@@ -22,8 +23,10 @@ internal object PrivacyPreviewContent {
             "On your phone",
             "If you create a device identity, its private key remains in Android " +
             "Keystore until reset or removed. The app also remembers your light " +
-            "or dark appearance setting. Test phrases and counters are temporary; " +
-            "the app does not save a conversation history."
+            "or dark appearance setting. Fixed test phrases and local text-preview " +
+            "bubbles are temporary in-memory UI content; the app does not " +
+            "intentionally save a conversation history. Preview text clears on " +
+            "End, when leaving that screen, and when the app backgrounds."
         ),
         Section(
             "Shared when pairing",
@@ -41,6 +44,13 @@ internal object PrivacyPreviewContent {
             "request microphone, contacts, Bluetooth or location permissions."
         ),
         Section(
+            "Typing into a local preview",
+            "The text composer is only a screen demonstration, not a secure " +
+            "chat. Eden Comms does not intentionally save or transmit that text, " +
+            "but the keyboard, Android snapshots, screen recording or another " +
+            "observer may retain what you type or display. Avoid secrets."
+        ),
+        Section(
             "What privacy cannot hide",
             "The Wi-Fi network and nearby observers may detect connected devices " +
             "and connection timing. Encryption does not protect a compromised " +
@@ -49,10 +59,10 @@ internal object PrivacyPreviewContent {
         ),
         Section(
             "What is not available",
-            "There are no Eden Comms accounts, user-written messages, " +
-            "saved conversations, voice calls, or remembered peer connections " +
-            "in this preview. These features must receive separate reviews " +
-            "before they are added."
+            "There are no Eden Comms accounts, user-written messages exchanged " +
+            "with another phone, saved conversations, voice calls, or remembered " +
+            "peer connections. The text layout allows local typing only; " +
+            "real messaging and voice require separate reviews before enabling."
         )
     )
 

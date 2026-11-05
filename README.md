@@ -11,6 +11,7 @@ A simple, accessible way for two people nearby to **Connect → Communicate → 
 ## Current implemented prototype (pre-beta source, not a public release)
 
 - Native Kotlin + Jetpack Compose home, connection preview, settings, offline help and opt-in local device identity.
+- **Home → Text** opens a native **local-only text layout preview** with editable composer, message bubbles, local/sample-only state labels and session-end clearing. It is not a real chat: typed content never transmits, fictional example messages are explicitly labeled, and no preview history is saved.
 - Experimental local pairing: current Wi-Fi + QR identity exchange + test-only TLS/session checks and in-memory synthetic phrase IDs. This is not audited real messaging; no contacts, chat history, voice/PTT, saved peer trusts, Bluetooth or Wi-Fi Direct yet.
 - **Permissions now requested:** `INTERNET` (Android also requires it for local TCP), `ACCESS_NETWORK_STATE` (Wi-Fi selection), and `CAMERA` (user-initiated QR scan). No microphone, Bluetooth, contacts or location permissions in the current preview APK.
 - Theme preference is stored locally; Android Keystore identity can persist once explicitly created. App manifest disables backup and cleartext traffic with data-transfer exclusion rules; physical-device behavior still needs verification.
@@ -55,6 +56,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [M2p JVM-only virtual transport adapter and fault matrix (not real radios)](docs/M2P_VIRTUAL_TRANSPORT_FAULT_MATRIX.md)
 - [M2q real debug LAN step labels, categorized disconnects, and safe QA fields](docs/M2Q_LAN_STATUS_AND_FAILURE_QA.md)
 - [M2r Wi-Fi roaming and bounded test cancellation audit (device QA pending)](docs/M2R_WIFI_CANCELLATION_RECOVERY_QA.md)
+- [M2s actual chat UI screen, local preview, and real-text security gates](docs/M2S_CHAT_UI_LOCAL_PREVIEW.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
