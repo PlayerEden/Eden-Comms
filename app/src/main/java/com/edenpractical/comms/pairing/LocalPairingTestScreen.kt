@@ -65,7 +65,6 @@ internal fun LocalPairingTestScreen() {
     var details by remember { mutableStateOf("") }
     var showDetails by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf(false) }
-    var passed by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var showIdentityConsent by remember { mutableStateOf(false) }
     var showPairingHelp by remember { mutableStateOf(false) }
@@ -78,10 +77,9 @@ internal fun LocalPairingTestScreen() {
     var scanRevision by remember { mutableIntStateOf(0) }
     var attemptVersion by remember { mutableIntStateOf(0) }
     var probe by remember { mutableStateOf<LanDemoSession?>(null) }
-    data class TestLine(val fromThisPhone: Boolean, val phrase: String)
-    val testLines = remember { mutableStateListOf<TestLine>() }
-    var sentCount by remember { mutableIntStateOf(0) }
-    var receivedCount by remember { mutableIntStateOf(0) }
+    // Never saveable: this in-memory ledger is scoped to this composable.
+    // No user-supplied text or persistent message history can enter it.
+    var transcript by remember { mutableStateOf(DebugSessionTranscript.fresh()) }
     var qaRole by remember { mutableStateOf(LocalQaReport.Role.NOT_SELECTED) }
     var qaFinish by remember { mutableStateOf(LocalQaReport.Finish.NOT_RECORDED) }
     val latestProbe by rememberUpdatedState(probe)
@@ -109,10 +107,7 @@ internal fun LocalPairingTestScreen() {
         showDetails = false
         showPairingHelp = false
         cameraError = false
-        passed = false
-        testLines.clear()
-        sentCount = 0
-        receivedCount = 0
+        transcript = DebugSessionTranscript.fresh()
         qaRole = LocalQaReport.Role.NOT_SELECTED
         qaFinish = LocalQaReport.Finish.NOT_RECORDED
         pendingRole = null
@@ -172,7 +167,7 @@ internal fun LocalPairingTestScreen() {
         if (own == null || expected == null || invite == null || reply == null) {
             stage = "result"
             status = "Pairing was incomplete. Start again with fresh codes."
-            passed = false
+            transcript = transcript.finish()
             return
         }
         try {
@@ -191,32 +186,43 @@ internal fun LocalPairingTestScreen() {
                 )
             }
             stopTest()
+            transcript = DebugSessionTranscript.fresh()
             val thisAttempt = attemptVersion
             val connection = LanDemoSession(context.applicationContext) { event ->
                 handler.post {
-                    if (thisAttempt != attemptVersion) return@post
+                    if (!DebugSessionEventAdmission.current(
+                            thisAttempt, attemptVersion
+                        )) return@post
                     when (event.phase) {
                         LanDemoSession.Phase.LISTENING -> status =
                             "Waiting for the other phone to connect…"
                         LanDemoSession.Phase.CONNECTING -> status =
                             "Show your code to the other phone. Connecting automatically…"
                         LanDemoSession.Phase.READY -> {
+                            // A delayed READY can arrive after an END from a
+                            // different socket thread. Never reopen the UI.
+                            if (!DebugSessionEventAdmission.canAcceptReady(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) return@post
+                            transcript = transcript.ready()
                             clearTemporaryPairing()
-                            passed = true
                             details = event.description
                             status = "Connected for the two-phone test."
                             stage = "demo"
                         }
                         LanDemoSession.Phase.SENT, LanDemoSession.Phase.RECEIVED -> {
-                            // Events from writer and reader threads can be queued
-                            // around disconnect. Never resurrect an ended transcript.
-                            if (stage != "demo") return@post
-                            val phrase = event.phraseId?.let(TestPacketCodec::phrase)
-                            if (phrase != null) {
-                                val fromThisPhone = event.phase == LanDemoSession.Phase.SENT
-                                if (fromThisPhone) sentCount++ else receivedCount++
-                                testLines.add(TestLine(fromThisPhone, phrase))
-                                while (testLines.size > 8) testLines.removeAt(0)
+                            // Writer/reader callbacks may race with disconnect;
+                            // only record known phrase IDs in the active attempt.
+                            if (!DebugSessionEventAdmission.canRecord(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) return@post
+                            event.phraseId?.let { id ->
+                                transcript = transcript.record(
+                                    if (event.phase == LanDemoSession.Phase.SENT)
+                                        DebugSessionTranscript.Direction.WRITTEN_TO_TLS
+                                    else DebugSessionTranscript.Direction.RECEIVED_HERE,
+                                    id
+                                )
                             }
                         }
                         LanDemoSession.Phase.ENDED -> {
@@ -224,16 +230,15 @@ internal fun LocalPairingTestScreen() {
                             clearTemporaryPairing()
                             details = event.description
                             status = "Test connection ended."
-                            testLines.clear()
+                            transcript = transcript.finish()
                             stage = "result"
                         }
                         LanDemoSession.Phase.FAILED -> {
                             qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
                             clearTemporaryPairing()
-                            passed = false
                             details = event.description
                             status = "Couldn't connect. Check both phones are on the same Wi-Fi."
-                            testLines.clear()
+                            transcript = transcript.finish()
                             stage = "result"
                         }
                     }
@@ -253,7 +258,7 @@ internal fun LocalPairingTestScreen() {
             stopTest()
             clearTemporaryPairing()
             stage = "result"
-            passed = false
+            transcript = transcript.finish()
             details = "Pairing codes were invalid, expired, or the Wi-Fi network changed."
             status = "Couldn't start the test. Start again with fresh codes."
         }
@@ -289,8 +294,7 @@ internal fun LocalPairingTestScreen() {
                 qaFinish = LocalQaReport.Finish.APP_BACKGROUNDED
                 stopTest()
                 clearTemporaryPairing()
-                testLines.clear()
-                passed = hadConnected
+                transcript = transcript.finish()
                 details = "The app went into the background, closing the local test socket."
                 status = if (hadConnected) "Test connection ended when the app left the screen."
                     else "Connection cancelled. Start again when both phones are ready."
@@ -302,7 +306,7 @@ internal fun LocalPairingTestScreen() {
             lifecycleOwner?.lifecycle?.removeObserver(observer)
             latestProbe?.close()
             clearTemporaryPairing()
-            testLines.clear()
+            transcript = transcript.finish()
         }
     }
 
@@ -493,9 +497,9 @@ internal fun LocalPairingTestScreen() {
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("Written to TLS here: $sentCount  •  Received here: $receivedCount",
+                    Text("Written to TLS here: ${transcript.writtenToTls}  •  Received here: ${transcript.receivedHere}",
                         style = MaterialTheme.typography.labelMedium)
-                    if (testLines.isEmpty()) {
+                    if (transcript.recent.isEmpty()) {
                         Text("No preset phrases yet. Send one and compare both phones.",
                             style = MaterialTheme.typography.bodySmall)
                     } else {
@@ -505,28 +509,33 @@ internal fun LocalPairingTestScreen() {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Column(verticalArrangement = Arrangement.spacedBy(7.dp),
                             modifier = Modifier.fillMaxWidth()) {
-                            testLines.forEach { line ->
+                            transcript.recent.forEach { line ->
+                                val fromThisPhone =
+                                    line.direction == DebugSessionTranscript.Direction.WRITTEN_TO_TLS
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = if (line.fromThisPhone) Arrangement.End
+                                    horizontalArrangement = if (fromThisPhone) Arrangement.End
                                         else Arrangement.Start
                                 ) {
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(0.9f),
                                         shape = CutCornerShape(6.dp),
-                                        color = if (line.fromThisPhone)
+                                        color = if (fromThisPhone)
                                             MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                                         else MaterialTheme.colorScheme.surfaceVariant
                                     ) {
                                         Column(modifier = Modifier.padding(10.dp),
                                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(
-                                                if (line.fromThisPhone) "You • Written to TLS"
+                                                if (fromThisPhone) "You • Written to TLS"
                                                 else "Other phone • Received",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.SemiBold
                                             )
-                                            Text(line.phrase, style = MaterialTheme.typography.bodyMedium)
+                                            Text(
+                                                TestPacketCodec.phrase(line.phraseId),
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
                                         }
                                     }
                                 }
@@ -577,16 +586,19 @@ internal fun LocalPairingTestScreen() {
                             clearTemporaryPairing()
                             details = "Test ended on this phone."
                             status = "Test ended."
-                            testLines.clear()
+                            transcript = transcript.finish()
                             stage = "result"
                         },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                     ) { Text("End test and disconnect") }
                 }
                 "result" -> {
-                    Text(PairingTestUiCopy.resultHeading(passed),
+                    Text(PairingTestUiCopy.resultHeading(transcript.reachedReady),
                         fontWeight = FontWeight.SemiBold)
-                    Text(PairingTestUiCopy.resultSummary(passed, sentCount, receivedCount),
+                    Text(PairingTestUiCopy.resultSummary(
+                        transcript.reachedReady,
+                        transcript.writtenToTls, transcript.receivedHere
+                    ),
                         style = MaterialTheme.typography.bodySmall)
                     if (details.isNotEmpty()) {
                         Text(details, style = MaterialTheme.typography.bodyMedium)
@@ -606,9 +618,9 @@ internal fun LocalPairingTestScreen() {
                                 versionName = installedVersion,
                                 androidApiLevel = Build.VERSION.SDK_INT,
                                 role = qaRole,
-                                reachedReady = passed,
-                                writtenToTls = sentCount,
-                                receivedHere = receivedCount,
+                                reachedReady = transcript.reachedReady,
+                                writtenToTls = transcript.writtenToTls,
+                                receivedHere = transcript.receivedHere,
                                 finish = qaFinish
                             )
                             try {
