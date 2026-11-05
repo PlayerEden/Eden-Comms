@@ -101,6 +101,22 @@ class LanProbeDiagnosticsTest {
                 com.edenpractical.comms.protocol.TestPacketException()).code)
     }
 
+    @Test fun wifiRoamingDuringTlsQrOrTcpAlwaysGetsOwnSafeCategory() {
+        for (step in listOf(
+            LanProbeDiagnostics.Step.WIFI,
+            LanProbeDiagnostics.Step.TCP_CONNECT,
+            LanProbeDiagnostics.Step.TLS_HANDSHAKE,
+            LanProbeDiagnostics.Step.SESSION_BINDING,
+            LanProbeDiagnostics.Step.READY_EXCHANGE
+        )) {
+            val failure = d.classify(step, LanWifiChangedException())
+            assertEquals(LanProbeDiagnostics.Code.WIFI_CHANGED, failure.code)
+            assertFalse(failure.display().contains("192."))
+            assertFalse(failure.display().contains("PRIVATE"))
+            assert(failure.display().contains("fresh QR codes"))
+        }
+    }
+
     @Test fun timeoutDuringHandshakeIsNotMislabeledAsHostTimeout() {
         assertEquals(LanProbeDiagnostics.Code.HANDSHAKE_TIMEOUT,
             d.classify(LanProbeDiagnostics.Step.TLS_HANDSHAKE, SocketTimeoutException()).code)
