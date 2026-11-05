@@ -38,6 +38,53 @@ class ApkIdentityEvidenceTests(unittest.TestCase):
     def test_parses_realistic_aapt_line(self):
         self.assertEqual(mod.parse_apk_badging(EXAMPLE_AAPT), mod.source_identity(EXAMPLE_GRADLE))
 
+    def test_internal_test_override_is_monotonic_and_derives_version_name(self):
+        self.assertEqual(mod.expected_identity(EXAMPLE_GRADLE, 10001), {
+            "application_id": "com.edenpractical.comms",
+            "version_code": 10001,
+            "version_name": "0.2.12-internal-10001",
+        })
+        self.assertEqual(mod.expected_identity(EXAMPLE_GRADLE),
+                         mod.source_identity(EXAMPLE_GRADLE))
+        for bad in (-1, 0, 11, 2_100_000_001, True):
+            with self.subTest(bad=bad):
+                with self.assertRaises(mod.IdentityAuditError):
+                    mod.expected_identity(EXAMPLE_GRADLE, bad)
+
+    def test_wrong_pinned_signer_rejected_before_any_report_is_written(self):
+        from unittest.mock import patch
+        from pathlib import Path
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            apk = Path(temp, "test.apk")
+            apk.write_bytes(b"not a real APK; tools are mocked")
+            aapt = "package: name='com.edenpractical.comms' versionCode='10001' versionName='0.2.12-internal-10001'"
+            cert = "Signer #1 certificate SHA-256 digest: " + FINGERPRINT + "\n"
+            with patch.object(mod, "tool_output", side_effect=[aapt, cert]):
+                with patch.object(mod, "sdk_tool", return_value="mock-sdk-tool"):
+                    with self.assertRaises(mod.IdentityAuditError):
+                        mod.inspect(apk, EXAMPLE_GRADLE, "test",
+                                    internal_test_version_code=10001,
+                                    expected_signer_sha256=OTHER_FINGERPRINT)
+
+    def test_matching_pinned_signer_is_still_not_an_upgrade_receipt(self):
+        from unittest.mock import patch
+        from pathlib import Path
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            apk = Path(temp, "test.apk")
+            apk.write_bytes(b"not real, use mocked tools")
+            aapt = "package: name='com.edenpractical.comms' versionCode='10001' versionName='0.2.12-internal-10001'"
+            cert = "Signer #1 certificate SHA-256 digest: " + FINGERPRINT + "\n"
+            with patch.object(mod, "tool_output", side_effect=[aapt, cert]):
+                with patch.object(mod, "sdk_tool", return_value="mock-sdk-tool"):
+                    report = mod.inspect(apk, EXAMPLE_GRADLE, "test",
+                                         internal_test_version_code=10001,
+                                         expected_signer_sha256=FINGERPRINT)
+        self.assertTrue(report["configured_signer_fingerprint_matched"])
+        self.assertFalse(report["signer_continuity_verified"])
+        self.assertEqual("pinned-internal-test", report["signing_profile"])
+
     def test_rejects_missing_package_line(self):
         with self.assertRaises(mod.IdentityAuditError):
             mod.parse_apk_badging("application-label:'Eden Comms'")

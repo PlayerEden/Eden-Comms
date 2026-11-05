@@ -19,6 +19,10 @@ Example (after building): `python3 scripts/audit_apk_identity.py --apk app/build
 
 For an offline static comparison against earlier published evidence, supply `--previous <old-apk-identity.json>`. This intentionally refuses differing signer, differing package, non-incremented versionCode and unsupported evidence schema. A PASS is a **necessary preflight**, not a guarantee an actual device upgrade succeeds.
 
+## Newly scaffolded internal test signing path — human setup still required
+
+A **separate** [manual internal-test APK workflow](../.github/workflows/android-internal-test-apk.yml) and [M2l setup guide](M2L_INTERNAL_TEST_SIGNING.md) can now be reviewed and exercised with disposable credentials. It has not been activated with a persistent dedicated key or proven on two sequential signed releases. Ordinary CI debug artifacts still use transient debug signing. The internal workflow refuses wrong/missing secrets or configured certificate-pin mismatch and is owner/main-only by design.
+
 ## Outstanding signing continuity work (Issue #27)
 
 A future separate implementation should adopt a durable **test-only signing identity**, protected in a suitable secret store, with limited access and a documented recovery/rotation plan. Never commit the keystore or password to this public repository or re-use a future production signing identity. Keep `applicationId = com.edenpractical.comms` unchanged. Increment `versionCode` for each distributed update build.
