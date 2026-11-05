@@ -26,6 +26,19 @@ class PairingTestUiCopyTest {
         assertNull(copy.progress("identityError"))
     }
 
+    @Test fun approvalIsASeparateStageAndMayEndAfterSuccessfulTls() {
+        assertEquals("LOCAL CONNECTION • TWO-PERSON TEST APPROVAL",
+            copy.progress("approval"))
+        assertEquals("Test link ended before both approvals",
+            copy.resultHeading(false, tlsAndQrReady = true))
+        val summary = copy.resultSummary(
+            false, sent = 0, received = 0, tlsAndQrReady = true
+        )
+        assertTrue(summary.contains("TLS/QR test link passed"))
+        assertTrue(summary.contains("were not observed"))
+        assertFalse(summary.contains("No personal messages"))
+    }
+
     @Test fun narrowOrLargeTextUsesOneColumnActions() {
         assertTrue(copy.useStackedActions(320f, 1f))
         assertTrue(copy.useStackedActions(359f, 1f))
