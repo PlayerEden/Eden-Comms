@@ -111,6 +111,53 @@ class DebugSessionTranscriptTest {
         assertTrue(DebugSessionEventAdmission.current(6, 6))
     }
 
+    @Test fun readyAfterTerminalOrFromStaleAttemptCannotResurrectConversation() {
+        val waiting = DebugSessionTranscript.fresh()
+        assertTrue(DebugSessionEventAdmission.canAcceptReady(
+            7, 7, "connecting", waiting
+        ))
+        assertTrue(DebugSessionEventAdmission.canAcceptReady(
+            7, 7, "showReply", waiting
+        ))
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            6, 7, "connecting", waiting
+        ))
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            7, 7, "result", waiting
+        ))
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            7, 7, "demo", waiting
+        ))
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            7, 7, "connecting", waiting.finish()
+        ))
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            7, 7, "showReply", waiting.ready()
+        ))
+    }
+
+    @Test fun lateEventsAfterTerminalRemainRejectedAcrossMultipleAttempts() {
+        var attempt = 11
+        var ledger = DebugSessionTranscript.fresh()
+        assertTrue(DebugSessionEventAdmission.canAcceptReady(
+            11, attempt, "connecting", ledger
+        ))
+        ledger = ledger.ready().record(local, 1).finish()
+        assertFalse(DebugSessionEventAdmission.canRecord(11, attempt, "demo", ledger))
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            11, attempt, "connecting", ledger
+        ))
+        attempt++
+        val newLedger = DebugSessionTranscript.fresh()
+        assertFalse(DebugSessionEventAdmission.canAcceptReady(
+            11, attempt, "connecting", newLedger
+        ))
+        assertTrue(DebugSessionEventAdmission.canAcceptReady(
+            12, attempt, "connecting", newLedger
+        ))
+        assertEquals(0, newLedger.writtenToTls)
+    }
+
     @Test fun immutableUpdatesNeverChangeEarlierSnapshots() {
         val start = DebugSessionTranscript.fresh().ready()
         val after = start.record(local, 1)
