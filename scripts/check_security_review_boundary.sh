@@ -203,4 +203,20 @@ for SYMBOL in DebugApprovalCommitment SessionProofChallenges; do
   done
 done
 
-echo "PASS: M2x approvals scoped to QR/challenges/exporter, debug-only; typed chat and release flags still off"
+# M2y requires a separate explicit confirmation on both debug peers.
+# Merely receiving two approvals must never unlock a preset phrase; all four
+# events (two human approvals + two final confirmations) are required.
+DEBUG_GATE="$MAIN/com/edenpractical/comms/transport/DebugApprovalGate.kt"
+grep -Fq 'private var localConfirmationWritten = false' "$DEBUG_GATE"
+grep -Fq 'private var peerConfirmationObserved = false' "$DEBUG_GATE"
+grep -Fq 'fun maySendPreset(): Boolean = current() == State.CONFIRMED' "$DEBUG_GATE"
+grep -Fq 'fun peerConfirmationObserved(): State' "$DEBUG_GATE"
+grep -Fq 'fun localConfirmationWritten(): State' "$DEBUG_GATE"
+grep -Fq 'fun confirm(commitment: ByteArray): Packet' "$TEST_CODEC"
+grep -Fq 'TestPacketCodec.Type.CONFIRM ->' "$DEBUG_LAN"
+grep -Fq 'sendPacket(TestPacketCodec.confirm(commitment))' "$DEBUG_LAN"
+grep -Fq 'DebugApprovalGate.State.CONFIRMED ->' "$DEBUG_LAN"
+grep -Fq 'event.approvalState != DebugApprovalGate.State.CONFIRMED' \
+  "$MAIN/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt"
+
+echo "PASS: M2y two-phone debug final confirmation required; real text codec unwired; release flags off"
