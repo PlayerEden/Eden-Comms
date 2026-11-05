@@ -17,4 +17,9 @@ internal object LanConnectRetryPolicy {
     fun shouldRetry(error: Exception, elapsedMs: Long, enabled: Boolean): Boolean =
         enabled && elapsedMs in 0 until MAX_WAIT_MS &&
             (error is ConnectException || error is SocketTimeoutException)
+
+    /** Never sleep past the remaining retry budget, including the last attempt. */
+    fun delayBeforeRetryMs(elapsedMs: Long): Long =
+        if (elapsedMs !in 0 until MAX_WAIT_MS) 0L
+        else minOf(RETRY_DELAY_MS, MAX_WAIT_MS - elapsedMs)
 }
