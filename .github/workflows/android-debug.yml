@@ -47,6 +47,8 @@ jobs:
         run: python3 scripts/audit_play_surface.py --apk app/build/outputs/apk/debug/app-debug.apk --output-dir app/build/play-evidence
       - name: Capture resolved release runtime dependencies
         run: gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > app/build/play-evidence/releaseRuntimeClasspath.txt
+      - name: Verify APK package, version and signer evidence
+        run: python3 scripts/audit_apk_identity.py --apk app/build/outputs/apk/debug/app-debug.apk --output-dir app/build/play-evidence
       - name: Generate SHA-256
         run: |
           cd app/build/outputs/apk/debug
@@ -61,6 +63,8 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk.sha256
             app/build/play-evidence/launch-surface.json
             app/build/play-evidence/launch-surface.md
+            app/build/play-evidence/apk-identity.json
+            app/build/play-evidence/apk-identity.md
             app/build/play-evidence/releaseRuntimeClasspath.txt
           if-no-files-found: error
           retention-days: 14
