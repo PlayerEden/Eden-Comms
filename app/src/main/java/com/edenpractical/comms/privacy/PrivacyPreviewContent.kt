@@ -32,9 +32,11 @@ internal object PrivacyPreviewContent {
             "Shared when pairing",
             "A QR code shows your local Wi-Fi address, a public certificate " +
             "fingerprint and a short-lived pairing value to the other phone. " +
-            "The two phones exchange test control packets and fixed phrase IDs " +
-            "over the local connection. The other person can photograph or " +
-            "retain what appears on either screen."
+            "During the experimental test, the phones also exchange a " +
+            "standard TLS channel-binding value inside their encrypted local " +
+            "connection, then approval controls and fixed phrase IDs. No " +
+            "exported values are intentionally saved or uploaded to a server. " +
+            "The other person can photograph or retain what appears on screen."
         ),
         Section(
             "Permissions",
