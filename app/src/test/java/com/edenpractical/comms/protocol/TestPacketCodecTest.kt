@@ -21,7 +21,7 @@ class TestPacketCodecTest {
     }
 
     @Test fun readyHeartbeatAndCloseRoundTrip() {
-        listOf(codec.ready(), codec.heartbeat(), codec.close()).forEach { packet ->
+        listOf(codec.ready(), codec.heartbeat(), codec.close(), codec.approve(), codec.decline()).forEach { packet ->
             assertEquals(packet, codec.decode(codec.encode(packet)))
         }
     }
@@ -66,13 +66,32 @@ class TestPacketCodecTest {
     }
 
     @Test fun everyNonzeroControlPayloadIsRejected() {
-        for (kind in listOf(1, 3, 4)) {
+        for (kind in listOf(1, 3, 4, 5, 6)) {
             for (id in 1..255) {
                 val raw = byteArrayOf(1, kind.toByte(), id.toByte())
                 assertThrows(TestPacketException::class.java) {
                     codec.decode(raw)
                 }
             }
+        }
+    }
+
+    @Test fun approveDeclineHaveStrictThreeByteFixturesAndNoFreeText() {
+        assertArrayEquals(byteArrayOf(1, 5, 0), codec.encode(codec.approve()))
+        assertArrayEquals(byteArrayOf(1, 6, 0), codec.encode(codec.decline()))
+        assertEquals(codec.approve(), codec.decode(byteArrayOf(1, 5, 0)))
+        assertEquals(codec.decline(), codec.decode(byteArrayOf(1, 6, 0)))
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.APPROVE, 1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.DECLINE, 1))
+        }
+        assertThrows(TestPacketException::class.java) {
+            codec.decode(byteArrayOf(1, 5, 1))
+        }
+        assertThrows(TestPacketException::class.java) {
+            codec.decode(byteArrayOf(1, 6, 1))
         }
     }
 
