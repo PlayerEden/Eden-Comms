@@ -84,12 +84,18 @@ The current user cannot access both phones during ordinary work hours. We can im
 - Controls are transmitted through the existing debuggable test connection. Peer observation, local write, decline and timeout have distinct status labels and QA fields.
 - These controls do **not** authorize ordinary messages or voice; security review and physical two-phone evidence are pending. [M2v QA specification](M2V_DEBUG_BILATERAL_APPROVAL_TEST.md).
 
-## M2w live debug TLS channel-binding equality (this PR)
+## M2w live debug TLS channel-binding equality (PR #45 merged)
 
 - Replace the old one-phone TLS exporter availability status with a fixed-size, **two-phone equality check** of the RFC 9266 value on the same pinned TLS 1.3/QR-proved socket, before READY or the debug approval screen.
 - Fail closed if Android/provider lacks exporter support (API 31+ required), peer value disagrees, protocol role/version is wrong, record is truncated or the exchange times out. **No fallback** to a weaker test.
 - Privacy-safe reporting and JVM binary-record tests. No production text/voice or runtime security-approval use.
 - [M2w design and device acceptance](M2W_DEBUG_TLS_CHANNEL_BINDING_MATCH.md); both-handset checks remain NOT TESTED.
+
+## M2x per-session debug approvals (this PR)
+
+- Both Approve and Decline controls now carry a fixed 32-byte transcript commitment to the two QR identities/nonces, per-connection proof challenges and matched TLS exporter. The receiving side validates before updating the gate.
+- Previous 3-byte generic controls cannot be accepted; no downgrade. Live test still accepts only four synthetic phrases, never normal chat or voice.
+- [M2x technical and negative QA](M2X_DEBUG_SESSION_BOUND_APPROVAL.md); new handset checks remain NOT TESTED. Independent approval protocol review and signer continuity remain outstanding.
 
 ## Other safe development work we can do with no phone
 
