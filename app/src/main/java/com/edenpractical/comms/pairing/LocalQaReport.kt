@@ -36,7 +36,9 @@ internal object LocalQaReport {
         val failureCode: LanProbeDiagnostics.Code? = null,
         val tlsAndQrReady: Boolean = false,
         val localApprovalWritten: Boolean = false,
-        val peerApprovalObserved: Boolean = false
+        val peerApprovalObserved: Boolean = false,
+        val localConfirmationWritten: Boolean = false,
+        val peerConfirmationObserved: Boolean = false
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -62,6 +64,10 @@ internal object LocalQaReport {
                 if (observation.localApprovalWritten) "YES" else "NO",
             "Peer debug approval observed here: " +
                 if (observation.peerApprovalObserved) "YES" else "NO",
+            "Local final session confirmation written to TLS: " +
+                if (observation.localConfirmationWritten) "YES" else "NO",
+            "Peer final session confirmation observed here: " +
+                if (observation.peerConfirmationObserved) "YES" else "NO",
             "These observations are NOT independently reviewed human authorization.",
             "Preset phrases written to local TLS: ${observation.writtenToTls}",
             "Preset phrases received by this app: ${observation.receivedHere}",

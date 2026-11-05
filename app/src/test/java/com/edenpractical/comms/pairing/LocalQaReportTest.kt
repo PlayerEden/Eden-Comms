@@ -92,6 +92,26 @@ class LocalQaReportTest {
         assertFalse(text.contains("CERTIFICATE"))
     }
 
+    @Test fun finalConfirmationsAreSeparateFromApprovalsInOnePhoneReport() {
+        val observed = sample(ready = false, written = 0, received = 0).copy(
+            tlsAndQrReady = true,
+            localApprovalWritten = true,
+            peerApprovalObserved = true,
+            localConfirmationWritten = true,
+            peerConfirmationObserved = false
+        )
+        val text = LocalQaReport.format(observed)
+        assertTrue(text.contains("Local final session confirmation written to TLS: YES"))
+        assertTrue(text.contains("Peer final session confirmation observed here: NO"))
+        assertTrue(text.contains("Reached debug READY: NO"))
+        assertFalse(text.contains("SECRET"))
+        val finished = LocalQaReport.format(observed.copy(
+            peerConfirmationObserved = true, reachedReady = true
+        ))
+        assertTrue(finished.contains("Peer final session confirmation observed here: YES"))
+        assertTrue(finished.contains("Reached debug READY: YES"))
+    }
+
     @Test fun outcomeAndRoleAreFixedLabelsNotRawNetworkErrors() {
         for (role in LocalQaReport.Role.values()) {
             for (finish in LocalQaReport.Finish.values()) {

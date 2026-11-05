@@ -23,7 +23,8 @@ class TestPacketCodecTest {
 
     @Test fun readyHeartbeatAndCloseRoundTrip() {
         listOf(codec.ready(), codec.heartbeat(), codec.close(),
-            codec.approve(binding), codec.decline(binding)).forEach { packet ->
+            codec.approve(binding), codec.decline(binding),
+            codec.confirm(binding)).forEach { packet ->
             assertEquals(packet, codec.decode(codec.encode(packet)))
         }
     }
@@ -68,7 +69,7 @@ class TestPacketCodecTest {
     }
 
     @Test fun everyNonzeroControlPayloadIsRejected() {
-        for (kind in listOf(1, 3, 4, 5, 6)) {
+        for (kind in listOf(1, 3, 4, 5, 6, 7)) {
             for (id in 1..255) {
                 val raw = byteArrayOf(1, kind.toByte(), id.toByte())
                 assertThrows(TestPacketException::class.java) {
@@ -81,22 +82,31 @@ class TestPacketCodecTest {
     @Test fun approveDeclineRequireExactSessionBound35ByteFixtures() {
         val approve = codec.encode(codec.approve(binding))
         val decline = codec.encode(codec.decline(binding))
+        val confirm = codec.encode(codec.confirm(binding))
         assertArrayEquals(byteArrayOf(1, 5, 0) + binding, approve)
         assertArrayEquals(byteArrayOf(1, 6, 0) + binding, decline)
+        assertArrayEquals(byteArrayOf(1, 7, 0) + binding, confirm)
         assertEquals(35, approve.size)
         assertEquals(codec.approve(binding), codec.decode(approve))
         assertEquals(codec.decline(binding), codec.decode(decline))
+        assertEquals(codec.confirm(binding), codec.decode(confirm))
         assertThrows(TestPacketException::class.java) {
             codec.decode(byteArrayOf(1, 5, 0)) // old generic approval forbidden
         }
         assertThrows(TestPacketException::class.java) {
             codec.decode(byteArrayOf(1, 6, 0)) // old generic decline forbidden
         }
+        assertThrows(TestPacketException::class.java) {
+            codec.decode(byteArrayOf(1, 7, 0)) // no unbound final confirmation
+        }
         assertThrows(IllegalArgumentException::class.java) {
             codec.approve(ByteArray(32))
         }
         assertThrows(IllegalArgumentException::class.java) {
             codec.decline(ByteArray(31))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.confirm(ByteArray(32))
         }
         assertThrows(IllegalArgumentException::class.java) {
             codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.APPROVE, 1,
@@ -110,6 +120,7 @@ class TestPacketCodecTest {
 
     @Test fun wrongBoundedApprovalLengthsAndCorruptionFailClosed() {
         val approved = codec.encode(codec.approve(binding))
+        val confirmation = codec.encode(codec.confirm(binding))
         for (n in listOf(0, 1, 2, 3, 4, 33, 34, 36, 37)) {
             assertThrows(TestPacketException::class.java) {
                 codec.decode(approved.copyOf(n))
@@ -125,6 +136,9 @@ class TestPacketCodecTest {
             assertThrows(TestPacketException::class.java) { codec.decode(bytes) }
         }
         val modified = approved.copyOf().also { it[19] = (it[19].toInt() xor 1).toByte() }
+        assertThrows(TestPacketException::class.java) {
+            codec.decode(confirmation.copyOf(34))
+        }
         // The packet remains parseable; live session binding must reject it.
         assertEquals(35, codec.encode(codec.decode(modified)).size)
         assertThrows(TestPacketException::class.java) {

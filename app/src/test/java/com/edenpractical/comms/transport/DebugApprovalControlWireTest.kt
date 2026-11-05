@@ -12,90 +12,119 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Real debug control bytes, but exchanged across in-memory JVM streams.
- * NO actual Android radio, TLS or human approval is exercised by this test.
+ * Debug controls over actual bounded byte framing in two JVM endpoints.
+ * NO Android radio, TLS, real phones, or independent protocol review here.
  */
 class DebugApprovalControlWireTest {
     private val commitment = ByteArray(32) { (it + 1).toByte() }
-    private fun boundPacket(packet: TestPacketCodec.Packet): Boolean =
-        DebugApprovalCommitment.matches(
-            commitment, packet.sessionCommitment.toByteArray()
-        )
-    @Test fun bothDevicesMustWriteAndObserveAnApprovalBeforeTestPhrases() {
+
+    private fun isCurrent(packet: TestPacketCodec.Packet): Boolean =
+        DebugApprovalCommitment.matches(commitment, packet.sessionCommitment.toByteArray())
+
+    private fun throughWire(packet: TestPacketCodec.Packet): TestPacketCodec.Packet {
+        val output = ByteArrayOutputStream()
+        TestPacketCodec.write(output, packet)
+        return TestPacketCodec.read(ByteArrayInputStream(output.toByteArray()))
+    }
+
+    @Test fun twoPhonesNeedBothApprovalsAndTwoFinalConfirmsBeforeAnyPresets() {
         val presenter = DebugApprovalGate()
         val joiner = DebugApprovalGate()
         assertFalse(presenter.maySendPreset())
         assertFalse(joiner.maySendPreset())
 
-        // Presenter taps Approve; local write completes, joiner decodes it.
-        val fromPresenter = ByteArrayOutputStream()
-        TestPacketCodec.write(fromPresenter, TestPacketCodec.approve(commitment))
+        // Person A taps; B receives A's session-bound approval.
+        val aApprove = throughWire(TestPacketCodec.approve(commitment))
         assertEquals(DebugApprovalGate.State.LOCAL_ONLY, presenter.localWritten())
-        val peerDecision = TestPacketCodec.read(
-            ByteArrayInputStream(fromPresenter.toByteArray()))
-        assertTrue(boundPacket(peerDecision))
+        assertTrue(isCurrent(aApprove))
         assertEquals(DebugApprovalGate.State.PEER_ONLY, joiner.peerObserved())
         assertFalse(presenter.maySendPreset())
         assertFalse(joiner.maySendPreset())
 
-        // Joiner taps Approve; its local write completes and presenter decodes.
-        val fromJoiner = ByteArrayOutputStream()
-        TestPacketCodec.write(fromJoiner, TestPacketCodec.approve(commitment))
+        // Person B taps; A receives B's approval. BOTH have now observed two.
+        val bApprove = throughWire(TestPacketCodec.approve(commitment))
         assertEquals(DebugApprovalGate.State.BOTH_OBSERVED, joiner.localWritten())
-        val presenterReceived = TestPacketCodec.read(
-            ByteArrayInputStream(fromJoiner.toByteArray()))
-        assertTrue(boundPacket(presenterReceived))
+        assertTrue(isCurrent(bApprove))
         assertEquals(DebugApprovalGate.State.BOTH_OBSERVED, presenter.peerObserved())
-        assertTrue(joiner.maySendPreset())
+        assertFalse(presenter.maySendPreset())
+        assertFalse(joiner.maySendPreset())
+
+        // A confirms this exact session; B receives it, still cannot send.
+        assertTrue(presenter.mayWriteConfirmation())
+        val aConfirm = throughWire(TestPacketCodec.confirm(commitment))
+        assertEquals(DebugApprovalGate.State.LOCAL_CONFIRMED,
+            presenter.localConfirmationWritten())
+        assertTrue(isCurrent(aConfirm))
+        assertEquals(DebugApprovalGate.State.PEER_CONFIRMED,
+            joiner.peerConfirmationObserved())
+        assertFalse(presenter.maySendPreset())
+        assertFalse(joiner.maySendPreset())
+
+        // B confirms. A and B now each observed two approvals and confirmations.
+        val bConfirm = throughWire(TestPacketCodec.confirm(commitment))
+        assertEquals(DebugApprovalGate.State.CONFIRMED, joiner.localConfirmationWritten())
+        assertTrue(isCurrent(bConfirm))
+        assertEquals(DebugApprovalGate.State.CONFIRMED, presenter.peerConfirmationObserved())
         assertTrue(presenter.maySendPreset())
+        assertTrue(joiner.maySendPreset())
         assertFalse(com.edenpractical.comms.model.ReleaseCapabilities.CAN_SEND_MESSAGES)
     }
 
-    @Test fun declinedControlIsNontextAndPreventsAnyPresets() {
+    @Test fun declinedControlRevokesAnyFinalConfirmation() {
         val gate = DebugApprovalGate()
-        val stream = ByteArrayOutputStream()
-        TestPacketCodec.write(stream, TestPacketCodec.decline(commitment))
-        assertTrue(boundPacket(TestPacketCodec.read(
-            ByteArrayInputStream(stream.toByteArray()))))
-        gate.decline()
+        gate.localWritten()
+        gate.peerObserved()
+        gate.localConfirmationWritten()
+        gate.peerConfirmationObserved()
+        assertTrue(gate.maySendPreset())
+        assertTrue(isCurrent(throughWire(TestPacketCodec.decline(commitment))))
+        assertEquals(DebugApprovalGate.State.DECLINED, gate.decline())
         assertFalse(gate.maySendPreset())
-        assertEquals(DebugApprovalGate.State.DECLINED, gate.localWritten())
-        assertEquals(DebugApprovalGate.State.DECLINED, gate.peerObserved())
+        assertEquals(DebugApprovalGate.State.DECLINED, gate.peerConfirmationObserved())
     }
 
-    @Test fun staleOrForeignSessionControlCannotGrantApproval() {
+    @Test fun oldOrStaleSessionConfirmationCannotUnlockGate() {
         val stale = ByteArray(32) { (it + 3).toByte() }
-        val staleWire = ByteArrayOutputStream().apply {
-            TestPacketCodec.write(this, TestPacketCodec.approve(stale))
-        }
-        val received = TestPacketCodec.read(
-            ByteArrayInputStream(staleWire.toByteArray()))
-        assertEquals(TestPacketCodec.Type.APPROVE, received.type)
-        assertFalse(boundPacket(received))
+        val stalePacket = throughWire(TestPacketCodec.confirm(stale))
+        assertFalse(isCurrent(stalePacket))
         val gate = DebugApprovalGate()
-        // Receiver validates the commitment BEFORE calling peerObserved().
-        if (boundPacket(received)) gate.peerObserved()
-        assertEquals(DebugApprovalGate.State.WAITING, gate.snapshot())
+        gate.localWritten()
+        gate.peerObserved()
+        assertEquals(DebugApprovalGate.State.BOTH_OBSERVED, gate.snapshot())
+        if (isCurrent(stalePacket)) gate.peerConfirmationObserved()
         assertFalse(gate.maySendPreset())
-        assertFalse(com.edenpractical.comms.model.ReleaseCapabilities.CAN_SEND_MESSAGES)
+        assertThrows(TestPacketException::class.java) {
+            TestPacketCodec.decode(byteArrayOf(1, 7, 0)) // generic legacy confirm
+        }
     }
 
-    @Test fun duplicateOrModifiedApprovalControlsFailClosed() {
-        val same = ByteArrayOutputStream()
-        TestPacketCodec.write(same, TestPacketCodec.approve(commitment))
-        TestPacketCodec.write(same, TestPacketCodec.approve(commitment))
-        val input = ByteArrayInputStream(same.toByteArray())
+    @Test fun earlyOrDuplicatePeerConfirmationIsInvalidEvenWithMatchingDigest() {
+        val early = DebugApprovalGate()
+        val peerConfirm = throughWire(TestPacketCodec.confirm(commitment))
+        assertTrue(isCurrent(peerConfirm))
+        assertEquals(DebugApprovalGate.State.INVALID, early.peerConfirmationObserved())
+        assertFalse(early.maySendPreset())
+
+        val repeated = DebugApprovalGate()
+        repeated.localWritten()
+        repeated.peerObserved()
+        assertTrue(isCurrent(peerConfirm))
+        repeated.peerConfirmationObserved()
+        assertEquals(DebugApprovalGate.State.INVALID, repeated.peerConfirmationObserved())
+        assertFalse(repeated.maySendPreset())
+    }
+
+    @Test fun duplicateApprovalStillTerminatesBeforeFinalConfirmation() {
+        val stream = ByteArrayOutputStream()
+        TestPacketCodec.write(stream, TestPacketCodec.approve(commitment))
+        TestPacketCodec.write(stream, TestPacketCodec.approve(commitment))
+        val input = ByteArrayInputStream(stream.toByteArray())
         val gate = DebugApprovalGate()
-        assertEquals(TestPacketCodec.approve(commitment), TestPacketCodec.read(input))
+        assertTrue(isCurrent(TestPacketCodec.read(input)))
         assertEquals(DebugApprovalGate.State.PEER_ONLY, gate.peerObserved())
-        assertEquals(TestPacketCodec.approve(commitment), TestPacketCodec.read(input))
+        assertTrue(isCurrent(TestPacketCodec.read(input)))
         assertEquals(DebugApprovalGate.State.INVALID, gate.peerObserved())
+        assertFalse(gate.mayWriteConfirmation())
         assertFalse(gate.maySendPreset())
-        assertThrows(TestPacketException::class.java) {
-            TestPacketCodec.decode(byteArrayOf(1, 5, 3))
-        }
-        assertThrows(TestPacketException::class.java) {
-            TestPacketCodec.decode(byteArrayOf(1, 6, 3))
-        }
     }
 }

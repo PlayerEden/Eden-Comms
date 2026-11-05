@@ -97,6 +97,12 @@ The current user cannot access both phones during ordinary work hours. We can im
 - Previous 3-byte generic controls cannot be accepted; no downgrade. Live test still accepts only four synthetic phrases, never normal chat or voice.
 - [M2x technical and negative QA](M2X_DEBUG_SESSION_BOUND_APPROVAL.md); new handset checks remain NOT TESTED. Independent approval protocol review and signer continuity remain outstanding.
 
+## M2y final two-phone agreement confirmation (this PR)
+
+- Final user-visible debug handshake now requires **both local and peer APPROVE observations and both local and peer bound CONFIRM controls** before fixed presets are permitted.
+- The two-phase status is shown on the actual native UI. The simulated endpoint tests verify ordering, stale/duplicate failures, and a race where the peer's CONFIRM arrives before a local writer state update.
+- Strict session commitment, no fallback to generic three-byte controls, timeout/decline cancellation, no normal typed chat or PTT. [M2y design and test matrix](M2Y_DEBUG_MUTUAL_FINAL_CONFIRMATION.md). Hardware QA remains untested and independent review outstanding.
+
 ## Other safe development work we can do with no phone
 
 1. Build code-only policy, protocol and UI regression tests, including malformed QR/frame cases, retries, timeouts, stale callbacks, lifecycle cleanup and low-memory/large-font navigation checks where automation supports them.

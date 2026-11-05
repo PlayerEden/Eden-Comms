@@ -1,56 +1,114 @@
 package com.edenpractical.comms.transport
 
 /**
- * Local, ephemeral state for the DEBUG-only human-approval experiment.
+ * Per-socket, DEBUG-ONLY human approval and final-confirmation model.
  *
- * A real APPROVE frame is transported only by the existing four-preset TLS
- * debug link after its pinned certificate / reciprocal QR checks. This model
- * is NOT production peer authorization. It has no session exporter proof,
- * reviewed application protocol, message send capability or trust persistence.
+ * A real person must approve on both devices; then each phone writes an
+ * explicit session-bound CONFIRM after it has observed BOTH approvals.
+ * The four fixed phrases remain prohibited until this phone has both written
+ * its own confirmation and observed the peer's confirmation on the pinned TLS
+ * link. A local write is not a remote delivery receipt or production consent.
  *
- * "LOCAL_ONLY" means this phone successfully wrote an APPROVE control frame
- * to TLS; it does NOT mean that the peer received it.
- * "PEER_ONLY" means this phone decoded an APPROVE frame from its pinned TLS
- * connection; it does NOT prove that both devices agree on final status.
+ * The reader and writer run on different threads. A peer confirmation can
+ * legitimately arrive just before this phone's local-write callback updates
+ * its approval state; it is recorded only after the peer APPROVE was observed
+ * and never unlocks anything until all four events are present.
  */
 internal class DebugApprovalGate {
     enum class State {
-        WAITING, LOCAL_ONLY, PEER_ONLY, BOTH_OBSERVED, DECLINED, INVALID, CLOSED
+        WAITING, LOCAL_ONLY, PEER_ONLY, BOTH_OBSERVED,
+        LOCAL_CONFIRMED, PEER_CONFIRMED, CONFIRMED,
+        DECLINED, INVALID, CLOSED
     }
 
-    private var current = State.WAITING
+    private var localApprovalWritten = false
+    private var peerApprovalObserved = false
+    private var localConfirmationWritten = false
+    private var peerConfirmationObserved = false
+    private var terminal: State? = null
 
     @Synchronized
-    fun snapshot(): State = current
-
-    /** Called only after a local APPROVE control packet's TLS write completes. */
-    @Synchronized
-    fun localWritten(): State = when (current) {
-        State.WAITING -> State.LOCAL_ONLY
-        State.PEER_ONLY -> State.BOTH_OBSERVED
-        State.LOCAL_ONLY, State.BOTH_OBSERVED -> State.INVALID
-        State.DECLINED, State.INVALID, State.CLOSED -> current
-    }.also { current = it }
-
-    /** Called only after decoding APPROVE on the pinned, already-READY link. */
-    @Synchronized
-    fun peerObserved(): State = when (current) {
-        State.WAITING -> State.PEER_ONLY
-        State.LOCAL_ONLY -> State.BOTH_OBSERVED
-        State.PEER_ONLY, State.BOTH_OBSERVED -> State.INVALID
-        State.DECLINED, State.INVALID, State.CLOSED -> current
-    }.also { current = it }
+    fun snapshot(): State = current()
 
     @Synchronized
-    fun decline(): State = when (current) {
-        State.CLOSED -> State.CLOSED
-        State.INVALID -> State.INVALID
-        else -> State.DECLINED
-    }.also { current = it }
+    fun localWritten(): State {
+        if (terminal != null) return current()
+        if (localApprovalWritten) return invalidate()
+        localApprovalWritten = true
+        return current()
+    }
 
     @Synchronized
-    fun close(): State = State.CLOSED.also { current = it }
+    fun peerObserved(): State {
+        if (terminal != null) return current()
+        if (peerApprovalObserved) return invalidate()
+        peerApprovalObserved = true
+        return current()
+    }
+
+    /** Sending a CONFIRM is allowed only after both approvals were observed. */
+    @Synchronized
+    fun mayWriteConfirmation(): Boolean =
+        terminal == null && localApprovalWritten && peerApprovalObserved &&
+            !localConfirmationWritten
 
     @Synchronized
-    fun maySendPreset(): Boolean = current == State.BOTH_OBSERVED
+    fun localConfirmationWritten(): State {
+        if (terminal != null) return current()
+        if (!localApprovalWritten || !peerApprovalObserved || localConfirmationWritten) {
+            return invalidate()
+        }
+        localConfirmationWritten = true
+        return current()
+    }
+
+    /**
+     * Receiver MUST first check that the CONFIRM carries this socket's exact
+     * session commitment. The peer's own APPROVE must precede its CONFIRM
+     * on the same ordered TLS stream.
+     */
+    @Synchronized
+    fun peerConfirmationObserved(): State {
+        if (terminal != null) return current()
+        if (!peerApprovalObserved || peerConfirmationObserved) return invalidate()
+        peerConfirmationObserved = true
+        return current()
+    }
+
+    @Synchronized
+    fun decline(): State {
+        if (terminal == null) terminal = State.DECLINED
+        return current()
+    }
+
+    @Synchronized
+    fun close(): State {
+        terminal = State.CLOSED
+        return current()
+    }
+
+    @Synchronized
+    fun maySendPreset(): Boolean = current() == State.CONFIRMED
+
+    private fun invalidate(): State {
+        terminal = State.INVALID
+        return State.INVALID
+    }
+
+    private fun current(): State {
+        terminal?.let { return it }
+        if (localApprovalWritten && peerApprovalObserved) {
+            return when {
+                localConfirmationWritten && peerConfirmationObserved -> State.CONFIRMED
+                localConfirmationWritten -> State.LOCAL_CONFIRMED
+                peerConfirmationObserved -> State.PEER_CONFIRMED
+                else -> State.BOTH_OBSERVED
+            }
+        }
+        return when {
+            localApprovalWritten -> State.LOCAL_ONLY
+            peerApprovalObserved -> State.PEER_ONLY
+            else -> State.WAITING
+        }
+    }
 }

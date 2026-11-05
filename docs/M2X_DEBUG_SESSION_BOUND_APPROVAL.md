@@ -1,5 +1,8 @@
 # M2x — debug approval controls bound to the current QR and TLS session
 
+> **Historical milestone:** M2y subsequently added a required session-bound final confirmation exchanged in both directions after both APPROVE controls. The M2x-era flow below is no longer the complete current behavior. See [M2y final confirmation](M2Y_DEBUG_MUTUAL_FINAL_CONFIRMATION.md).
+
+
 **Date:** 2026-11-05  
 **Scope:** Experimental, debuggable Android two-phone fixed-phrase test.  
 **Real text/voice and peer trust:** DISABLED. **Independent protocol review:** NOT PERFORMED. **Physical two-phone test:** NOT PERFORMED.

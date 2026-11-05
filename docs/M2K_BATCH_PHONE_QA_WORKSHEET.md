@@ -48,6 +48,11 @@ Use **one deliberate hands-on session** after the no-device CI passes are merged
 | T29 | Controlled stale/modified consent commitment is rejected before the gate changes | NOT TESTED | NOT TESTED |
 | T30 | Decline, Wi-Fi change, background/cancel/restart never authorize via stale commitment | NOT TESTED | NOT TESTED |
 | T31 | No-WAN real two-phone session clears at end; status, accessibility, counters and 1:1 behavior verified | NOT TESTED | NOT TESTED |
+| T32 | Both phones observe two approvals and exchange both final CONFIRMs before four presets unlock | NOT TESTED | NOT TESTED |
+| T33 | One final CONFIRM is not received due to peer loss; no forged agreement or false delivery status | NOT TESTED | NOT TESTED |
+| T34 | Controlled wrong-session, duplicate or premature CONFIRM is rejected without enabling any preset | NOT TESTED | NOT TESTED |
+| T35 | Cancel/Decline/background/Wi-Fi change during final exchange never enables stale authorization | NOT TESTED | NOT TESTED |
+| T36 | Old M2x client without CONFIRM cannot silently enable presets with M2y client | NOT TESTED | NOT TESTED |
 
 Start a *new* pairing session with fresh QR codes for each applicable test. Never reuse an active QR from earlier screenshots. A single passing run does **not** complete negative/network/device/installation tests.
 

@@ -95,6 +95,8 @@ internal fun LocalPairingTestScreen() {
     var qaTlsReady by remember { mutableStateOf(false) }
     var qaLocalApprovalWritten by remember { mutableStateOf(false) }
     var qaPeerApprovalObserved by remember { mutableStateOf(false) }
+    var qaLocalConfirmationWritten by remember { mutableStateOf(false) }
+    var qaPeerConfirmationObserved by remember { mutableStateOf(false) }
     val latestProbe by rememberUpdatedState(probe)
 
     fun stopTest() {
@@ -140,6 +142,8 @@ internal fun LocalPairingTestScreen() {
         qaTlsReady = false
         qaLocalApprovalWritten = false
         qaPeerApprovalObserved = false
+        qaLocalConfirmationWritten = false
+        qaPeerConfirmationObserved = false
         pendingRole = null
         stage = "choose"
         status = "Choose how to begin."
@@ -226,6 +230,8 @@ internal fun LocalPairingTestScreen() {
             qaTlsReady = false
             qaLocalApprovalWritten = false
             qaPeerApprovalObserved = false
+            qaLocalConfirmationWritten = false
+            qaPeerConfirmationObserved = false
             val thisAttempt = attemptVersion
             val connection = LanDemoSession(context.applicationContext) { event ->
                 handler.post {
@@ -274,27 +280,50 @@ internal fun LocalPairingTestScreen() {
                             event.approvalState?.let { observation ->
                                 approvalStage = observation
                                 approvalSending = false
-                                if (observation == DebugApprovalGate.State.LOCAL_ONLY) {
-                                    qaLocalApprovalWritten = true
-                                    status = "Your debug approval was written to TLS. Waiting for the other phone."
-                                } else if (observation == DebugApprovalGate.State.PEER_ONLY) {
-                                    qaPeerApprovalObserved = true
-                                    status = "The other phone's debug approval was observed. Your approval is still needed."
+                                when (observation) {
+                                    DebugApprovalGate.State.LOCAL_ONLY -> {
+                                        qaLocalApprovalWritten = true
+                                        status = "Your approval was written to TLS. Waiting for the other phone."
+                                    }
+                                    DebugApprovalGate.State.PEER_ONLY -> {
+                                        qaPeerApprovalObserved = true
+                                        status = "The other phone approved. Your approval is still needed."
+                                    }
+                                    DebugApprovalGate.State.BOTH_OBSERVED -> {
+                                        qaLocalApprovalWritten = true
+                                        qaPeerApprovalObserved = true
+                                        status = "Both debug approvals observed. Exchanging final confirmations…"
+                                    }
+                                    DebugApprovalGate.State.LOCAL_CONFIRMED -> {
+                                        qaLocalApprovalWritten = true
+                                        qaPeerApprovalObserved = true
+                                        qaLocalConfirmationWritten = true
+                                        status = "This phone confirmed the session. Waiting for the other phone."
+                                    }
+                                    DebugApprovalGate.State.PEER_CONFIRMED -> {
+                                        qaLocalApprovalWritten = true
+                                        qaPeerApprovalObserved = true
+                                        qaPeerConfirmationObserved = true
+                                        status = "The peer confirmed the session. Waiting for this phone."
+                                    }
+                                    else -> Unit
                                 }
                             }
                         }
                         LanDemoSession.Phase.APPROVAL_COMPLETE -> {
                             if (stage != "approval" ||
                                 transcript.state != DebugSessionTranscript.State.WAITING ||
-                                event.approvalState != DebugApprovalGate.State.BOTH_OBSERVED
+                                event.approvalState != DebugApprovalGate.State.CONFIRMED
                             ) return@post
-                            approvalStage = DebugApprovalGate.State.BOTH_OBSERVED
+                            approvalStage = DebugApprovalGate.State.CONFIRMED
                             qaLocalApprovalWritten = true
                             qaPeerApprovalObserved = true
+                            qaLocalConfirmationWritten = true
+                            qaPeerConfirmationObserved = true
                             approvalSending = false
                             transcript = transcript.ready()
                             stage = "demo"
-                            status = "Both debug approvals observed locally. Fixed-phrase test enabled."
+                            status = "Both approvals and final confirmations received. Preset test enabled."
                         }
                         LanDemoSession.Phase.SENT, LanDemoSession.Phase.RECEIVED -> {
                             // Writer/reader callbacks may race with disconnect;
@@ -618,6 +647,19 @@ internal fun LocalPairingTestScreen() {
                             if (peerObserved) "Observed by this phone" else "Waiting",
                         style = MaterialTheme.typography.labelMedium
                     )
+                    if (localObserved && peerObserved) {
+                        Text(
+                            when (approvalStage) {
+                                DebugApprovalGate.State.LOCAL_CONFIRMED ->
+                                    "Final check: this phone confirmed; waiting for peer."
+                                DebugApprovalGate.State.PEER_CONFIRMED ->
+                                    "Final check: peer confirmed; waiting for this phone."
+                                else -> "Final check: exchanging matching session confirmations…"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Button(
                         onClick = {
                             when (probe?.approveForTest()) {
@@ -656,7 +698,7 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("Decline and disconnect") }
                 }
                 "demo" -> {
-                    Text("Both debug approvals observed — test phrases", fontWeight = FontWeight.SemiBold)
+                    Text("Both approvals and confirmations completed — test phrases", fontWeight = FontWeight.SemiBold)
                     Text("Only predefined test phrases are available. No personal messages, voice, or saved history.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -805,7 +847,9 @@ internal fun LocalPairingTestScreen() {
                                 failureCode = qaFailureCode,
                                 tlsAndQrReady = qaTlsReady,
                                 localApprovalWritten = qaLocalApprovalWritten,
-                                peerApprovalObserved = qaPeerApprovalObserved
+                                peerApprovalObserved = qaPeerApprovalObserved,
+                                localConfirmationWritten = qaLocalConfirmationWritten,
+                                peerConfirmationObserved = qaPeerConfirmationObserved
                             )
                             try {
                                 val clipboard = context.getSystemService(

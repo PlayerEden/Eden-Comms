@@ -25,7 +25,7 @@ internal object PairingTestUiCopy {
     fun resultHeading(reachedReady: Boolean, tlsAndQrReady: Boolean = false): String =
         when {
             reachedReady -> "Test connection established"
-            tlsAndQrReady -> "Test link ended before both approvals"
+            tlsAndQrReady -> "Test link ended before final agreement"
             else -> "Connection not established"
         }
 
@@ -41,8 +41,9 @@ internal object PairingTestUiCopy {
                 "This phone wrote $sent preset phrase(s) to TLS and received $received. " +
                     "Sent does not mean delivered or read. The on-screen phrase list was cleared."
             tlsAndQrReady ->
-                "The debug TLS/QR/channel-binding test passed, but both experimental human " +
-                    "approvals were not observed here. No preset conversation began. " +
+                "The debug TLS/QR/channel-binding test passed, but both human approvals " +
+                    "and final two-way confirmations were not completed here. " +
+                    "No preset conversation began. " +
                     "This is not independently reviewed messaging authorization."
             else ->
                 "The test stopped before reaching a verified local session. " +

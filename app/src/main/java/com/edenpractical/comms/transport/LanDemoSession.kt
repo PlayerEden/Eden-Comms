@@ -93,6 +93,7 @@ internal class LanDemoSession(
     private val sendBudget = DemoSendBudget(2)
     private val heartbeatQueued = AtomicBoolean(false)
     private val approvalQueued = AtomicBoolean(false)
+    private val confirmationQueued = AtomicBoolean(false)
     private val approvalGate = DebugApprovalGate()
     @Volatile private var debugConsentCommitment: ByteArray? = null
     private val ending = AtomicBoolean(false)
@@ -235,7 +236,7 @@ internal class LanDemoSession(
         startHeartbeat()
 
         // Only fixed 3-byte preset/heartbeat/READY/CLOSE or 35-byte
-        // session-bound approval controls inside the FrameCodec envelope.
+        // session-bound approval, decline and final-confirm controls inside FrameCodec.
         // Absolutely no general text or unsolicited packet types.
         while (!stopped.get()) {
             when (val packet = TestPacketCodec.read(socket.inputStream)) {
@@ -260,6 +261,15 @@ internal class LanDemoSession(
                             approvalGate.decline()
                             emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.PEER_DECLINED)
                             return
+                        }
+                        TestPacketCodec.Type.CONFIRM -> {
+                            requireCurrentConsentCommitment(packet)
+                            val state = approvalGate.peerConfirmationObserved()
+                            if (state == DebugApprovalGate.State.INVALID ||
+                                state == DebugApprovalGate.State.CLOSED ||
+                                state == DebugApprovalGate.State.DECLINED
+                            ) throw TestPacketException()
+                            emitApprovalState(state)
                         }
                         TestPacketCodec.Type.HEARTBEAT -> Unit
                         TestPacketCodec.Type.CLOSE -> {
@@ -363,15 +373,59 @@ internal class LanDemoSession(
 
     private fun emitApprovalState(state: DebugApprovalGate.State) {
         when (state) {
-            DebugApprovalGate.State.BOTH_OBSERVED ->
+            DebugApprovalGate.State.CONFIRMED ->
                 emit(Event(Phase.APPROVAL_COMPLETE,
-                    "Both debug approvals observed by this phone; preset test only.",
+                    "Both approvals and both final confirmations observed here; preset test only.",
                     approvalState = state))
-            DebugApprovalGate.State.LOCAL_ONLY, DebugApprovalGate.State.PEER_ONLY ->
+            DebugApprovalGate.State.LOCAL_ONLY,
+            DebugApprovalGate.State.PEER_ONLY,
+            DebugApprovalGate.State.BOTH_OBSERVED,
+            DebugApprovalGate.State.LOCAL_CONFIRMED,
+            DebugApprovalGate.State.PEER_CONFIRMED ->
                 emit(Event(Phase.APPROVAL_UPDATE,
-                    "Approval observation updated; waiting for both phones.",
+                    "Waiting for both approvals and two session confirmations.",
                     approvalState = state))
             else -> Unit
+        }
+        queueFinalConfirmationIfReady()
+    }
+
+    /** Auto-send exactly one session-bound final control after both taps. */
+    private fun queueFinalConfirmationIfReady() {
+        if (!ready || stopped.get() || ending.get() ||
+            !approvalGate.mayWriteConfirmation()
+        ) return
+        if (!confirmationQueued.compareAndSet(false, true)) return
+        try {
+            writer.execute {
+                try {
+                    if (!ready || stopped.get() || ending.get() ||
+                        !approvalGate.mayWriteConfirmation()
+                    ) return@execute
+                    val commitment = debugConsentCommitment?.copyOf()
+                        ?: throw TestPacketException()
+                    try {
+                        sendPacket(TestPacketCodec.confirm(commitment))
+                    } finally {
+                        commitment.fill(0)
+                    }
+                    val state = approvalGate.localConfirmationWritten()
+                    if (state == DebugApprovalGate.State.INVALID ||
+                        state == DebugApprovalGate.State.CLOSED ||
+                        state == DebugApprovalGate.State.DECLINED
+                    ) throw TestPacketException()
+                    emitApprovalState(state)
+                } catch (_: IOException) {
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                    close()
+                } finally {
+                    confirmationQueued.set(false)
+                }
+            }
+        } catch (_: RuntimeException) {
+            confirmationQueued.set(false)
+            emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+            close()
         }
     }
 
