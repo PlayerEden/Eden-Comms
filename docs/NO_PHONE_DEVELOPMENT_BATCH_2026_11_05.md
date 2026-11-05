@@ -43,12 +43,19 @@ The current user cannot access both phones during ordinary work hours. We can im
 - The security script forbids moving this simulator into Android `app/src/main` or referencing it from real communication paths. Both `ReleaseCapabilities` and the real network/debug-only boundaries remain unchanged.
 - [M2p fault matrix and limits](M2P_VIRTUAL_TRANSPORT_FAULT_MATRIX.md).
 
-## M2q actual debug-LAN connection stage observability (this isolated PR)
+## M2q actual debug-LAN connection stage observability (PR #38 merged)
 
 - The real fixed-phrase LAN test now emits **fixed progress labels** for TLS negotiation, peer identity checking, reciprocal QR proof and the final READY exchange. UI only accepts progress for the current unfinished attempt, without implying verification was successful.
 - Disconnects and handshake failures are categorized through safe enum values: timeout vs READY rejection, Wi-Fi changes, peer silence, ten-minute session limit, malformed packets and transport interruption.
 - The per-phone opt-in QA report now includes last operation **started** and final fixed failure/end codes, never raw IPs, QR data, peer identity, messages or exception text.
 - No production text/voice or Bluetooth/Wi-Fi Direct transport was activated. See [M2q LAN status + failure QA](M2Q_LAN_STATUS_AND_FAILURE_QA.md); physical T01–T16 acceptance remains NOT TESTED.
+
+## M2r Wi-Fi continuity and bounded foreground cancel (this isolated PR)
+
+- Fail closed when original Wi-Fi Network / IPv4 / prefix changes while QR scanning, waiting for peer, retrying TCP, TLS negotiating, verifying pins/QR, or just before READY. Best-effort ~2-second watcher during pre-READY and existing heartbeat after READY; no roaming across a test session.
+- User **End test** arms an independent ~1.2-second socket close before queueing best-effort CLOSE. Scheduler or writer rejection closes immediately; stale CameraX/session callbacks are guarded.
+- Safe `WIFI_CHANGED` classification and JVM boundary tests, without new permissions, network services or production capabilities.
+- Physical Android timing and two-phone behavior are still NOT TESTED: [M2r audit](M2R_WIFI_CANCELLATION_RECOVERY_QA.md).
 
 ## Other safe development work we can do with no phone
 

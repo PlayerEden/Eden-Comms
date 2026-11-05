@@ -54,6 +54,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [M2o transport-neutral lifecycle groundwork — status model only, unwired](docs/M2O_TRANSPORT_NEUTRAL_LIFECYCLE.md)
 - [M2p JVM-only virtual transport adapter and fault matrix (not real radios)](docs/M2P_VIRTUAL_TRANSPORT_FAULT_MATRIX.md)
 - [M2q real debug LAN step labels, categorized disconnects, and safe QA fields](docs/M2Q_LAN_STATUS_AND_FAILURE_QA.md)
+- [M2r Wi-Fi roaming and bounded test cancellation audit (device QA pending)](docs/M2R_WIFI_CANCELLATION_RECOVERY_QA.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 
