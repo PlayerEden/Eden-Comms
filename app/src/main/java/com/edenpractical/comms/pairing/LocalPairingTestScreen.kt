@@ -28,6 +28,7 @@ import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.protocol.TestPacketCodec
+import com.edenpractical.comms.transport.DebugApprovalGate
 import com.edenpractical.comms.transport.LanDemoStatus
 import com.edenpractical.comms.transport.LanProbeDiagnostics
 import com.edenpractical.comms.transport.LanDemoSession
@@ -89,6 +90,11 @@ internal fun LocalPairingTestScreen() {
     var qaLastCheckpoint by remember { mutableStateOf<LanDemoStatus.Progress?>(null) }
     var qaEndCode by remember { mutableStateOf<LanDemoStatus.EndCode?>(null) }
     var qaFailureCode by remember { mutableStateOf<LanProbeDiagnostics.Code?>(null) }
+    var approvalStage by remember { mutableStateOf(DebugApprovalGate.State.WAITING) }
+    var approvalSending by remember { mutableStateOf(false) }
+    var qaTlsReady by remember { mutableStateOf(false) }
+    var qaLocalApprovalWritten by remember { mutableStateOf(false) }
+    var qaPeerApprovalObserved by remember { mutableStateOf(false) }
     val latestProbe by rememberUpdatedState(probe)
 
     fun stopTest() {
@@ -129,6 +135,11 @@ internal fun LocalPairingTestScreen() {
         qaLastCheckpoint = null
         qaEndCode = null
         qaFailureCode = null
+        approvalStage = DebugApprovalGate.State.WAITING
+        approvalSending = false
+        qaTlsReady = false
+        qaLocalApprovalWritten = false
+        qaPeerApprovalObserved = false
         pendingRole = null
         stage = "choose"
         status = "Choose how to begin."
@@ -210,6 +221,11 @@ internal fun LocalPairingTestScreen() {
             qaLastCheckpoint = null
             qaEndCode = null
             qaFailureCode = null
+            approvalStage = DebugApprovalGate.State.WAITING
+            approvalSending = false
+            qaTlsReady = false
+            qaLocalApprovalWritten = false
+            qaPeerApprovalObserved = false
             val thisAttempt = attemptVersion
             val connection = LanDemoSession(context.applicationContext) { event ->
                 handler.post {
@@ -245,11 +261,40 @@ internal fun LocalPairingTestScreen() {
                             if (!DebugSessionEventAdmission.canAcceptReady(
                                     thisAttempt, attemptVersion, stage, transcript
                                 )) return@post
-                            transcript = transcript.ready()
+                            qaTlsReady = true
                             clearTemporaryPairing()
                             details = event.description
-                            status = "Connected for the two-phone test."
+                            status = "Test TLS/QR link ready. Both people must explicitly approve."
+                            stage = "approval"
+                        }
+                        LanDemoSession.Phase.APPROVAL_UPDATE -> {
+                            if (stage != "approval" ||
+                                transcript.state != DebugSessionTranscript.State.WAITING
+                            ) return@post
+                            event.approvalState?.let { observation ->
+                                approvalStage = observation
+                                approvalSending = false
+                                if (observation == DebugApprovalGate.State.LOCAL_ONLY) {
+                                    qaLocalApprovalWritten = true
+                                    status = "Your debug approval was written to TLS. Waiting for the other phone."
+                                } else if (observation == DebugApprovalGate.State.PEER_ONLY) {
+                                    qaPeerApprovalObserved = true
+                                    status = "The other phone's debug approval was observed. Your approval is still needed."
+                                }
+                            }
+                        }
+                        LanDemoSession.Phase.APPROVAL_COMPLETE -> {
+                            if (stage != "approval" ||
+                                transcript.state != DebugSessionTranscript.State.WAITING ||
+                                event.approvalState != DebugApprovalGate.State.BOTH_OBSERVED
+                            ) return@post
+                            approvalStage = DebugApprovalGate.State.BOTH_OBSERVED
+                            qaLocalApprovalWritten = true
+                            qaPeerApprovalObserved = true
+                            approvalSending = false
+                            transcript = transcript.ready()
                             stage = "demo"
+                            status = "Both debug approvals observed locally. Fixed-phrase test enabled."
                         }
                         LanDemoSession.Phase.SENT, LanDemoSession.Phase.RECEIVED -> {
                             // Writer/reader callbacks may race with disconnect;
@@ -543,8 +588,75 @@ internal fun LocalPairingTestScreen() {
                         style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { reset() }) { Text("Cancel test") }
                 }
+                "approval" -> {
+                    Text("Approve this test connection?", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "The two QR scans and pinned TLS test have completed. Only approve " +
+                            "if the person physically holding the other phone is the person " +
+                            "you intended to connect with. You may decline at any time.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "This is an experimental debug control exchange—not independently " +
+                            "reviewed security approval. Approval allows ONLY four fixed " +
+                            "test phrases, never typed messages or voice.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val localObserved = qaLocalApprovalWritten ||
+                        approvalStage == DebugApprovalGate.State.LOCAL_ONLY
+                    val peerObserved = qaPeerApprovalObserved ||
+                        approvalStage == DebugApprovalGate.State.PEER_ONLY
+                    Text(
+                        "Your approval: " +
+                            if (localObserved) "Written to local TLS" else
+                                if (approvalSending) "Sending…" else "Not yet sent",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(
+                        "Other phone's approval: " +
+                            if (peerObserved) "Observed by this phone" else "Waiting",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Button(
+                        onClick = {
+                            when (probe?.approveForTest()) {
+                                LanDemoSession.ApprovalResult.QUEUED -> {
+                                    approvalSending = true
+                                    status = "Sending your debug approval over the test link…"
+                                }
+                                LanDemoSession.ApprovalResult.ALREADY_PENDING ->
+                                    status = "Your approval is already being processed."
+                                LanDemoSession.ApprovalResult.NOT_CONNECTED, null ->
+                                    status = "The test link is no longer connected."
+                            }
+                        },
+                        enabled = !approvalSending && !localObserved &&
+                            approvalStage in listOf(
+                                DebugApprovalGate.State.WAITING,
+                                DebugApprovalGate.State.PEER_ONLY
+                            ),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("Approve this debug test") }
+                    OutlinedButton(
+                        onClick = {
+                            val ending = probe
+                            probe = null
+                            attemptVersion += 1
+                            qaFinish = LocalQaReport.Finish.USER_ENDED
+                            ending?.declineForTest()
+                            clearTemporaryPairing()
+                            approvalSending = false
+                            transcript = transcript.finish()
+                            details = "You declined the experimental connection."
+                            status = "Debug approval declined. Test disconnected."
+                            stage = "result"
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("Decline and disconnect") }
+                }
                 "demo" -> {
-                    Text("Connected — test conversation", fontWeight = FontWeight.SemiBold)
+                    Text("Both debug approvals observed — test phrases", fontWeight = FontWeight.SemiBold)
                     Text("Only predefined test phrases are available. No personal messages, voice, or saved history.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -620,6 +732,8 @@ internal fun LocalPairingTestScreen() {
                                                     LanDemoSession.SendResult.QUEUED -> Unit
                                                     LanDemoSession.SendResult.BUSY ->
                                                         status = "Sending… Try again in a moment."
+                                                    LanDemoSession.SendResult.AWAITING_APPROVAL ->
+                                                        status = "Both debug approvals are required before presets."
                                                     LanDemoSession.SendResult.NOT_CONNECTED, null ->
                                                         status = "The test is no longer connected."
                                                 }
@@ -688,7 +802,10 @@ internal fun LocalPairingTestScreen() {
                                 finish = qaFinish,
                                 lastCheckpoint = qaLastCheckpoint,
                                 endCode = qaEndCode,
-                                failureCode = qaFailureCode
+                                failureCode = qaFailureCode,
+                                tlsAndQrReady = qaTlsReady,
+                                localApprovalWritten = qaLocalApprovalWritten,
+                                peerApprovalObserved = qaPeerApprovalObserved
                             )
                             try {
                                 val clipboard = context.getSystemService(
