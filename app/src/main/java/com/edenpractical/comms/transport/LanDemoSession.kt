@@ -10,7 +10,7 @@ import com.edenpractical.comms.security.PinnedTlsPeer
 import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.Tls13PeerContext
-import com.edenpractical.comms.security.TlsExporterReadiness
+import com.edenpractical.comms.security.DebugTlsChannelAgreement
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -184,10 +184,12 @@ internal class LanDemoSession(
         sockets.requireOpen()
         requireStableWifi()
 
-        // DEVELOPMENT DIAGNOSTIC ONLY. This reads a standard exporter on the
-        // live verified TLS 1.3 socket but DOES NOT expose its bytes, change
-        // the QR proof, send extra packets or authorize user messages.
-        val exporterDiagnostic = TlsExporterReadiness.probeAfterVerifiedDemoProof(socket)
+        // DEBUG channel-binding comparison over this same pinned TLS 1.3
+        // socket. Both devices MUST derive the same RFC 9266 value.
+        // This is NOT production consent or free-text authorization.
+        currentStep = LanProbeDiagnostics.Step.CHANNEL_BINDING
+        emitProgress(LanDemoStatus.Progress.CHANNEL_MATCH)
+        DebugTlsChannelAgreement.verify(socket, isPresenter = isHost)
         sockets.requireOpen()
         requireStableWifi()
 
@@ -217,9 +219,9 @@ internal class LanDemoSession(
         preReadyWifiMonitor?.cancel(false)
         emit(Event(
             Phase.READY,
-            "Pinned TLS 1.3 + QR test passed. Await two explicit experimental " +
-                "approvals before exchanging preset phrases. Local exporter " +
-                "compatibility: " + exporterDiagnostic.safeDescription + "."
+            "Pinned TLS 1.3, QR proof and matching RFC 9266 debug channel " +
+                "binding passed on this phone. Both experimental approvals " +
+                "are required before four preset phrases; not secure text approval."
         ))
         startHeartbeat()
 
