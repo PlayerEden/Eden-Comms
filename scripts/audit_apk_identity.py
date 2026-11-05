@@ -38,6 +38,19 @@ def source_identity(gradle_text):
     }
 
 
+def expected_identity(gradle_text, internal_test_version_code=None):
+    expected = source_identity(gradle_text)
+    if internal_test_version_code is None:
+        return expected
+    if (type(internal_test_version_code) is not int or
+            not expected["version_code"] < internal_test_version_code <= 2_100_000_000):
+        raise IdentityAuditError("Invalid or non-incrementing internal test versionCode")
+    expected["version_code"] = internal_test_version_code
+    base_version = expected["version_name"].split("-")[0]
+    expected["version_name"] = base_version + "-internal-" + str(internal_test_version_code)
+    return expected
+
+
 def parse_apk_badging(output):
     match = re.search(
         r"(?m)^package:\s+name='([^']+)'\s+versionCode='(\d+)'\s+versionName='([^']+)'",
@@ -96,17 +109,22 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def inspect(apk, gradle_text, build_sha):
+def inspect(apk, gradle_text, build_sha,
+            internal_test_version_code=None, expected_signer_sha256=None):
     if not apk.is_file():
         raise IdentityAuditError("APK missing")
     observed = parse_apk_badging(tool_output([sdk_tool("aapt"), "dump", "badging", str(apk)]))
-    expected = source_identity(gradle_text)
+    expected = expected_identity(gradle_text, internal_test_version_code)
     if observed != expected:
         raise IdentityAuditError("Packaged APK identity/version differs from Gradle source")
     signer_output = tool_output(
         [sdk_tool("apksigner"), "verify", "--print-certs", str(apk)]
     )
     fingerprint = parse_signer_fingerprint(signer_output)
+    if expected_signer_sha256 is not None:
+        if (not re.fullmatch(r"[0-9a-fA-F]{64}", expected_signer_sha256) or
+                fingerprint != expected_signer_sha256.lower()):
+            raise IdentityAuditError("APK signer does not match configured internal test pin")
     return {
         "schema": "eden-comms.debug-apk-identity.v1",
         "source_commit": build_sha,
@@ -114,10 +132,14 @@ def inspect(apk, gradle_text, build_sha):
         "apk_sha256": sha256(apk),
         "signer_certificate_sha256": fingerprint,
         "signer_continuity_verified": False,
+        "configured_signer_fingerprint_matched": expected_signer_sha256 is not None,
+        "signing_profile": ("pinned-internal-test" if expected_signer_sha256 is not None
+                            else "ordinary-debug"),
         "install_safety_note": (
-            "CI currently uses a transient debug signer. Do not assume this APK "
-            "updates an earlier APK without comparing signing certificates; "
-            "uninstalling can erase app-local state and Android Keystore identity."
+            "A configured signer match does NOT verify compatibility with an "
+            "already installed APK. Compare both signer certificates and "
+            "versionCodes before updating. Uninstalling can erase app-local "
+            "settings and Android Keystore identity."
         ),
     }
 
@@ -147,6 +169,9 @@ def markdown(report):
         "- Version: `" + report["version_name"] + "` (code " + str(report["version_code"]) + ")",
         "- APK SHA-256: `" + report["apk_sha256"] + "`",
         "- APK signing certificate SHA-256: `" + report["signer_certificate_sha256"] + "`",
+        "- Signing profile: `" + report.get("signing_profile", "ordinary-debug") + "`",
+        "- Configured internal test signer matched: " +
+            ("YES" if report.get("configured_signer_fingerprint_matched") else "NOT CHECKED"),
         "- Existing-install signer continuity: **NOT VERIFIED**",
         "",
         "## Before attempting an Android in-place update",
@@ -167,6 +192,10 @@ def main():
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--previous", type=Path, help="Optional earlier identity JSON for fail-closed update comparison")
+    parser.add_argument("--internal-test-version-code", type=int,
+                        help="Strict versionCode override used only by manually signed internal APK builds")
+    parser.add_argument("--expected-signer-sha256",
+                        help="Fail if APK signer does not match the configured public certificate fingerprint")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parent.parent
     try:
@@ -174,6 +203,8 @@ def main():
             args.apk,
             (repo / "app/build.gradle.kts").read_text(encoding="utf-8"),
             os.environ.get("GITHUB_SHA", "local-unassigned"),
+            internal_test_version_code=args.internal_test_version_code,
+            expected_signer_sha256=args.expected_signer_sha256,
         )
         if args.previous is not None:
             previous = json.loads(args.previous.read_text(encoding="utf-8"))
