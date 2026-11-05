@@ -1,6 +1,9 @@
 package com.edenpractical.comms.pairing
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.layout.*
@@ -77,6 +80,8 @@ internal fun LocalPairingTestScreen() {
     val testLines = remember { mutableStateListOf<TestLine>() }
     var sentCount by remember { mutableIntStateOf(0) }
     var receivedCount by remember { mutableIntStateOf(0) }
+    var qaRole by remember { mutableStateOf(LocalQaReport.Role.NOT_SELECTED) }
+    var qaFinish by remember { mutableStateOf(LocalQaReport.Finish.NOT_RECORDED) }
     val latestProbe by rememberUpdatedState(probe)
 
     fun stopTest() {
@@ -105,6 +110,8 @@ internal fun LocalPairingTestScreen() {
         testLines.clear()
         sentCount = 0
         receivedCount = 0
+        qaRole = LocalQaReport.Role.NOT_SELECTED
+        qaFinish = LocalQaReport.Finish.NOT_RECORDED
         pendingRole = null
         stage = "choose"
         status = "Choose how to begin."
@@ -125,6 +132,8 @@ internal fun LocalPairingTestScreen() {
         try {
             val link = WifiLanEndpoint.current(context) ?: error("Wi-Fi unavailable")
             wifi = link
+            qaRole = if (role == "show") LocalQaReport.Role.PRESENTER
+                else LocalQaReport.Role.JOINER
             if (role == "show") {
                 val invite = LocalPairingQrCodec.newHostInvite(
                     link.address.hostAddress ?: error("Wi-Fi address unavailable"),
@@ -208,6 +217,7 @@ internal fun LocalPairingTestScreen() {
                             }
                         }
                         LanDemoSession.Phase.ENDED -> {
+                            qaFinish = LocalQaReport.Finish.REMOTE_OR_LINK_STOPPED
                             clearTemporaryPairing()
                             details = event.description
                             status = "Test connection ended."
@@ -215,6 +225,7 @@ internal fun LocalPairingTestScreen() {
                             stage = "result"
                         }
                         LanDemoSession.Phase.FAILED -> {
+                            qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
                             clearTemporaryPairing()
                             passed = false
                             details = event.description
@@ -235,6 +246,7 @@ internal fun LocalPairingTestScreen() {
                 own, expected, invite.wifiIp, binding, retryWhileWaiting = true
             )
         } catch (_: Exception) {
+            qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
             stopTest()
             clearTemporaryPairing()
             stage = "result"
@@ -271,6 +283,7 @@ internal fun LocalPairingTestScreen() {
                 stage !in listOf("checking", "choose", "result", "identityError")
             ) {
                 val hadConnected = stage == "demo"
+                qaFinish = LocalQaReport.Finish.APP_BACKGROUNDED
                 stopTest()
                 clearTemporaryPairing()
                 testLines.clear()
@@ -550,6 +563,7 @@ internal fun LocalPairingTestScreen() {
                     Button(
                         onClick = {
                             val ending = probe
+                            qaFinish = LocalQaReport.Finish.USER_ENDED
                             probe = null
                             attemptVersion += 1
                             ending?.endByUser()
@@ -572,6 +586,46 @@ internal fun LocalPairingTestScreen() {
                     }
                     Text("Voice and normal messaging remain disabled.",
                         style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(
+                        onClick = {
+                            // Explicit tap only. The report contains fixed categories,
+                            // counts and platform version: never QR/pin/IP/text/details.
+                            val installedVersion = try {
+                                context.packageManager.getPackageInfo(
+                                    context.packageName, 0
+                                ).versionName ?: "unavailable"
+                            } catch (_: Exception) { "unavailable" }
+                            val observation = LocalQaReport.Observation(
+                                versionName = installedVersion,
+                                androidApiLevel = Build.VERSION.SDK_INT,
+                                role = qaRole,
+                                reachedReady = passed,
+                                writtenToTls = sentCount,
+                                receivedHere = receivedCount,
+                                finish = qaFinish
+                            )
+                            try {
+                                val clipboard = context.getSystemService(
+                                    ClipboardManager::class.java
+                                )
+                                clipboard?.setPrimaryClip(ClipData.newPlainText(
+                                    "Eden Comms local test observation",
+                                    LocalQaReport.format(observation)
+                                ))
+                                status = "Local test summary copied. Paste it into your QA notes."
+                            } catch (_: Exception) {
+                                status = "Couldn't copy the test summary on this phone."
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("Copy this phone's test summary") }
+                    Text(
+                        "Optional: copies only test status, counts, app version and Android API to " +
+                            "the system clipboard—never pairing codes, peer identities or messages. " +
+                            "Clipboard content can be visible to the OS and other apps.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Button(
                         onClick = { reset() },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
