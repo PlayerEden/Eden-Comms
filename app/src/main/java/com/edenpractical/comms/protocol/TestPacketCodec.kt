@@ -23,6 +23,7 @@ internal object TestPacketCodec {
     // Explicit consent experiment, DEBUG-only, not a reviewed auth protocol.
     private const val APPROVE = 5
     private const val DECLINE = 6
+    private const val CONFIRM = 7
     private const val COMMITMENT_BYTES = 32
 
     data class Phrase(val id: Int, val label: String)
@@ -33,7 +34,7 @@ internal object TestPacketCodec {
         Phrase(4, "Can you read this?")
     )
 
-    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE }
+    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM }
     // List makes byte-wise data class equality work in JVM wire tests.
     // Consent commitments are debug-only, never a transport secret.
     data class Packet(
@@ -54,6 +55,7 @@ internal object TestPacketCodec {
     fun close(): Packet = Packet(Type.CLOSE)
     fun approve(commitment: ByteArray): Packet = boundControl(Type.APPROVE, commitment)
     fun decline(commitment: ByteArray): Packet = boundControl(Type.DECLINE, commitment)
+    fun confirm(commitment: ByteArray): Packet = boundControl(Type.CONFIRM, commitment)
 
     private fun boundControl(type: Type, commitment: ByteArray): Packet {
         require(commitment.size == COMMITMENT_BYTES &&
@@ -69,10 +71,12 @@ internal object TestPacketCodec {
             Type.CLOSE -> CLOSE
             Type.APPROVE -> APPROVE
             Type.DECLINE -> DECLINE
+            Type.CONFIRM -> CONFIRM
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
-        val consent = packet.type == Type.APPROVE || packet.type == Type.DECLINE
+        val consent = packet.type == Type.APPROVE ||
+            packet.type == Type.DECLINE || packet.type == Type.CONFIRM
         if (consent) {
             require(packet.sessionCommitment.size == COMMITMENT_BYTES &&
                 packet.sessionCommitment.any { it != 0.toByte() }) {
@@ -99,10 +103,12 @@ internal object TestPacketCodec {
             CLOSE -> Type.CLOSE
             APPROVE -> Type.APPROVE
             DECLINE -> Type.DECLINE
+            CONFIRM -> Type.CONFIRM
             else -> throw TestPacketException()
         }
         val id = bytes[2].toInt() and 0xFF
-        val consent = type == Type.APPROVE || type == Type.DECLINE
+        val consent = type == Type.APPROVE ||
+            type == Type.DECLINE || type == Type.CONFIRM
         if (bytes.size != if (consent) 3 + COMMITMENT_BYTES else 3)
             throw TestPacketException()
         if (type == Type.PRESET) {
