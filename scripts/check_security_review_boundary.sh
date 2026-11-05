@@ -85,12 +85,12 @@ CHAT="$MAIN/com/edenpractical/comms/chat"
 test -f "$CHAT/LocalChatPreview.kt"
 test -f "$CHAT/LocalChatPreviewScreen.kt"
 if grep -REn --include='*.kt' \
-  '^(import com\\.edenpractical\\.comms\\.(security|transport|protocol)\\.|import java\\.net\\.|import android\\.bluetooth\\.|import android\\.net\\.wifi\\.)' "$CHAT"; then
+  '^(import com\.edenpractical\.comms\.(security|transport|protocol)\.|import java\.net\.|import android\.bluetooth\.|import android\.net\.wifi\.)' "$CHAT"; then
   echo "FAIL: M2s local preview imported network, protocol or authentication code" >&2
   exit 1
 fi
 if grep -REn --include='*.kt' \
-  '(rememberSaveable|SharedPreferences|openFileOutput|SQLiteDatabase|sendPacket\\(|Socket\\(|DataStore|LocalTlsIdentity)' "$CHAT"; then
+  '(rememberSaveable|SharedPreferences|openFileOutput|SQLiteDatabase|sendPacket\(|Socket\(|DataStore|LocalTlsIdentity)' "$CHAT"; then
   echo "FAIL: M2s text preview gained persistence or network send capability" >&2
   exit 1
 fi
