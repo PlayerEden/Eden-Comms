@@ -38,6 +38,24 @@ internal class SessionProofBinding(
     }
 }
 
+/**
+ * Ephemeral challenges observed by both ends after successful debug QR proof.
+ * Copies are never persisted or used as encryption/authentication keys.
+ */
+internal class SessionProofChallenges(host: ByteArray, join: ByteArray) {
+    val hostChallenge: ByteArray = host.copyOf()
+    val joinChallenge: ByteArray = join.copyOf()
+
+    init {
+        require(hostChallenge.size == 16 && joinChallenge.size == 16)
+    }
+
+    fun clear() {
+        hostChallenge.fill(0)
+        joinChallenge.fill(0)
+    }
+}
+
 internal class SessionProofException : IOException("QR session binding rejected")
 
 internal object SessionProofExchange {
@@ -62,7 +80,7 @@ internal object SessionProofExchange {
         output: OutputStream,
         binding: SessionProofBinding,
         random: SecureRandom = SecureRandom()
-    ) {
+    ): SessionProofChallenges {
         val hostChallenge = freshChallenge(random)
         write(output, HOST_HELLO, binding, hostChallenge, ZERO)
         val reply = read(input, JOIN_HELLO, binding)
@@ -72,6 +90,7 @@ internal object SessionProofExchange {
         val last = read(input, JOIN_ACK, binding)
         requireMatch(last.echo, hostChallenge)
         requireMatch(last.challenge, ZERO)
+        return SessionProofChallenges(hostChallenge, reply.challenge)
     }
 
     fun runJoin(
@@ -79,7 +98,7 @@ internal object SessionProofExchange {
         output: OutputStream,
         binding: SessionProofBinding,
         random: SecureRandom = SecureRandom()
-    ) {
+    ): SessionProofChallenges {
         val hello = read(input, HOST_HELLO, binding)
         requireMatch(hello.echo, ZERO)
         requireNonzero(hello.challenge)
@@ -89,6 +108,7 @@ internal object SessionProofExchange {
         requireMatch(ack.challenge, ZERO)
         requireMatch(ack.echo, joinChallenge)
         write(output, JOIN_ACK, binding, ZERO, hello.challenge)
+        return SessionProofChallenges(hello.challenge, joinChallenge)
     }
 
     private fun freshChallenge(random: SecureRandom): ByteArray {

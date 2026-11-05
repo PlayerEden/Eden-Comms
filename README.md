@@ -62,6 +62,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [Core M3 real secure LAN text implementation and independent review tracking](https://github.com/PlayerEden/Eden-Comms/issues/42)
 - [M2v actual two-phone debug approval flow, security limits and physical QA](docs/M2V_DEBUG_BILATERAL_APPROVAL_TEST.md)
 - [M2w required matching TLS 1.3 RFC 9266 exporter binding before debug READY](docs/M2W_DEBUG_TLS_CHANNEL_BINDING_MATCH.md)
+- [M2x session-bound Approve/Decline controls for debug fixed-phrase LAN](docs/M2X_DEBUG_SESSION_BOUND_APPROVAL.md)
 
 Transport traffic visibility, peer metadata, compromised devices and a recipient recording messages are outside what end-to-end encryption alone can protect. We will never market guarantees unsupported by testing.
 

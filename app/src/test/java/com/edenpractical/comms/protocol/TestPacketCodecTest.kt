@@ -9,6 +9,7 @@ import org.junit.Test
 
 class TestPacketCodecTest {
     private val codec = TestPacketCodec
+    private val binding = ByteArray(32) { (it + 1).toByte() }
 
     @Test fun allPresetPhrasesRoundTripAcrossBoundedFrames() {
         codec.phrases.forEach { phrase ->
@@ -21,7 +22,8 @@ class TestPacketCodecTest {
     }
 
     @Test fun readyHeartbeatAndCloseRoundTrip() {
-        listOf(codec.ready(), codec.heartbeat(), codec.close(), codec.approve(), codec.decline()).forEach { packet ->
+        listOf(codec.ready(), codec.heartbeat(), codec.close(),
+            codec.approve(binding), codec.decline(binding)).forEach { packet ->
             assertEquals(packet, codec.decode(codec.encode(packet)))
         }
     }
@@ -76,22 +78,57 @@ class TestPacketCodecTest {
         }
     }
 
-    @Test fun approveDeclineHaveStrictThreeByteFixturesAndNoFreeText() {
-        assertArrayEquals(byteArrayOf(1, 5, 0), codec.encode(codec.approve()))
-        assertArrayEquals(byteArrayOf(1, 6, 0), codec.encode(codec.decline()))
-        assertEquals(codec.approve(), codec.decode(byteArrayOf(1, 5, 0)))
-        assertEquals(codec.decline(), codec.decode(byteArrayOf(1, 6, 0)))
-        assertThrows(IllegalArgumentException::class.java) {
-            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.APPROVE, 1))
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.DECLINE, 1))
+    @Test fun approveDeclineRequireExactSessionBound35ByteFixtures() {
+        val approve = codec.encode(codec.approve(binding))
+        val decline = codec.encode(codec.decline(binding))
+        assertArrayEquals(byteArrayOf(1, 5, 0) + binding, approve)
+        assertArrayEquals(byteArrayOf(1, 6, 0) + binding, decline)
+        assertEquals(35, approve.size)
+        assertEquals(codec.approve(binding), codec.decode(approve))
+        assertEquals(codec.decline(binding), codec.decode(decline))
+        assertThrows(TestPacketException::class.java) {
+            codec.decode(byteArrayOf(1, 5, 0)) // old generic approval forbidden
         }
         assertThrows(TestPacketException::class.java) {
-            codec.decode(byteArrayOf(1, 5, 1))
+            codec.decode(byteArrayOf(1, 6, 0)) // old generic decline forbidden
         }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.approve(ByteArray(32))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.decline(ByteArray(31))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.APPROVE, 1,
+                binding.toList()))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.READY, 0,
+                binding.toList()))
+        }
+    }
+
+    @Test fun wrongBoundedApprovalLengthsAndCorruptionFailClosed() {
+        val approved = codec.encode(codec.approve(binding))
+        for (n in listOf(0, 1, 2, 3, 4, 33, 34, 36, 37)) {
+            assertThrows(TestPacketException::class.java) {
+                codec.decode(approved.copyOf(n))
+            }
+        }
+        val invalid = listOf(
+            approved.copyOf().also { it[2] = 1 },
+            approved.copyOf().also { it[0] = 2 },
+            approved.copyOf().also { it[1] = 9 },
+            approved.copyOf().also { for (i in 3..34) it[i] = 0 }
+        )
+        invalid.forEach { bytes ->
+            assertThrows(TestPacketException::class.java) { codec.decode(bytes) }
+        }
+        val modified = approved.copyOf().also { it[19] = (it[19].toInt() xor 1).toByte() }
+        // The packet remains parseable; live session binding must reject it.
+        assertEquals(35, codec.encode(codec.decode(modified)).size)
         assertThrows(TestPacketException::class.java) {
-            codec.decode(byteArrayOf(1, 6, 1))
+            codec.decode(byteArrayOf(1, 5, 0) + binding + byteArrayOf(1))
         }
     }
 

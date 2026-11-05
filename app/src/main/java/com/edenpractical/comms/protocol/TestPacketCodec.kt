@@ -10,7 +10,9 @@ import java.io.OutputStream
  * sending sensitive information through an unaudited application.
  *
  * FrameCodec gives a bounded envelope; this layer accepts only a fixed
- * version, packet type, and known phrase IDs. Never use on plaintext sockets.
+ * version, packet type, known phrase IDs, and v2 experimental 32-byte
+ * approval session commitments. Old 3-byte approvals fail closed.
+ * Never use on plaintext sockets.
  */
 internal object TestPacketCodec {
     private const val VERSION = 1
@@ -21,6 +23,7 @@ internal object TestPacketCodec {
     // Explicit consent experiment, DEBUG-only, not a reviewed auth protocol.
     private const val APPROVE = 5
     private const val DECLINE = 6
+    private const val COMMITMENT_BYTES = 32
 
     data class Phrase(val id: Int, val label: String)
     val phrases: List<Phrase> = listOf(
@@ -31,7 +34,13 @@ internal object TestPacketCodec {
     )
 
     enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE }
-    data class Packet(val type: Type, val phraseId: Int = 0)
+    // List makes byte-wise data class equality work in JVM wire tests.
+    // Consent commitments are debug-only, never a transport secret.
+    data class Packet(
+        val type: Type,
+        val phraseId: Int = 0,
+        val sessionCommitment: List<Byte> = emptyList()
+    )
 
     fun phrase(id: Int): String = phrases.firstOrNull { it.id == id }?.label
         ?: throw IllegalArgumentException("Unrecognized test phrase")
@@ -43,8 +52,14 @@ internal object TestPacketCodec {
     }
     fun heartbeat(): Packet = Packet(Type.HEARTBEAT)
     fun close(): Packet = Packet(Type.CLOSE)
-    fun approve(): Packet = Packet(Type.APPROVE)
-    fun decline(): Packet = Packet(Type.DECLINE)
+    fun approve(commitment: ByteArray): Packet = boundControl(Type.APPROVE, commitment)
+    fun decline(commitment: ByteArray): Packet = boundControl(Type.DECLINE, commitment)
+
+    private fun boundControl(type: Type, commitment: ByteArray): Packet {
+        require(commitment.size == COMMITMENT_BYTES &&
+            commitment.any { it != 0.toByte() }) { "Invalid debug session commitment" }
+        return Packet(type, sessionCommitment = commitment.toList())
+    }
 
     fun encode(packet: Packet): ByteArray {
         val wireType = when (packet.type) {
@@ -57,11 +72,25 @@ internal object TestPacketCodec {
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
-        return byteArrayOf(VERSION.toByte(), wireType.toByte(), packet.phraseId.toByte())
+        val consent = packet.type == Type.APPROVE || packet.type == Type.DECLINE
+        if (consent) {
+            require(packet.sessionCommitment.size == COMMITMENT_BYTES &&
+                packet.sessionCommitment.any { it != 0.toByte() }) {
+                "Approval must be scoped to a nonzero test session commitment"
+            }
+        } else {
+            require(packet.sessionCommitment.isEmpty()) {
+                "Only experimental approval controls may include a commitment"
+            }
+        }
+        val header = byteArrayOf(
+            VERSION.toByte(), wireType.toByte(), packet.phraseId.toByte()
+        )
+        return if (consent) header + packet.sessionCommitment.toByteArray() else header
     }
 
     fun decode(bytes: ByteArray): Packet {
-        if (bytes.size != 3 || (bytes[0].toInt() and 0xFF) != VERSION)
+        if (bytes.size < 3 || (bytes[0].toInt() and 0xFF) != VERSION)
             throw TestPacketException()
         val type = when (bytes[1].toInt() and 0xFF) {
             READY -> Type.READY
@@ -73,10 +102,20 @@ internal object TestPacketCodec {
             else -> throw TestPacketException()
         }
         val id = bytes[2].toInt() and 0xFF
+        val consent = type == Type.APPROVE || type == Type.DECLINE
+        if (bytes.size != if (consent) 3 + COMMITMENT_BYTES else 3)
+            throw TestPacketException()
         if (type == Type.PRESET) {
             if (phrases.none { it.id == id }) throw TestPacketException()
         } else if (id != 0) throw TestPacketException()
-        return Packet(type, id)
+        if (!consent) return Packet(type, id)
+        val commitment = bytes.copyOfRange(3, bytes.size)
+        try {
+            if (commitment.all { it == 0.toByte() }) throw TestPacketException()
+            return Packet(type, id, commitment.toList())
+        } finally {
+            commitment.fill(0)
+        }
     }
 
     fun write(out: OutputStream, packet: Packet) {
