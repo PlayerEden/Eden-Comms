@@ -11,6 +11,7 @@ import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.Tls13PeerContext
 import com.edenpractical.comms.security.DebugTlsChannelAgreement
+import com.edenpractical.comms.security.DebugApprovalCommitment
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -93,6 +94,7 @@ internal class LanDemoSession(
     private val heartbeatQueued = AtomicBoolean(false)
     private val approvalQueued = AtomicBoolean(false)
     private val approvalGate = DebugApprovalGate()
+    @Volatile private var debugConsentCommitment: ByteArray? = null
     private val ending = AtomicBoolean(false)
     private val terminal = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
@@ -175,23 +177,29 @@ internal class LanDemoSession(
 
         currentStep = LanProbeDiagnostics.Step.SESSION_BINDING
         emitProgress(LanDemoStatus.Progress.QR_PROOF)
-        if (isHost) {
+        val proofChallenges = if (isHost) {
             SessionProofExchange.runHost(socket.inputStream, socket.outputStream, binding)
         } else {
             SessionProofExchange.runJoin(socket.inputStream, socket.outputStream, binding)
         }
+        try {
+            sockets.requireOpen()
+            requireStableWifi()
 
-        sockets.requireOpen()
-        requireStableWifi()
-
-        // DEBUG channel-binding comparison over this same pinned TLS 1.3
-        // socket. Both devices MUST derive the same RFC 9266 value.
-        // This is NOT production consent or free-text authorization.
-        currentStep = LanProbeDiagnostics.Step.CHANNEL_BINDING
-        emitProgress(LanDemoStatus.Progress.CHANNEL_MATCH)
-        DebugTlsChannelAgreement.verify(socket, isPresenter = isHost)
-        sockets.requireOpen()
-        requireStableWifi()
+            // DEBUG-ONLY equality on pinned TLS plus a canonical digest of
+            // QR roles/pins/nonces, per-connection proof challenges and exporter.
+            // This is NOT reviewed production consent or text authorization.
+            currentStep = LanProbeDiagnostics.Step.CHANNEL_BINDING
+            emitProgress(LanDemoStatus.Progress.CHANNEL_MATCH)
+            debugConsentCommitment = DebugTlsChannelAgreement.verify(
+                socket, isPresenter = isHost, binding = binding,
+                challenges = proofChallenges
+            )
+            sockets.requireOpen()
+            requireStableWifi()
+        } finally {
+            proofChallenges.clear()
+        }
 
         // Both ends have performed QR transcript checks before any preset text.
         // A separate small READY exchange prevents showing the test as connected
@@ -237,6 +245,7 @@ internal class LanDemoSession(
                             emit(Event(Phase.RECEIVED, "Preset received", packet.phraseId))
                         }
                         TestPacketCodec.Type.APPROVE -> {
+                            requireCurrentConsentCommitment(packet)
                             val state = approvalGate.peerObserved()
                             if (state == DebugApprovalGate.State.INVALID ||
                                 state == DebugApprovalGate.State.CLOSED ||
@@ -245,6 +254,7 @@ internal class LanDemoSession(
                             emitApprovalState(state)
                         }
                         TestPacketCodec.Type.DECLINE -> {
+                            requireCurrentConsentCommitment(packet)
                             approvalGate.decline()
                             emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.PEER_DECLINED)
                             return
@@ -303,7 +313,13 @@ internal class LanDemoSession(
             writer.execute {
                 try {
                     if (!ready || stopped.get() || ending.get()) return@execute
-                    sendPacket(TestPacketCodec.approve())
+                    val commitment = debugConsentCommitment?.copyOf()
+                        ?: throw TestPacketException()
+                    try {
+                        sendPacket(TestPacketCodec.approve(commitment))
+                    } finally {
+                        commitment.fill(0)
+                    }
                     val state = approvalGate.localWritten()
                     if (state == DebugApprovalGate.State.INVALID ||
                         state == DebugApprovalGate.State.CLOSED ||
@@ -330,8 +346,17 @@ internal class LanDemoSession(
     fun declineForTest() {
         if (!ending.compareAndSet(false, true)) return
         approvalGate.decline()
-        if (!ready || stopped.get()) { close(); return }
-        stopWithControl(TestPacketCodec.decline())
+        val commitment = debugConsentCommitment?.copyOf()
+        if (!ready || stopped.get() || commitment == null) {
+            commitment?.fill(0)
+            close()
+            return
+        }
+        try {
+            stopWithControl(TestPacketCodec.decline(commitment))
+        } finally {
+            commitment.fill(0)
+        }
     }
 
     private fun emitApprovalState(state: DebugApprovalGate.State) {
@@ -374,6 +399,15 @@ internal class LanDemoSession(
             },
             hardClose = { close() }
         )
+    }
+
+    /** Reject controls from any other session, even on a pinned TLS socket. */
+    private fun requireCurrentConsentCommitment(packet: TestPacketCodec.Packet) {
+        val local = debugConsentCommitment ?: throw TestPacketException()
+        if (!DebugApprovalCommitment.matches(
+                local, packet.sessionCommitment.toByteArray()
+            )
+        ) throw TestPacketException()
     }
 
     private fun sendPacket(packet: TestPacketCodec.Packet) {
@@ -564,6 +598,8 @@ internal class LanDemoSession(
         ready = false
         ending.set(true)
         approvalGate.close()
+        debugConsentCommitment?.fill(0)
+        debugConsentCommitment = null
         sockets.close()
         preReadyWifiMonitor?.cancel(false)
         pulses.shutdownNow()
