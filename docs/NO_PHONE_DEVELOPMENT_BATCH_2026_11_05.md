@@ -50,12 +50,19 @@ The current user cannot access both phones during ordinary work hours. We can im
 - The per-phone opt-in QA report now includes last operation **started** and final fixed failure/end codes, never raw IPs, QR data, peer identity, messages or exception text.
 - No production text/voice or Bluetooth/Wi-Fi Direct transport was activated. See [M2q LAN status + failure QA](M2Q_LAN_STATUS_AND_FAILURE_QA.md); physical T01–T16 acceptance remains NOT TESTED.
 
-## M2r Wi-Fi continuity and bounded foreground cancel (this isolated PR)
+## M2r Wi-Fi continuity and bounded foreground cancel (PR #39 merged)
 
 - Fail closed when original Wi-Fi Network / IPv4 / prefix changes while QR scanning, waiting for peer, retrying TCP, TLS negotiating, verifying pins/QR, or just before READY. Best-effort ~2-second watcher during pre-READY and existing heartbeat after READY; no roaming across a test session.
 - User **End test** arms an independent ~1.2-second socket close before queueing best-effort CLOSE. Scheduler or writer rejection closes immediately; stale CameraX/session callbacks are guarded.
 - Safe `WIFI_CHANGED` classification and JVM boundary tests, without new permissions, network services or production capabilities.
 - Physical Android timing and two-phone behavior are still NOT TESTED: [M2r audit](M2R_WIFI_CANCELLATION_RECOVERY_QA.md).
+
+## M2s product-facing chat UI (this feature PR)
+
+- **Home → Text now opens the first true native conversation layout** with an editable composer, outgoing/local bubbles, optional labeled fictional incoming examples, 280-character counter, local time labels, and clear/end controls.
+- Messages are **NOT sent**: this is an explicit local presentation sandbox, never a peer session, delivered receipt or authorization. No transport/crypto/database dependencies are permitted in the preview by CI security gate.
+- All text resides only in in-memory Compose `remember` state and is cleared on End, foreground exit, or navigation away. Preview history is capped at 12 entries; `ReleaseCapabilities` remain false.
+- Source implementation, privacy disclosures and next core feature gates: [M2s chat preview](M2S_CHAT_UI_LOCAL_PREVIEW.md). Two actual phones and secure text acceptance remain NOT TESTED.
 
 ## Other safe development work we can do with no phone
 
