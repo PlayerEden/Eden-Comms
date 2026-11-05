@@ -149,15 +149,33 @@ if grep -REn --include='*.kt' 'ProposedChatWireCodec|ProductionSessionAuthorizat
   exit 1
 fi
 
-# The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
-# Only its implementation and the fixed-phrase debug-gated demo may reference
-# it; broader usage requires fresh independent protocol review.
-for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true); do
-  case "$FILE" in
-    "$MAIN/com/edenpractical/comms/security/TlsExporterReadiness.kt"|\
-    "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt") ;;
-    *) echo "FAIL: TLS exporter diagnostic referenced outside the gated demo: $FILE" >&2; exit 1 ;;
-  esac
+# M2w RFC 9266 interoperability verification remains inside the debuggable
+# pinned-TLS fixed-phrase test. No production path may use the exporter match
+# as a credential, mutual consent, arbitrary-text permission or encryption key.
+SECURITY="$MAIN/com/edenpractical/comms/security"
+test -f "$SECURITY/DebugTlsChannelAgreement.kt"
+test -f "$SECURITY/DebugExporterBindingFrame.kt"
+if ! grep -Fq 'DebugTlsChannelAgreement.verify(socket, isPresenter = isHost)' \
+  "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt"; then
+  echo "FAIL: debug test no longer verifies matching TLS exporter before READY" >&2
+  exit 1
+fi
+for SYMBOL in TlsExporterReadiness DebugTlsChannelAgreement DebugExporterBindingFrame; do
+  for FILE in $(grep -Rl --include='*.kt' "$SYMBOL" "$MAIN" || true); do
+    case "$FILE" in
+      "$SECURITY/TlsExporterReadiness.kt"|\
+      "$SECURITY/DebugTlsChannelAgreement.kt"|\
+      "$SECURITY/DebugExporterBindingFrame.kt"|\
+      "$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt") ;;
+      *) echo "FAIL: debug exporter symbol referenced outside TLS debug boundary: $FILE" >&2
+         exit 1 ;;
+    esac
+  done
 done
+if grep -REn --include='*.kt' \
+  'DebugTlsChannelAgreement|DebugExporterBindingFrame' "$CHAT"; then
+  echo "FAIL: chat preview tried to use experimental exporter as messaging approval" >&2
+  exit 1
+fi
 
-echo "PASS: M2v debug-only approvals isolated from real text; M2u chat wire unwired; production send/voice flags off"
+echo "PASS: M2w RFC9266 comparison stays debug-only; M2v approvals test-only; chat wire unwired; release send/voice off"
