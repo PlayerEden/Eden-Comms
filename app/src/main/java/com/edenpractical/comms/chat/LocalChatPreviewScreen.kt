@@ -3,6 +3,8 @@ package com.edenpractical.comms.chat
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +37,7 @@ internal fun LocalChatPreviewScreen(onPairingTest: () -> Unit) {
     var session by remember { mutableStateOf(LocalChatPreview.newSession()) }
     var draft by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf("Nothing has been sent or received.") }
+    var showStatusGuide by remember { mutableStateOf(false) }
     val lifecycleOwner = context as? LifecycleOwner
 
     // End and erase content when the app leaves the foreground. A navigation
@@ -87,6 +90,12 @@ internal fun LocalChatPreviewScreen(onPairingTest: () -> Unit) {
                 "only on this phone; it is NEVER sent to another person.",
             style = MaterialTheme.typography.bodySmall
         )
+        TextButton(
+            onClick = { showStatusGuide = true },
+            modifier = Modifier.heightIn(min = 48.dp)
+        ) {
+            Text("What will message statuses mean?")
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
         if (session.entries.isEmpty()) {
@@ -244,6 +253,55 @@ internal fun LocalChatPreviewScreen(onPairingTest: () -> Unit) {
         shape = CutCornerShape(5.dp)
     ) {
         Text("Open existing two-phone connection test")
+    }
+
+    if (showStatusGuide) {
+        AlertDialog(
+            onDismissRequest = { showStatusGuide = false },
+            title = { Text("Message status meanings") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Only LOCAL PREVIEW is functional today. All other statuses " +
+                            "below describe a FUTURE authenticated messaging feature, " +
+                            "not activity occurring in this app.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    ConversationStatusGuide.Step.values().forEach { step ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                step.label +
+                                    if (step.availableToday) " • AVAILABLE NOW"
+                                    else " • FUTURE ONLY",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                step.explanation,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    Text(
+                        "A local encrypted write will NOT count as delivery. " +
+                            "Only a separately authenticated acknowledgment " +
+                            "could justify saying the other app received a " +
+                            "message; it still could not prove a human read it.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showStatusGuide = false },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("Close") }
+            }
+        )
     }
 }
 
