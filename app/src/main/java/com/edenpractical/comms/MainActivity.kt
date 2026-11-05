@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.edenpractical.comms.chat.LocalChatPreviewScreen
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
@@ -178,12 +179,16 @@ private fun EdenCommsApp() {
                             "home" -> HomeScreen(
                                 onPtt = { navigate("ptt") },
                                 onConnect = { navigate("pairing-test") },
+                                onChatPreview = { navigate("chat-preview") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
                             )
                             "connect" -> NearbyScreen(onLocalWifi = { navigate("wifi") })
                             "wifi" -> LocalWifiScreen(onTryPairing = { navigate("pairing-test") })
                             "pairing-test" -> LocalPairingTestScreen()
+                            "chat-preview" -> LocalChatPreviewScreen(
+                                onPairingTest = { navigate("pairing-test") }
+                            )
                             "ptt" -> PushToTalkScreen()
                             "settings" -> SettingsScreen(
                                 darkMode = darkMode,
@@ -205,6 +210,7 @@ private fun EdenCommsApp() {
                             else -> HomeScreen(
                                 onPtt = { navigate("ptt") },
                                 onConnect = { navigate("connect") },
+                                onChatPreview = { navigate("chat-preview") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
                             )
@@ -222,6 +228,7 @@ private fun titleForPage(page: String): String = when (page) {
     "connect" -> "Connect nearby"
     "wifi" -> "Local Wi-Fi"
     "pairing-test" -> "Connect nearby"
+    "chat-preview" -> "Text preview"
     "ptt" -> "Voice / PTT"
     "settings" -> "Settings"
     "developer" -> "Developer tools"
@@ -290,6 +297,7 @@ private fun TopBar(page: String, onBack: () -> Unit) {
 @Composable
 private fun HomeScreen(
     onConnect: () -> Unit,
+    onChatPreview: () -> Unit,
     onPtt: () -> Unit,
     onSettings: () -> Unit,
     onHelp: () -> Unit
@@ -329,8 +337,8 @@ private fun HomeScreen(
             modifier = Modifier.weight(1f),
             glyph = R.drawable.ic_eden_chat,
             title = "Text",
-            detail = "Coming soon",
-            onClick = onConnect
+            detail = "Local UI preview",
+            onClick = onChatPreview
         )
         CompactModeTile(
             modifier = Modifier.weight(1f),
@@ -348,7 +356,7 @@ private fun HomeScreen(
         NavigationRow("How it works", "A quick guide to connecting", onHelp, R.drawable.ic_eden_info)
     }
     Text(
-        "DEVELOPMENT PREVIEW  /  MESSAGING COMING SOON",
+        "DEVELOPMENT PREVIEW  /  TEXT LAYOUT AVAILABLE LOCALLY",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
