@@ -26,6 +26,7 @@ internal object LanProbeDiagnostics {
 
     enum class Code {
         WIFI_UNAVAILABLE,
+        WIFI_CHANGED,
         TLS_UNSUPPORTED,
         LISTEN_UNAVAILABLE,
         HOST_WAIT_TIMEOUT,
@@ -54,6 +55,7 @@ internal object LanProbeDiagnostics {
         fun has(kind: Class<out Throwable>) = causes.any { kind.isInstance(it) }
 
         val code = when {
+            has(LanWifiChangedException::class.java) -> Code.WIFI_CHANGED
             has(SSLPeerUnverifiedException::class.java) ||
                 has(CertificateException::class.java) -> Code.CERTIFICATE_REJECTED
             has(BindException::class.java) -> Code.LISTEN_UNAVAILABLE
@@ -89,6 +91,7 @@ internal object LanProbeDiagnostics {
 
         val explanation = when (code) {
             Code.WIFI_UNAVAILABLE -> "Connect both phones to the same Wi-Fi network."
+            Code.WIFI_CHANGED -> "Wi-Fi changed during pairing. Restart both phones' tests with fresh QR codes on the same Wi-Fi."
             Code.TLS_UNSUPPORTED -> "This device couldn't prepare the required TLS 1.3 connection."
             Code.LISTEN_UNAVAILABLE -> "The host couldn't open its local listening port. Try a new test."
             Code.HOST_WAIT_TIMEOUT -> "The other phone did not connect. Keep both apps open on the same Wi-Fi and try fresh codes."
