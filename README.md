@@ -37,6 +37,8 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [Product vision](docs/PRODUCT_VISION.md)
 - [Milestones M0–M6](docs/DEVELOPMENT_ROADMAP.md)
 - [Security threat model and QA](docs/SECURITY_AND_QA.md)
+- [Privacy and security charter — no-ship requirements](docs/PRIVACY_SECURITY_CHARTER.md)
+- [Data retention and expiry — future per-chat design](docs/DATA_RETENTION_AND_EXPIRY.md)
 - [Decisions log](docs/DECISIONS.md)
 - [M0 development status](docs/M0_EXECUTION_STATUS.md)
 - [Google Play / North America launch plan](docs/GOOGLE_PLAY_NORTH_AMERICA_LAUNCH_READINESS.md)

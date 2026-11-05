@@ -21,6 +21,16 @@ Keep choices explicit; proposed items are not locked.
 | D-016 | 2026-11-04 | Failed two-phone QR/TLS test blocks messaging release. Show sanitized phase-specific failure codes, never raw exceptions/IPs/keys. Confirm successful real-phone handshake before advancing. | One-phone success screenshot received; paired QA incomplete |
 | D-017 | 2026-11-04 | Before real text, run an explicitly test-only reciprocal QR session/challenge proof inside pinned TLS 1.3; no chat/voice or persisted trust, no feature flag changes. Require both physical-device outcomes and negative tests. | In development on M2c branch; security review pending |
 
+| D-018 | 2026-11-03 | If encrypted local chat history is eventually added, it is opt-in **per conversation**, with an absolute **30-day maximum**; expiry cannot be renewed by rereading or reconnecting. | Accepted product direction; not implemented |
+| D-019 | 2026-11-03 | Proposed local history options: session only (default), 1 hour, 24 hours, 7 days, 14 days, 30 days. Shortening expiry applies immediately; lengthening applies only to future messages and cannot revive deleted content. | Proposed UX and implementation; not implemented |
+| D-020 | 2026-11-03 | Retention and deletion are **local best-effort** controls: no app can guarantee erasure from compromised phones, storage snapshots or recipient copies. Peer-trust retention is separate from chat retention. | Binding privacy direction |
+| D-021 | 2026-11-03 | Minimize RAM, CPU, storage, battery and network usage; avoid unnecessary always-on scanning, discovery or background services. | Accepted product direction |
+| D-022 | 2026-11-03 | Resource optimizations must not weaken encryption, peer verification, accessibility or reliability; measure resource metrics before numeric marketing claims. | Required design constraint |
+| D-023 | 2026-11-03 | Prioritize dependable two-phone local Wi-Fi/LAN without WAN over simultaneously adding Bluetooth, Wi-Fi Direct or remote internet relays. | Accepted sequencing |
+| D-024 | 2026-11-03 | First functional text milestone requires mutually verified and authorized two-device encrypted connection, genuine two-way delivery with internet/cellular unavailable, failure-case QA and session-only default. | Milestone acceptance gate; not yet passed |
+
+The [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md) and [Data Retention and Expiry design](DATA_RETENTION_AND_EXPIRY.md) were preserved from the separately diverged early planning branch. Their requirements are product direction, not evidence that features have been implemented or audited.
+
 ## Decisions needed before M1
 - Lowest Android OS version and which devices can be manually tested.
 - Exact cryptographic protocol/library, key storage and identity verification.

@@ -1,6 +1,8 @@
 # Eden Comms — Security, Privacy and QA v0.1
 Status: **planning / unaudited**. This document is not a security certification.
 
+**Normative product requirements:** [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md). The charter documents intent and release blockers; actual implementation and security claims require independent review.
+
 ## Threat model
 We seek to protect the **contents** of text and voice against nearby eavesdroppers, other LAN clients, routers, ISPs and passive observers outside the two verified endpoints. We seek to limit stored data, outbound communications, third-party dependencies, and accidentally exposed identifiers. No internet or account is needed to exchange nearby messages.
 
