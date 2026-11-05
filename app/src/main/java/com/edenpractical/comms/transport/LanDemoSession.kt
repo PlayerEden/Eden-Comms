@@ -355,6 +355,10 @@ internal class LanDemoSession(
             try {
                 requireStableWifi()
             } catch (e: Exception) {
+                // The worker may have transitioned to READY while this
+                // diagnostic poll was resolving Android connectivity state.
+                // The post-READY heartbeat owns the connection from then on.
+                if (stopped.get() || ready || ending.get()) return@scheduleAtFixedRate
                 val failure = LanProbeDiagnostics.classify(LanProbeDiagnostics.Step.WIFI, e)
                 emitTerminal(Phase.FAILED, failure)
                 close()
