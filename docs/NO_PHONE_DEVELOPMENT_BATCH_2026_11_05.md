@@ -22,6 +22,13 @@ The current user cannot access both phones during ordinary work hours. We can im
 - **Must be done by a human later:** generate a dedicated test signing keystore outside the repo; configure `internal-test` protected environment secrets and approval; make two manual signed runs; prove a real in-place upgrade. Until then, issue #27 **remains open**.
 - Use [M2l setup and safety documentation](M2L_INTERNAL_TEST_SIGNING.md) and [issue #27](https://github.com/PlayerEden/Eden-Comms/issues/27).
 
+## Current M2n no-phone transcript work (this branch)
+
+- The fixed-phrase UI now has an immutable, bounded **in-RAM session-only ledger**: exact known IDs only, distinct local TLS writes and local receives, at most 8 visible activity entries and no message history after End.
+- Separate event-admission checks reject stale callback generations, late READY after END and phrases before READY; full 8-bit phrase/control field negative tests add packet fuzz coverage.
+- Full technical scope and independent device/authorization gates: [M2n ledger QA](M2N_EPHEMERAL_TRANSCRIPT_EVENT_QA.md).
+- **This is not a production conversation subsystem.** Typed user messages and audio are still disabled and will require separate reviewed cryptography, authorization and real hardware testing.
+
 ## Other safe development work we can do with no phone
 
 1. Build code-only policy, protocol and UI regression tests, including malformed QR/frame cases, retries, timeouts, stale callbacks, lifecycle cleanup and low-memory/large-font navigation checks where automation supports them.
