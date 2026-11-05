@@ -326,7 +326,8 @@ internal fun LocalPairingTestScreen() {
                         ) { Text("Check Wi-Fi again") }
                     } else {
                         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                            val stack = maxWidth < 360.dp || LocalDensity.current.fontScale >= 1.3f
+                            val stack = PairingTestUiCopy.useStackedActions(
+                                maxWidth.value, LocalDensity.current.fontScale)
                             if (stack) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(
@@ -513,8 +514,8 @@ internal fun LocalPairingTestScreen() {
                         }
                     }
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val columns = if (maxWidth < 360.dp ||
-                            LocalDensity.current.fontScale >= 1.3f) 1 else 2
+                        val columns = if (PairingTestUiCopy.useStackedActions(
+                            maxWidth.value, LocalDensity.current.fontScale)) 1 else 2
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             TestPacketCodec.phrases.chunked(columns).forEach { group ->
                                 Row(modifier = Modifier.fillMaxWidth(),
