@@ -64,6 +64,19 @@ if grep -RFn --include='*.kt' --exclude='NearbySessionLifecycle.kt' 'NearbySessi
   exit 1
 fi
 
+# M2p virtual adapters are intentionally JVM-test-only. Do NOT package the
+# fake callbacks or accept their pretend READY as proof of peer authentication.
+SIMULATOR="app/src/test/java/com/edenpractical/comms/transport/ScriptedNearbyTransportAdapter.kt"
+test -f "$SIMULATOR" || { echo "FAIL: M2p test-only simulator missing" >&2; exit 1; }
+if find "$MAIN" -name 'ScriptedNearbyTransportAdapter.kt' -print -quit | grep -q .; then
+  echo "FAIL: M2p virtual adapter moved into distributable Android sources" >&2
+  exit 1
+fi
+if grep -RFn --include='*.kt' 'ScriptedNearbyTransportAdapter' "$MAIN"; then
+  echo "FAIL: live app path refers to M2p fake transport events" >&2
+  exit 1
+fi
+
 # The TLS exporter is currently a DEBUG-DEMO-ONLY compatibility diagnostic.
 # Only its implementation and the fixed-phrase debug-gated demo may reference
 # it; broader usage requires fresh independent protocol review.
@@ -75,4 +88,4 @@ for FILE in $(grep -Rl --include='*.kt' 'TlsExporterReadiness' "$MAIN" || true);
   esac
 done
 
-echo "PASS: M2f/M2h/M2o review models remain unwired; exporter diagnostic limited to demo; release gates off"
+echo "PASS: M2f/M2h/M2o models unwired; M2p simulator JVM-only; exporter limited to demo; release gates off"
