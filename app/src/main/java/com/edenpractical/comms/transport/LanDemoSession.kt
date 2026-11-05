@@ -37,9 +37,16 @@ internal class LanDemoSession(
     private val context: Context,
     private val report: (Event) -> Unit
 ) : AutoCloseable {
-    enum class Phase { LISTENING, CONNECTING, READY, SENT, RECEIVED, ENDED, FAILED }
+    enum class Phase { LISTENING, CONNECTING, PROGRESS, READY, SENT, RECEIVED, ENDED, FAILED }
     enum class SendResult { QUEUED, BUSY, NOT_CONNECTED }
-    data class Event(val phase: Phase, val description: String, val phraseId: Int? = null)
+    data class Event(
+        val phase: Phase,
+        val description: String,
+        val phraseId: Int? = null,
+        val progress: LanDemoStatus.Progress? = null,
+        val endCode: LanDemoStatus.EndCode? = null,
+        val failureCode: LanProbeDiagnostics.Code? = null
+    )
 
     companion object {
         private const val PORT = LanTlsProbe.PORT
@@ -138,12 +145,15 @@ internal class LanDemoSession(
         sockets.requireOpen()
         socket.soTimeout = AUTH_TIMEOUT_MS
         currentStep = LanProbeDiagnostics.Step.TLS_HANDSHAKE
+        emitProgress(LanDemoStatus.Progress.TLS_NEGOTIATING)
         socket.startHandshake()
         currentStep = LanProbeDiagnostics.Step.VERIFY_PIN
+        emitProgress(LanDemoStatus.Progress.PEER_IDENTITY)
         PinnedTlsPeer.requirePinnedTls13(socket.session, expectedPin)
         sockets.requireOpen()
 
         currentStep = LanProbeDiagnostics.Step.SESSION_BINDING
+        emitProgress(LanDemoStatus.Progress.QR_PROOF)
         if (isHost) {
             SessionProofExchange.runHost(socket.inputStream, socket.outputStream, binding)
         } else {
@@ -161,6 +171,8 @@ internal class LanDemoSession(
         // Both ends have performed QR transcript checks before any preset text.
         // A separate small READY exchange prevents showing the test as connected
         // until the other end has also progressed beyond the QR proof.
+        currentStep = LanProbeDiagnostics.Step.READY_EXCHANGE
+        emitProgress(LanDemoStatus.Progress.BOTH_READY)
         if (isHost) {
             TestPacketCodec.write(socket.outputStream, TestPacketCodec.ready())
             if (TestPacketCodec.read(socket.inputStream) != TestPacketCodec.ready()) {
@@ -196,7 +208,7 @@ internal class LanDemoSession(
                             emit(Event(Phase.RECEIVED, "Preset received", packet.phraseId))
                         TestPacketCodec.Type.HEARTBEAT -> Unit
                         TestPacketCodec.Type.CLOSE -> {
-                            emitTerminal(Phase.ENDED, "Other phone ended the test.")
+                            emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.PEER_ENDED)
                             return
                         }
                         TestPacketCodec.Type.READY ->
@@ -218,7 +230,7 @@ internal class LanDemoSession(
                     sendPacket(packet)
                     emit(Event(Phase.SENT, "Test phrase written to TLS (not a receipt)", id))
                 } catch (_: IOException) {
-                    emitTerminal(Phase.ENDED, "The connection was interrupted.")
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
                     close()
                 } finally {
                     sendBudget.release()
@@ -264,17 +276,17 @@ internal class LanDemoSession(
                 link.address != current.address ||
                 link.prefixLength != current.prefixLength
             ) {
-                emitTerminal(Phase.ENDED, "Wi-Fi changed. The test connection was closed.")
+                emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.WIFI_CHANGED)
                 close()
                 return@scheduleAtFixedRate
             }
-            if (DemoSessionLivenessPolicy.endReason(
-                    nowMs = now,
-                    startedMs = connectedAtMs,
-                    lastReceivedMs = lastReceivedMs
-                ) != null
-            ) {
-                emitTerminal(Phase.ENDED, "The test session ended or the peer stopped responding.")
+            val livenessReason = DemoSessionLivenessPolicy.endReason(
+                nowMs = now,
+                startedMs = connectedAtMs,
+                lastReceivedMs = lastReceivedMs
+            )
+            if (livenessReason != null) {
+                emitTerminal(Phase.ENDED, LanDemoStatus.livenessEnd(livenessReason))
                 close()
                 return@scheduleAtFixedRate
             }
@@ -287,7 +299,7 @@ internal class LanDemoSession(
                             sendPacket(TestPacketCodec.heartbeat())
                         }
                     } catch (_: IOException) {
-                        emitTerminal(Phase.ENDED, "The connection was interrupted.")
+                        emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
                         close()
                     } finally {
                         heartbeatQueued.set(false)
@@ -299,7 +311,7 @@ internal class LanDemoSession(
             } catch (_: Exception) {
                 // Android connectivity APIs may fail unexpectedly. Never let
                 // ScheduledExecutor silently cancel the only live watchdog.
-                emitTerminal(Phase.ENDED, "Connection monitoring stopped unexpectedly.")
+                emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.MONITOR_FAILED)
                 close()
             }
         }, HEARTBEAT_MS, HEARTBEAT_MS, TimeUnit.MILLISECONDS)
@@ -354,21 +366,34 @@ internal class LanDemoSession(
             try { if (!stopped.get()) action() }
             catch (e: Exception) {
                 if (!stopped.get()) {
-                    if (ready) emitTerminal(Phase.ENDED, "The connection was interrupted.")
-                    else emitTerminal(Phase.FAILED,
-                        LanProbeDiagnostics.classify(currentStep, e).display())
+                    if (ready) {
+                        emitTerminal(Phase.ENDED, LanDemoStatus.activeFailure(e))
+                    } else {
+                        val failure = LanProbeDiagnostics.classify(currentStep, e)
+                        emitTerminal(Phase.FAILED, failure)
+                    }
                 }
             } finally { close() }
         }
     }
 
-    private fun emit(event: Event) {
-        if (!stopped.get()) report(event)
+    private fun emitProgress(progress: LanDemoStatus.Progress) {
+        emit(Event(Phase.PROGRESS, progress.display, progress = progress))
     }
 
-    private fun emitTerminal(phase: Phase, description: String) {
+    private fun emit(event: Event) {
+        if (!stopped.get() && !terminal.get()) report(event)
+    }
+
+    private fun emitTerminal(phase: Phase, endCode: LanDemoStatus.EndCode) {
         if (!stopped.get() && terminal.compareAndSet(false, true)) {
-            emit(Event(phase, description))
+            report(Event(phase, endCode.display, endCode = endCode))
+        }
+    }
+
+    private fun emitTerminal(phase: Phase, failure: LanProbeDiagnostics.Failure) {
+        if (!stopped.get() && terminal.compareAndSet(false, true)) {
+            report(Event(phase, failure.display(), failureCode = failure.code))
         }
     }
 
