@@ -228,13 +228,15 @@ internal class LanDemoSession(
         emit(Event(
             Phase.READY,
             "Pinned TLS 1.3, QR proof and matching RFC 9266 debug channel " +
-                "binding passed on this phone. Both experimental approvals " +
-                "are required before four preset phrases; not secure text approval."
+                "binding passed on this phone. Both experimental approvals must " +
+                "match this QR/challenge/TLS session before the four preset " +
+                "phrases; not independently reviewed secure text authorization."
         ))
         startHeartbeat()
 
-        // This receive loop processes ONLY a 3-byte versioned preset/control
-        // message inside the bounded FrameCodec envelope (no general text).
+        // Only fixed 3-byte preset/heartbeat/READY/CLOSE or 35-byte
+        // session-bound approval controls inside the FrameCodec envelope.
+        // Absolutely no general text or unsolicited packet types.
         while (!stopped.get()) {
             when (val packet = TestPacketCodec.read(socket.inputStream)) {
                 is TestPacketCodec.Packet -> {
