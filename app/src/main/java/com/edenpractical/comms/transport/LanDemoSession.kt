@@ -15,6 +15,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -311,6 +312,9 @@ internal class LanDemoSession(
     ): Socket {
         val started = SystemClock.elapsedRealtime()
         while (!stopped.get()) {
+            if (retryWhileWaiting &&
+                SystemClock.elapsedRealtime() - started >= LanConnectRetryPolicy.MAX_WAIT_MS
+            ) throw SocketTimeoutException("Local test connection retry window ended")
             val current = WifiLanEndpoint.current(context) ?: throw SocketException("Wi-Fi lost")
             if (current.network != wifi.network ||
                 current.address != wifi.address ||
@@ -332,7 +336,11 @@ internal class LanDemoSession(
                 val elapsed = SystemClock.elapsedRealtime() - started
                 if (!LanConnectRetryPolicy.shouldRetry(e, elapsed, retryWhileWaiting)) throw e
             }
-            try { Thread.sleep(LanConnectRetryPolicy.RETRY_DELAY_MS) }
+            val delay = LanConnectRetryPolicy.delayBeforeRetryMs(
+                SystemClock.elapsedRealtime() - started
+            )
+            if (delay <= 0L) throw SocketTimeoutException("Local test connection retry window ended")
+            try { Thread.sleep(delay) }
             catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw SocketException("Test cancelled")
