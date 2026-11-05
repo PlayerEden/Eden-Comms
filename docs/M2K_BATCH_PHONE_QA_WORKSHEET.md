@@ -19,7 +19,7 @@ Use **one deliberate hands-on session** after the no-device CI passes are merged
 | --- | --- | --- | --- |
 | T01 | Both on same local Wi-Fi; two reciprocal QRs | NOT TESTED | NOT TESTED |
 | T02 | Disable cellular and router WAN (keep local Wi-Fi); repeat pairing | NOT TESTED | NOT TESTED |
-| T03 | A sends 4 fixed phrases; B sends 4 back | NOT TESTED | NOT TESTED |
+| T03 | On M2v+, both approve after QR/TLS; A sends 4 fixed phrases, then B sends 4 back | NOT TESTED | NOT TESTED |
 | T04 | Rapid taps and receive ordering/counters; check for false duplicate activity | NOT TESTED | NOT TESTED |
 | T05 | A ends test; B must stop and disallow further sending | NOT TESTED | NOT TESTED |
 | T06 | Disconnect Wi-Fi on B; verify bounded disconnect on A | NOT TESTED | NOT TESTED |
@@ -33,6 +33,12 @@ Use **one deliberate hands-on session** after the no-device CI passes are merged
 | T14 | Portrait, landscape, small width, 200% text, TalkBack, dark/light | NOT TESTED | NOT TESTED |
 | T15 | Version mismatch versus handshake-only build; reject unapproved phrases | NOT TESTED | NOT TESTED |
 | T16 | **Only after durable signing:** upgrade same package in place and verify app settings and local Keystore identity still work | NOT TESTED | NOT TESTED |
+| T17 | Both phones reach approval stage after QR/TLS; no preset phrase buttons before both approve | NOT TESTED | NOT TESTED |
+| T18 | A approves first, B waits; no phrase exchanges, distinct local and peer approval statuses | NOT TESTED | NOT TESTED |
+| T19 | B approves next; both enter preset conversation and correlate activity counts | NOT TESTED | NOT TESTED |
+| T20 | B declines before A approval; prompt stop on both phones and safe reason | NOT TESTED | NOT TESTED |
+| T21 | Approval limit (~90s) expires; session closes without false ready stage | NOT TESTED | NOT TESTED |
+| T22 | Cancel/background/Wi-Fi switch while awaiting approval; no stale approval accepted after new pairing | NOT TESTED | NOT TESTED |
 
 Start a *new* pairing session with fresh QR codes for each applicable test. Never reuse an active QR from earlier screenshots. A single passing run does **not** complete negative/network/device/installation tests.
 
