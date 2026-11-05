@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import com.edenpractical.comms.protocol.TestPacketCodec
+import com.edenpractical.comms.protocol.TestPacketException
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.PinnedTlsPeer
 import com.edenpractical.comms.security.SessionProofBinding
@@ -176,11 +177,11 @@ internal class LanDemoSession(
         if (isHost) {
             TestPacketCodec.write(socket.outputStream, TestPacketCodec.ready())
             if (TestPacketCodec.read(socket.inputStream) != TestPacketCodec.ready()) {
-                throw IOException("Test session not ready")
+                throw TestPacketException()
             }
         } else {
             if (TestPacketCodec.read(socket.inputStream) != TestPacketCodec.ready()) {
-                throw IOException("Test session not ready")
+                throw TestPacketException()
             }
             TestPacketCodec.write(socket.outputStream, TestPacketCodec.ready())
         }
@@ -212,7 +213,7 @@ internal class LanDemoSession(
                             return
                         }
                         TestPacketCodec.Type.READY ->
-                            throw IOException("Unexpected extra ready packet")
+                            throw TestPacketException()
                     }
                 }
             }
