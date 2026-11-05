@@ -20,6 +20,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Optional, CI-authorized internal test APK version override. The normal
+    // PR/push debug APK keeps the fixed baseline version and disposable signer.
+    // Signing happens separately, AFTER Gradle, so private keys never enter
+    // the project's Gradle runtime. No production capabilities are unlocked.
+    val internalTestVersionCode = providers.gradleProperty("edenInternalTestVersionCode").orNull
+    if (internalTestVersionCode != null) {
+        require(internalTestVersionCode.matches(Regex("[1-9][0-9]{0,8}"))) {
+            "Internal test version must be a canonical positive integer"
+        }
+        val code = internalTestVersionCode.toIntOrNull()
+            ?: error("Internal test version out of range")
+        require(code > 11 && code <= 2_100_000_000) {
+            "Internal test version must exceed the baseline without Android overflow"
+        }
+        defaultConfig.versionCode = code
+        defaultConfig.versionName =
+            (defaultConfig.versionName?.substringBefore('-') ?: "0.2.12") + "-internal-" + code
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
