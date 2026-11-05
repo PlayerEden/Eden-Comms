@@ -15,6 +15,7 @@ internal object LanDemoStatus {
         TLS_NEGOTIATING("Negotiating the local TLS connection…"),
         PEER_IDENTITY("Checking the other phone's certificate identity…"),
         QR_PROOF("Checking both phones' QR session proof…"),
+        CHANNEL_MATCH("Comparing this TLS connection's channel binding with the other phone…"),
         BOTH_READY("Waiting for both phones to confirm test readiness…")
     }
 
