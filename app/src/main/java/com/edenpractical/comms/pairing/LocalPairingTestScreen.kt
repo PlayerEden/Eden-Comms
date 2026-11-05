@@ -591,7 +591,7 @@ internal fun LocalPairingTestScreen() {
                 "approval" -> {
                     Text("Approve this test connection?", fontWeight = FontWeight.SemiBold)
                     Text(
-                        "The two QR scans and pinned TLS test have completed. Only approve " +
+                        "The QR, pinned TLS and matching channel-binding checks have passed. Only approve " +
                             "if the person physically holding the other phone is the person " +
                             "you intended to connect with. You may decline at any time.",
                         style = MaterialTheme.typography.bodyMedium
@@ -669,7 +669,7 @@ internal fun LocalPairingTestScreen() {
                         Text(details,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("This phone's channel-binding result is a compatibility check, not bilateral approval.",
+                        Text("Both phones compared this TLS channel's binding in the experimental test. It is not independent security review or human permission.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
