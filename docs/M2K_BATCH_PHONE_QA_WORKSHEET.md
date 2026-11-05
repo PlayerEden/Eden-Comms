@@ -43,6 +43,11 @@ Use **one deliberate hands-on session** after the no-device CI passes are merged
 | T24 | Controlled malformed/wrong-role/mismatched exporter frame aborts before READY; no presets | NOT TESTED | NOT TESTED |
 | T25 | Unsupported exporter/API below 31 fails closed with safe category; no QR-only fallback | NOT TESTED | NOT TESTED |
 | T26 | Pre-M2w and M2w APK pairing incompatibility fails closed; no phantom approvals/presets | NOT TESTED | NOT TESTED |
+| T27 | Both phones approve with matching current QR/challenge/exporter commitment and then exchange presets | NOT TESTED | NOT TESTED |
+| T28 | Old generic 3-byte approval and new 35-byte session-bound controls are incompatible and fail closed | NOT TESTED | NOT TESTED |
+| T29 | Controlled stale/modified consent commitment is rejected before the gate changes | NOT TESTED | NOT TESTED |
+| T30 | Decline, Wi-Fi change, background/cancel/restart never authorize via stale commitment | NOT TESTED | NOT TESTED |
+| T31 | No-WAN real two-phone session clears at end; status, accessibility, counters and 1:1 behavior verified | NOT TESTED | NOT TESTED |
 
 Start a *new* pairing session with fresh QR codes for each applicable test. Never reuse an active QR from earlier screenshots. A single passing run does **not** complete negative/network/device/installation tests.
 
