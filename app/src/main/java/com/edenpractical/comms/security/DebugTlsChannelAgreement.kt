@@ -17,7 +17,12 @@ internal object DebugTlsChannelAgreement {
     private const val RFC9266_LABEL = "EXPORTER-Channel-Binding"
     private val EMPTY_CONTEXT = ByteArray(0)
 
-    fun verify(socket: SSLSocket, isPresenter: Boolean) {
+    fun verify(
+        socket: SSLSocket,
+        isPresenter: Boolean,
+        binding: SessionProofBinding,
+        challenges: SessionProofChallenges
+    ): ByteArray {
         // The standard Android API first exists at level 31, and unsupported
         // providers MUST fail closed rather than use QR-only substitute proof.
         if (Build.VERSION.SDK_INT < 31) throw DebugExporterUnavailableException()
@@ -42,6 +47,9 @@ internal object DebugTlsChannelAgreement {
                 DebugExporterBindingFrame.exchange(
                     socket.inputStream, socket.outputStream, isPresenter, value
                 )
+                // Share only the fixed digest with the caller; the 32-byte
+                // exporter itself is cleared and must never enter the UI.
+                return DebugApprovalCommitment.derive(binding, challenges, value)
             } finally {
                 value.fill(0)
             }
