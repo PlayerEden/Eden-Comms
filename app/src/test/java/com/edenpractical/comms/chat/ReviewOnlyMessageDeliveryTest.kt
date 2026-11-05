@@ -1,6 +1,7 @@
 package com.edenpractical.comms.chat
 
 import com.edenpractical.comms.model.ReleaseCapabilities
+import com.edenpractical.comms.chat.ConversationStatusGuide.Step
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -9,11 +10,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReviewOnlyMessageDeliveryTest {
-    private val Stage = ConversationStatusGuide.Step
-
     @Test fun noFutureStatusCanAppearAsLiveInTheCurrentBuild() {
-        assertEquals(setOf(Stage.LOCAL_PREVIEW), ConversationStatusGuide.currentLiveSteps)
-        assertTrue(ConversationStatusGuide.mayShowAsActualStatus(Stage.LOCAL_PREVIEW))
+        assertEquals(setOf(Step.LOCAL_PREVIEW), ConversationStatusGuide.currentLiveSteps)
+        assertTrue(ConversationStatusGuide.mayShowAsActualStatus(Step.LOCAL_PREVIEW))
         assertTrue(ConversationStatusGuide.futureSteps.isNotEmpty())
         for (stage in ConversationStatusGuide.futureSteps) {
             assertFalse(stage.availableToday)
@@ -25,15 +24,15 @@ class ReviewOnlyMessageDeliveryTest {
     }
 
     @Test fun everyFutureStatusHasClearTruthfulSemantics() {
-        for (stage in Stage.values()) {
+        for (stage in Step.values()) {
             assertTrue(stage.label.isNotBlank())
             assertTrue(stage.explanation.isNotBlank())
         }
-        assertTrue(Stage.WRITTEN_TO_CHANNEL.explanation.contains("does not prove"))
-        assertTrue(Stage.PEER_APP_ACKNOWLEDGED.explanation.contains("never means"))
-        assertTrue(Stage.PEER_APP_ACKNOWLEDGED.explanation.contains("authenticated"))
-        assertTrue(Stage.QUEUED.explanation.contains("not written"))
-        assertTrue(Stage.AWAITING_APPROVAL.explanation.contains("both people"))
+        assertTrue(Step.WRITTEN_TO_CHANNEL.explanation.contains("does not prove"))
+        assertTrue(Step.PEER_APP_ACKNOWLEDGED.explanation.contains("never means"))
+        assertTrue(Step.PEER_APP_ACKNOWLEDGED.explanation.contains("authenticated"))
+        assertTrue(Step.QUEUED.explanation.contains("not written"))
+        assertTrue(Step.AWAITING_APPROVAL.explanation.contains("both people"))
     }
 
     @Test fun noMessageCanQueueBeforeSimulatedConsent() {
@@ -57,14 +56,14 @@ class ReviewOnlyMessageDeliveryTest {
         val token = requireNotNull(model.begin())
         assertTrue(model.injectSimulatedBothApprovalsForTest(token))
         val id = requireNotNull(model.queueFakeMessageId(token))
-        assertEquals(Stage.QUEUED, model.status(token, id))
+        assertEquals(Step.QUEUED, model.status(token, id))
         assertFalse(model.injectSimulatedPeerAckForTest(token, id))
-        assertEquals(Stage.QUEUED, model.status(token, id))
+        assertEquals(Step.QUEUED, model.status(token, id))
         assertTrue(model.injectSimulatedLocalWriteForTest(token, id))
-        assertEquals(Stage.WRITTEN_TO_CHANNEL, model.status(token, id))
+        assertEquals(Step.WRITTEN_TO_CHANNEL, model.status(token, id))
         assertFalse(model.injectSimulatedLocalWriteForTest(token, id))
         assertTrue(model.injectSimulatedPeerAckForTest(token, id))
-        assertEquals(Stage.PEER_APP_ACKNOWLEDGED, model.status(token, id))
+        assertEquals(Step.PEER_APP_ACKNOWLEDGED, model.status(token, id))
         assertFalse(model.injectSimulatedPeerAckForTest(token, id))
         assertFalse(model.markSimulatedFailure(token, id))
     }
@@ -75,12 +74,12 @@ class ReviewOnlyMessageDeliveryTest {
         model.injectSimulatedBothApprovalsForTest(token)
         val id = requireNotNull(model.queueFakeMessageId(token))
         assertTrue(model.markSimulatedFailure(token, id))
-        assertEquals(Stage.FAILED, model.status(token, id))
+        assertEquals(Step.FAILED, model.status(token, id))
         assertFalse(model.injectSimulatedLocalWriteForTest(token, id))
         assertFalse(model.injectSimulatedPeerAckForTest(token, id))
         val next = requireNotNull(model.queueFakeMessageId(token))
         assertTrue(next > id)
-        assertEquals(Stage.QUEUED, model.status(token, next))
+        assertEquals(Step.QUEUED, model.status(token, next))
     }
 
     @Test fun fabricatedOrUnknownAckCannotPromoteAnyOtherMessage() {
@@ -93,8 +92,8 @@ class ReviewOnlyMessageDeliveryTest {
         assertFalse(model.injectSimulatedPeerAckForTest(token, b))
         assertFalse(model.injectSimulatedPeerAckForTest(token, -1))
         assertFalse(model.injectSimulatedPeerAckForTest(token, Long.MAX_VALUE))
-        assertEquals(Stage.QUEUED, model.status(token, b))
-        assertEquals(Stage.WRITTEN_TO_CHANNEL, model.status(token, a))
+        assertEquals(Step.QUEUED, model.status(token, b))
+        assertEquals(Step.WRITTEN_TO_CHANNEL, model.status(token, a))
     }
 
     @Test fun attemptsAreComparedByObjectIdentityNotForgedNumericGeneration() {
@@ -133,7 +132,7 @@ class ReviewOnlyMessageDeliveryTest {
         assertTrue(model.injectSimulatedBothApprovalsForTest(fresh))
         val next = requireNotNull(model.queueFakeMessageId(fresh))
         assertTrue(next > oldId)
-        assertEquals(Stage.QUEUED, model.status(fresh, next))
+        assertEquals(Step.QUEUED, model.status(fresh, next))
     }
 
     @Test fun boundedMetadataQueueHasNoUserTextAndNoAutoRetry() {
