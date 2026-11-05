@@ -74,6 +74,11 @@ internal class LanDemoSession(
     private val pulses = Executors.newSingleThreadScheduledExecutor { action ->
         Thread(action, "eden-demo-heartbeat").apply { isDaemon = true }
     }
+    // Separate from the heartbeat loop: connectivity calls on its thread may
+    // block and must not delay a user's requested hard socket close.
+    private val cancellationTimer = Executors.newSingleThreadScheduledExecutor { action ->
+        Thread(action, "eden-demo-cancel-timer").apply { isDaemon = true }
+    }
     private val outputLock = Any()
     private val sockets = SessionSocketRegistry()
     private val sendBudget = DemoSendBudget(2)
@@ -259,7 +264,7 @@ internal class LanDemoSession(
         if (!ready || stopped.get()) { close(); return }
         LanGracefulStop.begin(
             scheduleHardClose = { delay, action ->
-                pulses.schedule({ action() }, delay, TimeUnit.MILLISECONDS)
+                cancellationTimer.schedule({ action() }, delay, TimeUnit.MILLISECONDS)
             },
             enqueueClose = {
                 writer.execute {
@@ -432,6 +437,7 @@ internal class LanDemoSession(
         ending.set(true)
         sockets.close()
         pulses.shutdownNow()
+        cancellationTimer.shutdownNow()
         writer.shutdownNow()
         worker.shutdownNow()
     }
