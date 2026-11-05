@@ -12,6 +12,7 @@ internal object PairingTestUiCopy {
         "showHost", "scanHost" -> "PAIRING • STEP 1 OF 2"
         "scanReply", "showReply" -> "PAIRING • STEP 2 OF 2"
         "connecting" -> "LOCAL CONNECTION • VERIFYING"
+        "approval" -> "LOCAL CONNECTION • TWO-PERSON TEST APPROVAL"
         "demo" -> "LOCAL CONNECTION • TEST ACTIVE"
         "result" -> "CONNECTION TEST • SUMMARY"
         else -> null
@@ -21,17 +22,31 @@ internal object PairingTestUiCopy {
     fun useStackedActions(availableWidthDp: Float, fontScale: Float): Boolean =
         availableWidthDp < 360f || fontScale >= 1.3f
 
-    fun resultHeading(reachedReady: Boolean): String =
-        if (reachedReady) "Test connection established" else "Connection not established"
+    fun resultHeading(reachedReady: Boolean, tlsAndQrReady: Boolean = false): String =
+        when {
+            reachedReady -> "Test connection established"
+            tlsAndQrReady -> "Test link ended before both approvals"
+            else -> "Connection not established"
+        }
 
-    fun resultSummary(reachedReady: Boolean, sent: Int, received: Int): String {
+    fun resultSummary(
+        reachedReady: Boolean,
+        sent: Int,
+        received: Int,
+        tlsAndQrReady: Boolean = false
+    ): String {
         require(sent >= 0 && received >= 0) { "Counters cannot be negative" }
-        return if (reachedReady) {
-            "This phone wrote $sent preset phrase(s) to TLS and received $received. " +
-                "Sent does not mean delivered or read. The on-screen phrase list was cleared."
-        } else {
-            "The test stopped before reaching a verified local session. " +
-                "Start again with two fresh codes and both phones on the same Wi-Fi."
+        return when {
+            reachedReady ->
+                "This phone wrote $sent preset phrase(s) to TLS and received $received. " +
+                    "Sent does not mean delivered or read. The on-screen phrase list was cleared."
+            tlsAndQrReady ->
+                "The debug TLS/QR test link passed, but both experimental human " +
+                    "approvals were not observed here. No preset conversation began. " +
+                    "This is not independently reviewed messaging authorization."
+            else ->
+                "The test stopped before reaching a verified local session. " +
+                    "Start again with two fresh codes and both phones on the same Wi-Fi."
         }
     }
 }
