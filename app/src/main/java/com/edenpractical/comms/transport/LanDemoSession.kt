@@ -97,8 +97,8 @@ internal class LanDemoSession(
     private val sockets = SessionSocketRegistry()
     private val sendBudget = DemoSendBudget(2)
     private val nextDebugTextId = AtomicLong(1L)
-    // Reader-thread only; old/replayed/non-increasing IDs fail closed.
-    private var lastReceivedDebugTextId = 0L
+    // Reader-thread-only replay/sequence gate, reset per connected socket.
+    private val debugTextReceive = DebugTextReceiveGuard()
     private val heartbeatQueued = AtomicBoolean(false)
     private val approvalQueued = AtomicBoolean(false)
     private val confirmationQueued = AtomicBoolean(false)
@@ -280,11 +280,11 @@ internal class LanDemoSession(
                             emitApprovalState(state)
                         }
                         TestPacketCodec.Type.DEBUG_TEXT -> {
-                            if (!approvalGate.maySendPreset() ||
-                                packet.messageId <= lastReceivedDebugTextId ||
-                                packet.text.isEmpty()
+                            if (packet.text.isEmpty() ||
+                                !debugTextReceive.accept(
+                                    packet.messageId, approvalGate.maySendPreset()
+                                )
                             ) throw TestPacketException()
-                            lastReceivedDebugTextId = packet.messageId
                             emit(Event(
                                 Phase.TEXT_RECEIVED, "Development text received in this app",
                                 messageId = packet.messageId, text = packet.text
