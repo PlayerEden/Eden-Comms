@@ -1,6 +1,6 @@
 # Eden Comms — Data Minimization and 30-Day Retention Policy (Design v0.1)
 
-Status: **product direction approved in principle; exact UI/technical implementation proposed and not yet coded or audited**.
+Status: **future persistent encrypted retention design remains proposed, unimplemented and unaudited**. As of M3g (2026-11-06), the *development-only* two-phone text test is session-only in RAM, with a working Hide conversation curtain and explicit Clear my screen. There is **no user-enabled persistent message history, disappearing timer or saved peer trust**. The future 1-hour to 30-day storage choices below are design proposals only. See [M3g](M3G_SESSION_PRIVACY_CONTROLS.md).
 Date: 2026-11-03.
 Related: [Product Vision](PRODUCT_VISION.md), [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md), [Decisions](DECISIONS.md).
 
