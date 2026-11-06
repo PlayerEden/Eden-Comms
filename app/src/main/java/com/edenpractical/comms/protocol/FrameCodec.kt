@@ -14,7 +14,8 @@ import java.io.InputStream
  * a plaintext socket. All bytes passed here must travel inside a reviewed,
  * already authenticated, encrypted transport. For the v0.2.6 test only,
  * the caller must finish pinned TLS 1.3, both QR proof records and READY
- * before reading/writing synthetic test frames. General-purpose messaging
+ * and mutual session approvals before reading/writing synthetic preset or
+ * bounded dev-only typed-text frames. General-purpose RELEASE messaging
  * remains disabled and needs independent review.
  */
 internal object FrameCodec {
