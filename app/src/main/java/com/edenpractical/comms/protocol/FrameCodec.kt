@@ -8,7 +8,7 @@ import java.io.InputStream
 
 /**
  * Bounded binary framing for a FUTURE authenticated channel and the strictly
- * debug-only preset-phrase test. Framing is NOT encryption or authentication.
+ * debug-only preset/text test. Framing is NOT encryption or authentication.
  *
  * This class does not encrypt or authenticate anything. It MUST NOT be used on
  * a plaintext socket. All bytes passed here must travel inside a reviewed,
