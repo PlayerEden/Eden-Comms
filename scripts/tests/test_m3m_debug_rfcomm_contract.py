@@ -29,7 +29,7 @@ class DebugRfcommContractTest(unittest.TestCase):
         for item in (
             "listenUsingRfcommWithServiceRecord(",
             "device.createRfcommSocketToServiceRecord(SERVICE_UUID)",
-            "created.accept(CONNECT_TIMEOUT_MS.toInt())",
+            "created.accept(HOST_WAIT_MS.toInt())",
             "created.connect()",
             "adapter.cancelDiscovery()",
             "closeQuietly(oldServer)",
