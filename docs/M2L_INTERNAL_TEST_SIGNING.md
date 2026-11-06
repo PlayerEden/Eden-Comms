@@ -9,6 +9,10 @@
 - **Manually triggered, owner-restricted:** [Internal signed test APK](../.github/workflows/android-internal-test-apk.yml) runs **only on `main`**, through the `internal-test` GitHub environment, and only if the actor is `PlayerEden`. It will **fail closed if required secrets or pinned signing certificate are absent/incorrect**. It builds/tests with no signing secrets in Gradle, then uses Android `apksigner` with a dedicated internal-test key to replace the ephemeral debug signature.
 - **Never** use a production Play App Signing key for internal-test APKs or vice versa. This APK is still debuggable and has no production messaging/voice.
 
+## M3d owner-run signing setup assistant (still requires human action)
+
+The optional [M3d trusted-computer signing setup](M3D_OWNER_SIGNING_SETUP.md) now provides a safer path for this one-time setup. A Python helper checks that the GitHub **internal-test** environment admits **main only**, verifies a user-owned **existing PKCS12 private-key entry/passwords**, calculates the public signing certificate fingerprint, and uploads the five environment secrets through authenticated `gh secret set` **stdin**. It refuses overwriting any existing signing-secret names. **No permanent key is created, provided or configured by the source repository or ChatGPT**. The steps below remain valid for manual setup. All protected signing and physical update requirements are still OPEN until genuinely executed.
+
 ## One-time human setup (do not share secrets in a chat)
 
 1. On a trusted PC, generate a **new, dedicated test-only** Android signing keystore using Android Studio or `keytool`. Use a strong unique keystore/password, non-identifying certificate subject, and long enough validity for testing. Back up the keystore securely OFF the repo, and do not recycle any existing production signing keys.
