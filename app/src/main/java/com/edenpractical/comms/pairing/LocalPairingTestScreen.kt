@@ -2,6 +2,8 @@ package com.edenpractical.comms.pairing
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
+import android.provider.Settings
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Handler
@@ -138,6 +140,22 @@ internal fun LocalPairingTestScreen() {
         qrText = ""
     }
 
+    fun refreshWifiStatus() {
+        // No pairing, network switch, radio discovery or auto-connect here.
+        // Never expose address, SSID or raw ConnectivityManager errors.
+        wifi = try { WifiLanEndpoint.current(context) } catch (_: Exception) { null }
+    }
+
+    fun openWifiSettings() {
+        // User-directed system settings only; returning must NOT continue a
+        // pairing attempt or reuse any QR/certificate pin.
+        try {
+            context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+        } catch (_: Exception) {
+            status = "Couldn't open Wi-Fi settings. Open the phone's Settings manually."
+        }
+    }
+
     fun reset() {
         stopTest()
         clearTemporaryPairing()
@@ -164,8 +182,10 @@ internal fun LocalPairingTestScreen() {
         qaLocalConfirmationWritten = false
         qaPeerConfirmationObserved = false
         pendingRole = null
+        refreshWifiStatus()
         stage = "choose"
-        status = "Choose how to begin."
+        status = if (wifi == null) "Connect both phones to the same Wi-Fi."
+            else "Choose how to begin."
     }
 
     fun startRole(role: String) {
@@ -207,6 +227,8 @@ internal fun LocalPairingTestScreen() {
                 status = "Point your camera at the code on their phone."
             }
         } catch (_: Exception) {
+            clearTemporaryPairing()
+            refreshWifiStatus()
             stage = "choose"
             status = "Connect both phones to the same Wi-Fi and try again."
         }
@@ -458,6 +480,17 @@ internal fun LocalPairingTestScreen() {
     val lifecycleOwner = context as? LifecycleOwner
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME &&
+                stage in listOf("choose", "result")
+            ) {
+                // Reflect Wi-Fi changes after returning from system Settings.
+                // Never mutate the link captured by an active QR handshake.
+                refreshWifiStatus()
+                if (stage == "choose") {
+                    status = if (wifi == null) "Connect both phones to the same Wi-Fi."
+                        else "Choose how to begin."
+                }
+            }
             if (event == Lifecycle.Event.ON_STOP &&
                 stage !in listOf("checking", "choose", "result", "identityError")
             ) {
@@ -537,14 +570,32 @@ internal fun LocalPairingTestScreen() {
                         "On one phone, choose Show a code. On the other, choose Scan a code.",
                         style = MaterialTheme.typography.bodySmall
                     )
+                    Text(
+                        "Current method: same-Wi-Fi test. Bluetooth and Wi-Fi Direct are planned, " +
+                            "but are not available or being scanned by this build.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        NearbyRecoveryGuide.wifiStatus(wifi != null),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     if (wifi == null) {
-                        Text("Wi-Fi isn't available. Join the same network on both phones, then retry.",
-                            style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "Wi-Fi must be connected on both phones. You can use a router " +
+                                "without internet. Avoid guest networks that isolate devices.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        OutlinedButton(
+                            onClick = { openWifiSettings() },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("Open Wi-Fi settings") }
                         OutlinedButton(
                             onClick = {
-                                wifi = WifiLanEndpoint.current(context)
+                                refreshWifiStatus()
                                 status = if (wifi == null) "Wi-Fi is still unavailable."
-                                    else "Choose how to begin."
+                                    else "Wi-Fi found here. Choose a role on both phones."
                             },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("Check Wi-Fi again") }
@@ -946,9 +997,43 @@ internal fun LocalPairingTestScreen() {
                     if (details.isNotEmpty()) {
                         Text(details, style = MaterialTheme.typography.bodyMedium)
                     }
-                    Text("This closed debug session erased typed test content. Production " +
-                        "messaging and voice remain disabled.",
-                        style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "The session closed and this app dropped visible test chat content. " +
+                            "This does not guarantee erasure from Android memory, keyboards " +
+                            "or the other phone. Production messaging and voice remain disabled.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    val recovery = NearbyRecoveryGuide.forResult(
+                        qaFinish, qaFailureCode, qaEndCode, wifi != null
+                    )
+                    Text(
+                        recovery.title,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(recovery.detail, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "Next: ${recovery.nextStep}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (recovery.wifiCheckHelpful) {
+                        Text(
+                            NearbyRecoveryGuide.wifiStatus(wifi != null),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        OutlinedButton(
+                            onClick = { openWifiSettings() },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        ) { Text("Open Wi-Fi settings") }
+                        OutlinedButton(
+                            onClick = {
+                                refreshWifiStatus()
+                                status = NearbyRecoveryGuide.wifiStatus(wifi != null)
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        ) { Text("Check this phone's Wi-Fi again") }
+                    }
                     OutlinedButton(
                         onClick = {
                             // Explicit tap only. Public APK build metadata is
@@ -1001,7 +1086,7 @@ internal fun LocalPairingTestScreen() {
                     Button(
                         onClick = { reset() },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                    ) { Text("Start a new test") }
+                    ) { Text("Start over with fresh QR codes") }
                 }
                 "identityError" -> {
                     Text("Open Device identity in Developer Tools for diagnostics.",
