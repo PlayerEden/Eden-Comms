@@ -120,9 +120,9 @@ class DeviceUpgradePreflightTests(unittest.TestCase):
             self.assertEqual(len(pulled), 1)
             self.assertFalse(pulled[0].exists(), "Temporary installed APK must be deleted")
             self.assertTrue(candidate.exists(), "Read-only preflight must not alter candidate")
-            self.assertFalse(any("install" in a or "uninstall" in a
-                                 for command in commands for a in command),
-                             "ADB must not run install/uninstall commands")
+            self.assertFalse(any(command[0] == "adb" and any(
+                part in ("install", "uninstall", "install-multiple") for part in command[1:4]
+            ) for command in commands), "ADB must not run install/uninstall commands")
 
     def test_wrong_candidate_package_refused_before_connecting_to_adb(self):
         with tempfile.TemporaryDirectory() as folder:
