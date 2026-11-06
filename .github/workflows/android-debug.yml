@@ -36,7 +36,7 @@ jobs:
         with:
           gradle-version: '9.3.1'
       - name: Run unit tests and build APK
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug "-PedenSourceRevision=$GITHUB_SHA"
       - name: Smoke-test internal APK re-signing with a disposable CI-only key
         run: |
           set -euo pipefail
