@@ -43,6 +43,8 @@ import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
+import com.edenpractical.comms.model.ConnectionMethod
+import com.edenpractical.comms.model.NearbyMethodCatalog
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
@@ -180,12 +182,15 @@ private fun EdenCommsApp() {
                             "home" -> HomeScreen(
                                 onPtt = { navigate("ptt") },
                                 onConnect = { navigate("pairing-test") },
+                                onMethods = { navigate("connect") },
                                 onChatPreview = { navigate("pairing-test") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
                             )
-                            "connect" -> NearbyScreen(onLocalWifi = { navigate("wifi") })
-                            "wifi" -> LocalWifiScreen(onTryPairing = { navigate("pairing-test") })
+                            "connect" -> NearbyScreen(onLocalWifi = { navigate("pairing-test") })
+                            // Alias old navigation state to the honest method chooser;
+                            // the legacy screen incorrectly said pairing was "coming soon".
+                            "wifi" -> NearbyScreen(onLocalWifi = { navigate("pairing-test") })
                             "pairing-test" -> LocalPairingTestScreen()
                             "chat-preview" -> LocalChatPreviewScreen(
                                 onPairingTest = { navigate("pairing-test") }
@@ -211,7 +216,8 @@ private fun EdenCommsApp() {
                             "privacy" -> PrivacyInfoScreen()
                             else -> HomeScreen(
                                 onPtt = { navigate("ptt") },
-                                onConnect = { navigate("connect") },
+                                onConnect = { navigate("pairing-test") },
+                                onMethods = { navigate("connect") },
                                 onChatPreview = { navigate("pairing-test") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
@@ -227,8 +233,8 @@ private fun EdenCommsApp() {
 }
 
 private fun titleForPage(page: String): String = when (page) {
-    "connect" -> "Connect nearby"
-    "wifi" -> "Local Wi-Fi"
+    "connect" -> "Connection methods"
+    "wifi" -> "Connection methods"
     "pairing-test" -> "Connect nearby"
     "chat-preview" -> "Local text sandbox"
     "ptt" -> "Voice / PTT"
@@ -299,6 +305,7 @@ private fun TopBar(page: String, onBack: () -> Unit) {
 @Composable
 private fun HomeScreen(
     onConnect: () -> Unit,
+    onMethods: () -> Unit,
     onChatPreview: () -> Unit,
     onPtt: () -> Unit,
     onSettings: () -> Unit,
@@ -329,6 +336,10 @@ private fun HomeScreen(
         Spacer(Modifier.width(10.dp))
         Text("CONNECT NEARBY", fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
     }
+    TextButton(
+        onClick = onMethods,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) { Text("Connection methods and availability") }
 
     FieldSectionHeader("COMMUNICATION", null)
     Row(
@@ -366,88 +377,122 @@ private fun HomeScreen(
 
 @Composable
 private fun NearbyScreen(onLocalWifi: () -> Unit) {
-    FieldSectionHeader("CONNECT", "Choose a connection")
-    // The only upcoming transport is the primary action. We don't force
-    // people to learn LAN, Bluetooth or Wi-Fi Direct terminology to start.
-    FieldOption(
-        glyph = R.drawable.ic_eden_wifi,
-        title = "Local Wi-Fi",
-        detail = "Same network • internet not needed",
-        state = "PREVIEW",
-        onClick = onLocalWifi
+    val context = LocalContext.current
+    val debuggable = (context.applicationInfo.flags and
+        ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    val wifi = NearbyMethodCatalog.current(ConnectionMethod.LAN)
+
+    FieldSectionHeader("CONNECTION METHODS", "Choose how phones connect")
+    Text(
+        "Same-Wi-Fi QR pairing is the only available development test. " +
+            "No account, internet service or manual IP entry is needed.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-    SectionLabel("LATER")
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_eden_bluetooth),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
+
+    FieldFrame(accent = true) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_eden_wifi),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    wifi.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(
+                if (debuggable) "DEV TEST" else "NOT AVAILABLE",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(wifi.description, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            wifi.requirements,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            "Bluetooth and Wi-Fi Direct are planned.",
+            "Use one phone to show a QR code and the other to scan it. " +
+                "Both phones then complete a second code and explicitly approve.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Button(
+            onClick = {
+                if (NearbyMethodCatalog.select(
+                        ConnectionMethod.LAN, debuggable
+                    ) == NearbyMethodCatalog.Selection.LaunchDebugLanQr
+                ) onLocalWifi()
+            },
+            enabled = NearbyMethodCatalog.canEnterDebugLan(debuggable),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = CutCornerShape(6.dp)
+        ) {
+            Text("CONTINUE WITH SAME WI-FI")
+        }
+        Text(
+            "Unreviewed debug test only. No sensitive conversations or " +
+                "production messaging.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    Text(
-        "When pairing is ready, follow the steps on the Local Wi-Fi screen.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-}
 
-@Composable
-private fun LocalWifiScreen(onTryPairing: () -> Unit) {
-    FieldSectionHeader("LOCAL WI-FI", "Connect two phones")
-    FieldFrame(accent = true) {
-        Image(
-            painter = painterResource(R.drawable.ic_eden_pairing_phones),
-            contentDescription = "Two phones with Wi-Fi between them",
-            modifier = Modifier.fillMaxWidth().height(86.dp)
-        )
+    SectionLabel("FUTURE METHODS • NOT AVAILABLE")
+    for (method in listOf(ConnectionMethod.BLUETOOTH, ConnectionMethod.WIFI_DIRECT)) {
+        val entry = NearbyMethodCatalog.current(method)
+        val glyph = if (method == ConnectionMethod.BLUETOOTH)
+            R.drawable.ic_eden_bluetooth else R.drawable.ic_eden_wifi
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) { StatusLabel("PAIRING COMING SOON") }
-        Text(
-            "Both phones must be on the same Wi-Fi. Internet isn't needed.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                shape = CutCornerShape(5.dp)
-            ) { Text("HOST") }
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                shape = CutCornerShape(5.dp)
-            ) { Text("JOIN") }
+            Icon(
+                painter = painterResource(glyph),
+                contentDescription = null,
+                modifier = Modifier.padding(top = 5.dp).size(23.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(entry.title, fontWeight = FontWeight.SemiBold)
+                Text(
+                    entry.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "PLANNED • Not scanning or connecting",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)
+        )
     }
-    Button(
-        onClick = onTryPairing,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-        shape = CutCornerShape(7.dp)
-    ) { Text("TEST QR PAIRING") }
     Text(
-        "Development test: two in-person QR scans, then a TLS 1.3 check. " +
-            "Text and voice are still disabled.",
+        "Future radios will need their own permission prompts, local discovery " +
+            "and the same fresh two-person identity checks. Merely finding a " +
+            "nearby phone will never authorize messaging.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
