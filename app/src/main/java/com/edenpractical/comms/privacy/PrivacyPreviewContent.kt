@@ -47,8 +47,13 @@ internal object PrivacyPreviewContent {
             "Permissions",
             "Local network access uses INTERNET and ACCESS_NETWORK_STATE " +
                 "permissions for a nearby Wi-Fi connection. Camera permission " +
-                "is requested for QR scanning. This preview does not request " +
-                "microphone, Bluetooth, contacts or location permissions."
+                "is requested for QR scanning. Debug builds also declare " +
+                "Nearby devices / BLUETOOTH_SCAN only for an explicitly started " +
+                "Bluetooth Classic inquiry under Developer Tools. That test " +
+                "counts unverified radio observations, does not connect or " +
+                "save device identities, and is absent from release builds. " +
+                "This preview does not request microphone, contacts or " +
+                "location permissions."
         ),
         Section(
             "Local-only sandbox versus real test text",
