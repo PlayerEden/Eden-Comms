@@ -275,6 +275,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             )
             receiverRegistered = true
             val started = local.startDiscovery()
+            // Mark actual hardware inquiry before validating lifecycle: if
+            // validation rejects a state, stopHardware MUST still cancel radio.
+            radioRunning = started
             if (!lifecycle.radioScanStarted(
                     token, foreground, started, SystemClock.elapsedRealtime()
                 )
