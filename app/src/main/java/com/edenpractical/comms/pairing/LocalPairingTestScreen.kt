@@ -45,9 +45,11 @@ import kotlinx.coroutines.withContext
  * Guided two-QR LOCAL CONNECTION TEST. The second QR is still required:
  * it authenticates the joiner's identity to the presenter.
  *
- * No manual listener or Connect buttons, user-supplied chat/voice traffic,
- * remembered peers, cloud services, background discovery, or plaintext fallback.
- * Development builds may exchange ONLY fixed test phrases over proven TLS.
+ * No manual listener, remembered peers, cloud, background discovery or
+ * plaintext fallback. Debug builds can exchange four presets and bounded
+ * ephemeral typed text on an authenticated test socket ONLY after both QR
+ * proofs, matching TLS binding, approvals and confirmations. No voice.
+ * This is unreviewed development functionality, not safe private messaging.
  */
 @Composable
 internal fun LocalPairingTestScreen() {
@@ -86,6 +88,9 @@ internal fun LocalPairingTestScreen() {
     // Never saveable: this in-memory ledger is scoped to this composable.
     // No user-supplied text or persistent message history can enter it.
     var transcript by remember { mutableStateOf(DebugSessionTranscript.fresh()) }
+    // Session-only chat content; never rememberSaveable or persistent.
+    var debugText by remember { mutableStateOf(DebugTextTranscript.fresh()) }
+    var textDraft by remember { mutableStateOf("") }
     var qaRole by remember { mutableStateOf(LocalQaReport.Role.NOT_SELECTED) }
     var qaFinish by remember { mutableStateOf(LocalQaReport.Finish.NOT_RECORDED) }
     var qaLastCheckpoint by remember { mutableStateOf<LanDemoStatus.Progress?>(null) }
@@ -105,6 +110,8 @@ internal fun LocalPairingTestScreen() {
         attemptVersion += 1
         probe?.close()
         probe = null
+        debugText = debugText.finish()
+        textDraft = ""
     }
 
     fun wifiIsOriginalPairingLink(): Boolean {
@@ -133,6 +140,8 @@ internal fun LocalPairingTestScreen() {
         showPairingHelp = false
         cameraError = false
         transcript = DebugSessionTranscript.fresh()
+        debugText = DebugTextTranscript.fresh()
+        textDraft = ""
         qaRole = LocalQaReport.Role.NOT_SELECTED
         qaFinish = LocalQaReport.Finish.NOT_RECORDED
         qaLastCheckpoint = null
@@ -223,6 +232,8 @@ internal fun LocalPairingTestScreen() {
             }
             stopTest()
             transcript = DebugSessionTranscript.fresh()
+            debugText = DebugTextTranscript.fresh()
+            textDraft = ""
             qaLastCheckpoint = null
             qaEndCode = null
             qaFailureCode = null
@@ -323,8 +334,9 @@ internal fun LocalPairingTestScreen() {
                             qaPeerConfirmationObserved = true
                             approvalSending = false
                             transcript = transcript.ready()
+                            debugText = debugText.ready()
                             stage = "demo"
-                            status = "Both approvals and final confirmations received. Preset test enabled."
+                            status = "Debug session confirmed. Presets and short test text available."
                         }
                         LanDemoSession.Phase.SENT, LanDemoSession.Phase.RECEIVED -> {
                             // Writer/reader callbacks may race with disconnect;
@@ -341,6 +353,20 @@ internal fun LocalPairingTestScreen() {
                                 )
                             }
                         }
+                        LanDemoSession.Phase.TEXT_WRITTEN, LanDemoSession.Phase.TEXT_RECEIVED -> {
+                            if (!DebugSessionEventAdmission.canRecord(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                ) || debugText.state != DebugTextTranscript.State.ACTIVE
+                            ) return@post
+                            val text = event.text ?: return@post
+                            val messageId = event.messageId ?: return@post
+                            debugText = debugText.record(
+                                if (event.phase == LanDemoSession.Phase.TEXT_WRITTEN)
+                                    DebugTextTranscript.Direction.WRITTEN_TO_TLS
+                                else DebugTextTranscript.Direction.RECEIVED_HERE,
+                                messageId, text
+                            )
+                        }
                         LanDemoSession.Phase.ENDED -> {
                             qaFinish = LocalQaReport.Finish.REMOTE_OR_LINK_STOPPED
                             qaEndCode = event.endCode
@@ -349,6 +375,8 @@ internal fun LocalPairingTestScreen() {
                             details = event.description
                             status = "Test connection ended."
                             transcript = transcript.finish()
+                            debugText = debugText.finish()
+                            textDraft = ""
                             stage = "result"
                         }
                         LanDemoSession.Phase.FAILED -> {
@@ -379,6 +407,8 @@ internal fun LocalPairingTestScreen() {
             clearTemporaryPairing()
             stage = "result"
             transcript = transcript.finish()
+            debugText = debugText.finish()
+            textDraft = ""
             if (e is LanWifiChangedException) {
                 qaFailureCode = LanProbeDiagnostics.Code.WIFI_CHANGED
                 details = "Wi-Fi changed during pairing. Restart both phones' tests with fresh QR codes."
@@ -420,6 +450,8 @@ internal fun LocalPairingTestScreen() {
                 stopTest()
                 clearTemporaryPairing()
                 transcript = transcript.finish()
+                debugText = debugText.finish()
+                textDraft = ""
                 details = "The app went into the background, closing the local test socket."
                 status = if (hadConnected) "Test connection ended when the app left the screen."
                     else "Connection cancelled. Start again when both phones are ready."
@@ -434,6 +466,8 @@ internal fun LocalPairingTestScreen() {
             latestProbe?.close()
             clearTemporaryPairing()
             transcript = transcript.finish()
+            debugText = debugText.finish()
+            textDraft = ""
         }
     }
 
@@ -720,8 +754,10 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("Decline and disconnect") }
                 }
                 "demo" -> {
-                    Text("Both approvals and confirmations completed — test phrases", fontWeight = FontWeight.SemiBold)
-                    Text("Only predefined test phrases are available. No personal messages, voice, or saved history.",
+                    Text("Development conversation", fontWeight = FontWeight.SemiBold)
+                    Text("Unreviewed DEBUG TEST ONLY. Type ordinary test words, not private information. " +
+                        "Short text travels over this test connection only after both approvals. " +
+                        "No voice, saved history or guaranteed delivery.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     // A connected debug socket is not user consent or authorization
@@ -815,7 +851,101 @@ internal fun LocalPairingTestScreen() {
                             }
                         }
                     }
-                    Text("Sent means written to TLS, not a guaranteed delivery receipt. Compare both phone screens.",
+                    FieldFrame {
+                        Text(
+                            "SHORT TEXT • TEST CONNECTION",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (debugText.visible.isEmpty()) {
+                            Text(
+                                "No typed test messages yet. You can exchange short text " +
+                                    "after both phones confirm the connection.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                debugText.visible.forEach { entry ->
+                                    val local = entry.direction ==
+                                        DebugTextTranscript.Direction.WRITTEN_TO_TLS
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = if (local)
+                                            Arrangement.End else Arrangement.Start
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(0.92f),
+                                            shape = CutCornerShape(6.dp),
+                                            color = if (local)
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(10.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Text(
+                                                    if (local) "You • Written to TLS (not delivered)"
+                                                    else "Other phone • Received here",
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    style = MaterialTheme.typography.labelSmall
+                                                )
+                                                Text(
+                                                    entry.text,
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        OutlinedTextField(
+                            value = textDraft,
+                            onValueChange = { candidate ->
+                                if (candidate.length <= 280) textDraft = candidate
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Type a short TEST message") },
+                            placeholder = { Text("Hello from this phone…") },
+                            minLines = 2,
+                            maxLines = 4,
+                            supportingText = {
+                                Text("${textDraft.length}/280 • Don't enter sensitive text")
+                            },
+                            shape = CutCornerShape(6.dp)
+                        )
+                        Button(
+                            onClick = {
+                                when (probe?.sendDebugText(textDraft)) {
+                                    LanDemoSession.TextSendResult.QUEUED -> {
+                                        textDraft = ""
+                                        status = "Test text queued; wait for local TLS write."
+                                    }
+                                    LanDemoSession.TextSendResult.INVALID_TEXT ->
+                                        status = "Use a nonempty test message without control characters."
+                                    LanDemoSession.TextSendResult.BUSY ->
+                                        status = "Writer is busy. Try again shortly."
+                                    LanDemoSession.TextSendResult.AWAITING_APPROVAL ->
+                                        status = "Both people must approve and confirm this test first."
+                                    LanDemoSession.TextSendResult.NOT_CONNECTED, null ->
+                                        status = "The test socket is no longer connected."
+                                }
+                            },
+                            enabled = textDraft.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) {
+                            Text("SEND TEST TEXT", fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            "Only this temporary session stores the conversation in RAM. " +
+                                "Leaving the screen or disconnecting clears it; " +
+                                "Android keyboards and screenshots can still keep copies.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text("Written to TLS is not a receipt. Compare both screens to verify actual arrival.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(
@@ -845,7 +975,8 @@ internal fun LocalPairingTestScreen() {
                     if (details.isNotEmpty()) {
                         Text(details, style = MaterialTheme.typography.bodyMedium)
                     }
-                    Text("Voice and normal messaging remain disabled.",
+                    Text("This closed debug session erased typed test content. Production " +
+                        "messaging and voice remain disabled.",
                         style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(
                         onClick = {
@@ -869,7 +1000,9 @@ internal fun LocalPairingTestScreen() {
                                 localApprovalWritten = qaLocalApprovalWritten,
                                 peerApprovalObserved = qaPeerApprovalObserved,
                                 localConfirmationWritten = qaLocalConfirmationWritten,
-                                peerConfirmationObserved = qaPeerConfirmationObserved
+                                peerConfirmationObserved = qaPeerConfirmationObserved,
+                                testTextWrittenToTls = debugText.writtenHere,
+                                testTextReceivedHere = debugText.receivedHere
                             )
                             try {
                                 val clipboard = context.getSystemService(

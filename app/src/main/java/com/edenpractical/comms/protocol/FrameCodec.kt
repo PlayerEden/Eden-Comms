@@ -8,13 +8,14 @@ import java.io.InputStream
 
 /**
  * Bounded binary framing for a FUTURE authenticated channel and the strictly
- * debug-only preset-phrase test. Framing is NOT encryption or authentication.
+ * debug-only preset/text test. Framing is NOT encryption or authentication.
  *
  * This class does not encrypt or authenticate anything. It MUST NOT be used on
  * a plaintext socket. All bytes passed here must travel inside a reviewed,
  * already authenticated, encrypted transport. For the v0.2.6 test only,
  * the caller must finish pinned TLS 1.3, both QR proof records and READY
- * before reading/writing synthetic test frames. General-purpose messaging
+ * and mutual session approvals before reading/writing synthetic preset or
+ * bounded dev-only typed-text frames. General-purpose RELEASE messaging
  * remains disabled and needs independent review.
  */
 internal object FrameCodec {

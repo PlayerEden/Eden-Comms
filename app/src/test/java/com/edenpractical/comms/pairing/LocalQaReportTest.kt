@@ -146,4 +146,21 @@ class LocalQaReportTest {
         assertFalse(sanitized.contains("peer=secret"))
     }
 
+    @Test fun developmentTextReportContainsCountsNeverTypedContent() {
+        val report = LocalQaReport.format(sample().copy(
+            testTextWrittenToTls = 2,
+            testTextReceivedHere = 3
+        ))
+        assertTrue(report.contains("Debug typed text written to local TLS: 2"))
+        assertTrue(report.contains("Debug typed text received by this app: 3"))
+        assertTrue(report.contains("No debug typed text content"))
+        assertFalse(report.contains("Hello from this phone"))
+        assertThrows(IllegalArgumentException::class.java) {
+            LocalQaReport.format(sample().copy(testTextWrittenToTls = -1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            LocalQaReport.format(sample().copy(testTextReceivedHere = 10001))
+        }
+    }
+
 }

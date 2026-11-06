@@ -8,15 +8,18 @@ import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
 /**
- * UNWIRED, UNREVIEWED candidate for a future text/ACK INNER payload.
+ * UNREVIEWED candidate for a future text/ACK INNER payload. M3e reuses
+ * its TEXT-only shape in a FLAG_DEBUGGABLE-gated, QR-pinned TLS test path.
+ * ACK remains forbidden in that runtime. Never use for production chat.
  *
  * This is only a bounded, versioned serializer/parser. It provides ZERO
  * encryption, TLS authentication, peer identity, replay defense, bilateral
  * approval, delivery evidence, persistence, or permission to transmit.
  *
- * DO NOT dispatch these bytes to a socket or display ACK as received until a
- * separate independently reviewed session/consent binding is implemented.
- * The live LAN demo must remain restricted to four fixed test phrases.
+ * The debug-only LAN test may carry TEXT *after* verified QR proof and both
+ * approvals + final confirmations. No release path may dispatch these bytes,
+ * ACK is never displayed or accepted, and physical/independent security
+ * verification is still required before sensitive or production messaging.
  */
 internal object ProposedChatWireCodec {
     private val MAGIC = byteArrayOf(0x45, 0x43, 0x54, 0x58) // "ECTX"

@@ -146,10 +146,61 @@ class TestPacketCodecTest {
         }
     }
 
-    @Test fun userSuppliedOrUnknownTextCannotBeEncoded() {
+    @Test fun legacyControlsStillNeverCarryArbitraryContent() {
         assertThrows(IllegalArgumentException::class.java) { codec.preset(99) }
         assertThrows(IllegalArgumentException::class.java) {
             codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.READY, 7))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.HEARTBEAT,
+                text = "hidden content", messageId = 77))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.PRESET,
+                phraseId = 1, text = "spoof", messageId = 77))
+        }
+    }
+
+    @Test fun boundedDebugTextUsesExistingVersionedUnicodePacketInsideFrames() {
+        val text = "Hello 👋\nHej världen"
+        val actual = codec.debugText(3L, text)
+        assertEquals(TestPacketCodec.Type.DEBUG_TEXT, actual.type)
+        assertEquals(3L, actual.messageId)
+        assertEquals(text, actual.text)
+        val encoded = codec.encode(actual)
+        assertEquals(ProposedChatWireCodec.Packet.Text(3L, text),
+            ProposedChatWireCodec.decode(encoded))
+        val stream = ByteArrayOutputStream()
+        codec.write(stream, actual)
+        assertEquals(actual, codec.read(ByteArrayInputStream(stream.toByteArray())))
+    }
+
+    @Test fun invalidDebugTextAndUnreviewedAcksFailClosed() {
+        for (text in listOf("", "   ", "x".repeat(281), "ok\u0001",
+            "\uD800", "\uDC00")) {
+            assertThrows(ProposedChatWireException::class.java) {
+                codec.debugText(1, text)
+            }
+        }
+        assertThrows(ProposedChatWireException::class.java) {
+            codec.debugText(0, "hello")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.DEBUG_TEXT,
+                phraseId = 1, messageId = 1, text = "hey"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(TestPacketCodec.Type.DEBUG_TEXT,
+                sessionCommitment = binding.toList(), messageId = 1, text = "hey"))
+        }
+        val fakeAck = ProposedChatWireCodec.encode(
+            ProposedChatWireCodec.Packet.Ack(3)
+        )
+        assertThrows(TestPacketException::class.java) { codec.decode(fakeAck) }
+        val invalid = codec.encode(codec.debugText(2, "hello")).copyOf()
+        invalid[4] = 2
+        assertThrows(ProposedChatWireException::class.java) {
+            codec.decode(invalid)
         }
     }
 

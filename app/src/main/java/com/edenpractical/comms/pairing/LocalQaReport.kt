@@ -5,7 +5,7 @@ import com.edenpractical.comms.transport.LanProbeDiagnostics
 
 /**
  * A deliberately non-sensitive, human-shareable observation of ONE PHONE'S
- * debug-only fixed-phrase test. No QR tokens, peer certificates, Wi-Fi addresses,
+ * debug-only fixed-phrase and typed-text test. No QR tokens, peer certificates, Wi-Fi addresses,
  * exception details, phrase content, or human/device identifiers are included.
  *
  * This is not a success certificate or a peer delivery/read receipt.
@@ -41,7 +41,9 @@ internal object LocalQaReport {
         val peerConfirmationObserved: Boolean = false,
         val installedVersionCode: Long? = null,
         val sourceRevision: String = "unavailable",
-        val apkSignerSha256: String? = null
+        val apkSignerSha256: String? = null,
+        val testTextWrittenToTls: Int = 0,
+        val testTextReceivedHere: Int = 0
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -49,6 +51,9 @@ internal object LocalQaReport {
         require(observation.writtenToTls in 0..10_000 &&
             observation.receivedHere in 0..10_000) { "Invalid debug-only counters" }
         require(observation.androidApiLevel in 1..100) { "Invalid Android API level" }
+        require(observation.testTextWrittenToTls in 0..10_000 &&
+            observation.testTextReceivedHere in 0..10_000
+        ) { "Invalid debug text counters" }
         return listOf(
             "EDEN COMMS — LOCAL TEST OBSERVATION",
             "One phone only; NOT a security certification or a completed two-phone test.",
@@ -72,6 +77,9 @@ internal object LocalQaReport {
             "These observations are NOT independently reviewed human authorization.",
             "Preset phrases written to local TLS: ${observation.writtenToTls}",
             "Preset phrases received by this app: ${observation.receivedHere}",
+            "Debug typed text written to local TLS: ${observation.testTextWrittenToTls}",
+            "Debug typed text received by this app: ${observation.testTextReceivedHere}",
+            "No debug typed text content, peer IDs or delivery/read receipts copied.",
             "Finish: ${observation.finish.label}",
             "Last connection operation STARTED: " +
                 (observation.lastCheckpoint?.name ?: "NOT_RECORDED"),

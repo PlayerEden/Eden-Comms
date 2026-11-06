@@ -113,15 +113,30 @@ if ! grep -Fq 'currentLiveSteps: Set<Step> = setOf(Step.LOCAL_PREVIEW)' "$STATUS
   exit 1
 fi
 
-# M2u includes an ACTUAL bounded Unicode/ACK packet parser in main sources,
-# but it is an UNREVIEWED INNER PAYLOAD candidate, not an authorized send path.
-# Any integration into sockets, UI, trust checks or packet dispatch must be a
-# separate change with independent protocol review and device QA.
+# M3e opens *debug-only* short text on the current pinned TLS test,
+# after BOTH approvals + BOTH final confirmations. The bounded Unicode
+# candidate remains unreviewed and is referenced ONLY by the test packet
+# envelope; never by release chat UI, generic transport, or other code.
 CHAT_WIRE="$MAIN/com/edenpractical/comms/protocol/ProposedChatWireCodec.kt"
-test -f "$CHAT_WIRE"
+TEST_ENVELOPE="$MAIN/com/edenpractical/comms/protocol/TestPacketCodec.kt"
+DEBUG_LAN="$MAIN/com/edenpractical/comms/transport/LanDemoSession.kt"
+test -f "$CHAT_WIRE" && test -f "$TEST_ENVELOPE"
 if grep -RFn --include='*.kt' --exclude='ProposedChatWireCodec.kt' \
-  'ProposedChatWireCodec' "$MAIN"; then
-  echo "FAIL: proposed text wire candidate referenced from live application sources" >&2
+  --exclude='TestPacketCodec.kt' 'ProposedChatWireCodec' "$MAIN"; then
+  echo "FAIL: unreviewed text packet escaped the explicitly scoped debug envelope" >&2
+  exit 1
+fi
+grep -Fq 'fun debugText(messageId: Long, content: String): Packet' "$TEST_ENVELOPE"
+grep -Fq 'if (candidate !is ProposedChatWireCodec.Packet.Text) throw TestPacketException()' "$TEST_ENVELOPE"
+grep -Fq 'Type.DEBUG_TEXT ->' "$DEBUG_LAN" 2>/dev/null || \
+  grep -Fq 'TestPacketCodec.Type.DEBUG_TEXT ->' "$DEBUG_LAN"
+grep -Fq 'if (!approvalGate.maySendPreset()) return TextSendResult.AWAITING_APPROVAL' "$DEBUG_LAN"
+grep -Fq 'debugTextReceive.accept(' "$DEBUG_LAN"
+grep -Fq 'if (packet.text.isEmpty() ||' "$DEBUG_LAN"
+grep -Fq 'FLAG_DEBUGGABLE' "$DEBUG_LAN"
+if grep -RFn --include='*.kt' 'sendDebugText(' "$MAIN" | \
+  grep -vE 'LanDemoSession.kt|LocalPairingTestScreen.kt'; then
+  echo "FAIL: experimental user text was referenced outside debug test screen/socket" >&2
   exit 1
 fi
 
@@ -219,4 +234,4 @@ grep -Fq 'DebugApprovalGate.State.CONFIRMED ->' "$DEBUG_LAN"
 grep -Fq 'event.approvalState != DebugApprovalGate.State.CONFIRMED' \
   "$MAIN/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt"
 
-echo "PASS: M2y two-phone debug final confirmation required; real text codec unwired; release flags off"
+echo "PASS: M3e debuggable-only bounded text after four consent events; release messaging/voice disabled"
