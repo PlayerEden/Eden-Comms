@@ -56,6 +56,7 @@ internal fun LocalPairingTestScreen() {
         Text("Local pairing tests are available only in development builds.")
         return
     }
+    val installedBuildEvidence = remember(context) { InstalledBuildEvidence.read(context) }
     val repository = remember { AndroidKeystoreIdentity() }
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
@@ -444,6 +445,27 @@ internal fun LocalPairingTestScreen() {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Text(
+            "Installed test build: ${BuildEvidenceReport.brief(installedBuildEvidence)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(onClick = {
+            try {
+                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                if (clipboard == null) {
+                    status = "Couldn't copy build details on this phone."
+                } else {
+                    clipboard.setPrimaryClip(ClipData.newPlainText(
+                        "Eden Comms installed build evidence",
+                        BuildEvidenceReport.format(installedBuildEvidence)
+                    ))
+                    status = "Public build details copied for your QA notes."
+                }
+            } catch (_: Exception) {
+                status = "Couldn't copy build details on this phone."
+            }
+        }) { Text("Copy installed build details") }
         FieldFrame(accent = true) {
             PairingTestUiCopy.progress(stage)?.let { progress ->
                 Text(progress, style = MaterialTheme.typography.labelSmall,
@@ -827,15 +849,13 @@ internal fun LocalPairingTestScreen() {
                         style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(
                         onClick = {
-                            // Explicit tap only. The report contains fixed categories,
-                            // counts and platform version: never QR/pin/IP/text/details.
-                            val installedVersion = try {
-                                context.packageManager.getPackageInfo(
-                                    context.packageName, 0
-                                ).versionName ?: "unavailable"
-                            } catch (_: Exception) { "unavailable" }
+                            // Explicit tap only. Public APK build metadata is
+                            // separate from TLS peer identity, QR and private keys.
                             val observation = LocalQaReport.Observation(
-                                versionName = installedVersion,
+                                versionName = installedBuildEvidence.versionName,
+                                installedVersionCode = installedBuildEvidence.versionCode,
+                                sourceRevision = installedBuildEvidence.sourceRevision,
+                                apkSignerSha256 = installedBuildEvidence.apkSignerSha256,
                                 androidApiLevel = Build.VERSION.SDK_INT,
                                 role = qaRole,
                                 reachedReady = transcript.reachedReady,
@@ -867,8 +887,9 @@ internal fun LocalPairingTestScreen() {
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                     ) { Text("Copy this phone's test summary") }
                     Text(
-                        "Optional: copies only test status, counts, app version and Android API to " +
-                            "the system clipboard—never pairing codes, peer identities or messages. " +
+                        "Optional: copies test status, counts, Android API and public APK build " +
+                            "metadata (source revision and signing certificate), not pairing codes " +
+                            "or peer identities. " +
                             "Clipboard content can be visible to the OS and other apps.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
