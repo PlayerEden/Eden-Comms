@@ -79,18 +79,16 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
             "radioRunning = started"
         ):
             self.assertIn(marker, self.scanner, marker)
+        # M3l may hold EXTRA_DEVICE objects temporarily in debug memory, but
+        # it must never query/display their names, MACs, bond information or
+        # open a connection. No persistent radio results are allowed.
+        self.assertIn("BluetoothDevice.EXTRA_DEVICE", self.scanner)
         for forbidden in (
-            "BluetoothDevice.EXTRA_DEVICE", ".address", ".name",
-            ".createRfcommSocket", "connect()", "bondedDevices",
-            "sendDebugText(", "DataStore", "SharedPreferences",
-            "openFileOutput(", "Socket(", "READ_CONTACTS"
+            ".address", ".name", ".getAddress(", ".getName(",
+            ".createRfcommSocket", "bondedDevices", "sendDebugText(",
+            "DataStore", "SharedPreferences", "openFileOutput(", "Socket("
         ):
-            # The scanner comments can mention forbidden words; check calls.
-            if forbidden in ("BluetoothDevice.EXTRA_DEVICE", ".address", ".name"):
-                self.assertNotIn(forbidden, self.scanner)
-            elif forbidden in ("bondedDevices", ".createRfcommSocket", "sendDebugText(",
-                               "DataStore", "SharedPreferences", "openFileOutput(", "Socket("):
-                self.assertNotIn(forbidden, self.scanner)
+            self.assertNotIn(forbidden, self.scanner, forbidden)
         self.assertIn("MAX_OBSERVATIONS = 32", self.model)
         self.assertIn("MAX_SCAN_MS = 30_000L", self.model)
         self.assertIn("SCAN_FINISHED", self.model)
