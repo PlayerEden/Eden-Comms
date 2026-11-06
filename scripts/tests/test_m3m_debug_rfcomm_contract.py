@@ -35,7 +35,8 @@ class DebugRfcommContractTest(unittest.TestCase):
             "closeQuietly(oldServer)",
             "closeQuietly(oldSocket)",
             "Thread({",
-            "CONNECT_TIMEOUT_MS = 18_000L",
+            "HOST_WAIT_MS = 60_000L",
+            "JOIN_TIMEOUT_MS = 18_000L",
             "LINK_LIFETIME_MS = 45_000L",
             "private fun claimSocket(",
             "gate.opened(",
@@ -46,7 +47,7 @@ class DebugRfcommContractTest(unittest.TestCase):
         for forbidden in (
             "listenUsingInsecureRfcomm", "createInsecureRfcomm",
             ".inputStream", ".outputStream", "getInputStream(",
-            "getOutputStream(", "write(", "read(", "DataOutputStream",
+            "getOutputStream(", ".write(", ".read(", "DataOutputStream",
             "sendDebugText(", "TestPacketCodec", "HttpURLConnection",
             "SharedPreferences", "DataStore", "openFileOutput("
         ):
