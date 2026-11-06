@@ -53,7 +53,7 @@ internal object PrivacyPreviewContent {
                 "RFCOMM socket test, and BLUETOOTH_ADVERTISE for a user-approved " +
                 "Android discoverability request under Developer Tools. " +
                 "These are not requested merely by opening the main app. " +
-                "The inquiry "
+                "The inquiry " +
                 "counts unverified radio observations and temporarily keeps " +
                 "up to 12 opaque discovered-device objects in memory for " +
                 "numbered, unverified local selection. It reads no device names " +
