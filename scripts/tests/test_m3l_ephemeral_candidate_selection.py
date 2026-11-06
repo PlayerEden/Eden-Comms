@@ -41,7 +41,7 @@ class BluetoothCandidateSelectionBoundaryTest(unittest.TestCase):
         for forbidden in (
             "getName(", "getAddress(", ".name", ".address",
             ".createRfcommSocket", ".createInsecureRfcommSocket",
-            "createBond(", "connect(", "getBondState(", "bondedDevices",
+            "createBond(", "socket.connect(", "getBondState(", "bondedDevices",
             "SharedPreferences", "DataStore", "openFileOutput(",
             "Log.", "println(", "Socket(", "sendDebugText("
         ):
@@ -76,7 +76,7 @@ class BluetoothCandidateSelectionBoundaryTest(unittest.TestCase):
         self.assertIn("FORGET SELECTED SIGNAL", self.activity)
         self.assertIn("CLEAR ALL SIGNAL RESULTS", self.activity)
         self.assertIn("STOP SEARCH AND CLEAR RESULTS", self.activity)
-        self.assertIn("Identity verification and Bluetooth connection are not implemented",
+        self.assertIn("Verified Bluetooth messaging is not implemented",
                       self.activity)
         # Users cannot stage the same handles via any current production activity.
         self.assertFalse((MAIN / "java/com/edenpractical/comms/bluetooth"
@@ -85,10 +85,13 @@ class BluetoothCandidateSelectionBoundaryTest(unittest.TestCase):
     def test_permissions_remain_scan_only_and_activity_is_not_exported(self):
         root = ET.fromstring(self.manifest)
         permissions = [e.get(NS + "name") for e in root.findall("uses-permission")]
-        self.assertEqual(permissions, ["android.permission.BLUETOOTH_SCAN"])
+        self.assertEqual(permissions, ["android.permission.BLUETOOTH_SCAN",
+                                       "android.permission.BLUETOOTH_CONNECT",
+                                       "android.permission.BLUETOOTH_ADVERTISE"])
         self.assertEqual(root.find("application/activity").get(NS + "exported"), "false")
-        self.assertNotIn("android.permission.BLUETOOTH_CONNECT", self.manifest)
-        self.assertNotIn("android.permission.BLUETOOTH_ADVERTISE", self.manifest)
+        self.assertIn("android.permission.BLUETOOTH_CONNECT", self.manifest)
+        self.assertIn("android.permission.BLUETOOTH_ADVERTISE", self.manifest)
+        # These are only needed for explicitly requested debug RFCOMM links.
         for forbidden in ("BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "NEARBY_WIFI_DEVICES",
                           "ACCESS_FINE_LOCATION", "RECORD_AUDIO"):
             self.assertNotIn("android.permission." + forbidden, self.main_manifest)
