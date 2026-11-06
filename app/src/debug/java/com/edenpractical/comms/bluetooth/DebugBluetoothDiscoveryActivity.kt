@@ -105,16 +105,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     if (accepted) {
                         // EXTRA_DEVICE is an untrusted opaque handle. Do NOT
                         // read the friendly name, MAC, class, RSSI or bond state.
-                        val handle = try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                intent.getParcelableExtra(
-                                    BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java
-                                )
-                            } else {
-                                @Suppress("DEPRECATION")
-                                intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                            }
-                        } catch (_: RuntimeException) { null }
+                        val handle = discoveredDevice(intent)
                         val current = candidateToken
                         if (current != null && handle != null) {
                             candidateLedger.observe(current, handle)
@@ -216,6 +207,12 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                     Text("STAGE ${candidate.label.uppercase()}")
                                 }
                             }
+                        }
+                        if (!busy && candidateRows.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = { clearCandidateMemory() },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("CLEAR ALL SIGNAL RESULTS") }
                         }
                         if (selectedOrdinal != null) {
                             Text(
@@ -379,6 +376,20 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         attempt = null
         busy = false
         status = "Search and results cleared. No connection was made."
+    }
+
+    @Suppress("DEPRECATION")
+    private fun discoveredDevice(intent: Intent): BluetoothDevice? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(
+                BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java
+            )
+        } else {
+            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+        }
+    } catch (_: RuntimeException) {
+        // This broadcast is untrusted and may contain malformed extras.
+        null
     }
 
     private fun finishCandidatesForReview() {
