@@ -45,6 +45,7 @@ import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.model.ConnectionMethod
 import com.edenpractical.comms.model.NearbyMethodCatalog
+import com.edenpractical.comms.model.NearbyDiscoveryPolicy
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
@@ -487,6 +488,26 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
         }
         HorizontalDivider(
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)
+        )
+    }
+    SectionLabel("HOW FUTURE DISCOVERY WILL WORK")
+    Text(
+        NearbyDiscoveryPolicy.currentStatus,
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    for (description in listOf(
+        NearbyDiscoveryPolicy.optInStep,
+        NearbyDiscoveryPolicy.permissionStep,
+        NearbyDiscoveryPolicy.foregroundStep,
+        NearbyDiscoveryPolicy.trustStep,
+        NearbyDiscoveryPolicy.privacyStep
+    )) {
+        Text(
+            description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
     Text(
