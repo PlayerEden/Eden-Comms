@@ -8,7 +8,7 @@ Development iterations should be quick and easy to test on a real Android device
 - Android screenshots and screen recording are **allowed** to support bug reports and UI feedback (app checks debuggable flag).
 - Do not use personal or sensitive real-world messages in development builds; test with synthetic data.
 - Keep standard compile/unit tests and basic regression checks; run targeted checks for changed systems.
-- v0.2.6 adds a **debug-only preset-phrase exchange** for controlled two-phone tests. It is not general messaging: do not send sensitive real-world information. After the app's TLS 1.3 and QR proof, only fixed predefined test tokens can be sent; no arbitrary user input, no retained text, no background communication, no release access.
+- v0.2.6 first added a **debug-only preset-phrase exchange**. **M3e** extends the same existing QR-pinned TLS 1.3 and bilateral approval/final confirmation test with **up to 280 code points of typed TEST text**. It is development-only, unreviewed, not yet verified on two physical phones and NOT for sensitive real-world information. Content is temporary RAM only and clears on disconnect/background; keyboard/system copies may linger. No background transport or release access. See [M3e](M3E_DEBUG_TWO_WAY_TEXT.md).
 - Use GitHub Actions debug APK artifacts for convenient test builds; no release tags, publishing, formal signing, marketing, or lengthy release-note processes for every small update.
 - Fix meaningful issues as discovered, and perform deeper checks at the **end of each major milestone**.
 - Prefer one cohesive APK after a useful batch of changes rather than rebuilding/delivering for every tiny change.
