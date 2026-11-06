@@ -31,7 +31,8 @@ internal class DebugRfcommLinkController(
         // Fixed DEMO SDP UUID, not a secret or a peer identity.
         val SERVICE_UUID: UUID =
             UUID.fromString("7de2a6e5-332a-4d3a-891b-6bc4a9ab742d")
-        const val CONNECT_TIMEOUT_MS = 18_000L
+        const val HOST_WAIT_MS = 60_000L
+        const val JOIN_TIMEOUT_MS = 18_000L
         const val LINK_LIFETIME_MS = 45_000L
     }
 
@@ -44,18 +45,18 @@ internal class DebugRfcommLinkController(
 
     fun phase(): DebugRfcommAttemptGate.Phase = gate.snapshot().phase
 
+    @Suppress("MissingPermission")
     fun host(adapter: BluetoothAdapter): Boolean {
         val token = begin(DebugRfcommAttemptGate.Role.HOST) ?: return false
         Thread({
             var listening: BluetoothServerSocket? = null
             try {
-                @Suppress("MissingPermission")
                 val created = adapter.listenUsingRfcommWithServiceRecord(
                     "Eden Comms DEV link only", SERVICE_UUID
                 )
                 listening = created
                 if (!claimServer(token, created)) return@Thread
-                val accepted = created.accept(CONNECT_TIMEOUT_MS.toInt())
+                val accepted = created.accept(HOST_WAIT_MS.toInt())
                 // The server socket is not needed after one link is accepted.
                 synchronized(lock) { if (server === created) server = null }
                 closeQuietly(created)
@@ -75,6 +76,7 @@ internal class DebugRfcommLinkController(
         return true
     }
 
+    @Suppress("MissingPermission")
     fun join(device: BluetoothDevice, adapter: BluetoothAdapter): Boolean {
         val token = begin(DebugRfcommAttemptGate.Role.JOIN) ?: return false
         Thread({
@@ -82,9 +84,7 @@ internal class DebugRfcommLinkController(
                 // Inquiring during connect makes Bluetooth connections slower.
                 // The UI already stopped our scan before staging this handle.
                 // A second best-effort cancellation needs BLUETOOTH_SCAN.
-                @Suppress("MissingPermission")
                 try { adapter.cancelDiscovery() } catch (_: SecurityException) { }
-                @Suppress("MissingPermission")
                 val created = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
                 if (!claimSocket(token, created)) return@Thread
                 created.connect() // blocking; stop/timeout closes it
@@ -109,7 +109,9 @@ internal class DebugRfcommLinkController(
             }
             token = gate.begin(role, isForeground(), hasConnectPermission()) ?: return null
             active = token
-            armTimer(token, CONNECT_TIMEOUT_MS, DebugRfcommAttemptGate.End.TIMEOUT)
+            armTimer(token,
+                if (role == DebugRfcommAttemptGate.Role.HOST) HOST_WAIT_MS else JOIN_TIMEOUT_MS,
+                DebugRfcommAttemptGate.End.TIMEOUT)
         }
         announce(token,
             if (role == DebugRfcommAttemptGate.Role.HOST) "Waiting for one Bluetooth RFCOMM link. No messages."
