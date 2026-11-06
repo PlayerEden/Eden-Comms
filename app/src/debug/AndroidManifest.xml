@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- M3k ONLY: debug Bluetooth Classic inquiry; user-requested on Android 12+.
+         Separate source-set manifest: NOTHING here enters the release APK.
+         No CONNECT, ADVERTISE, location, microphone, or background permission. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
+    <application>
+        <activity
+            android:name=".bluetooth.DebugBluetoothDiscoveryActivity"
+            android:exported="false"
+            android:label="Bluetooth discovery test"/>
+    </application>
+</manifest>
