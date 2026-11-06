@@ -37,7 +37,8 @@ class LaunchEvidenceTests(unittest.TestCase):
         expected = "com.edenpractical.comms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         self.assertEqual(audit.GENERATED_MERGED_ONLY_PERMISSIONS, {expected})
         self.assertEqual(
-            audit.EXPECTED_APK_PERMISSIONS - audit.ALLOWED_PERMISSIONS, {expected}
+            audit.EXPECTED_APK_PERMISSIONS - audit.ALLOWED_PERMISSIONS,
+            {expected, "android.permission.BLUETOOTH_SCAN"}
         )
         extra = "com.otherapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         self.assertNotIn(extra, audit.EXPECTED_APK_PERMISSIONS)

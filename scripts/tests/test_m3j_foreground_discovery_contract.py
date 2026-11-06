@@ -1,7 +1,7 @@
 """M3j discovery model isolation and permission-scope contracts.
 
 Static assertions complement JVM state-space tests. They do not constitute
-Bluetooth/Wi-Fi Direct discovery, Android permission QA or security review.
+Production Bluetooth/Wi-Fi Direct discovery, Android permission QA or security review.
 """
 from pathlib import Path
 import unittest
@@ -71,7 +71,7 @@ class M3jDiscoveryBoundaryTest(unittest.TestCase):
         for field in ("currentStatus", "optInStep", "permissionStep",
                       "foregroundStep", "trustStep", "privacyStep"):
             self.assertIn("NearbyDiscoveryPolicy." + field, picker)
-        self.assertIn("Nearby device search is OFF and NOT IMPLEMENTED", self.copy)
+        self.assertIn("Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED", self.copy)
         future = picker.split('SectionLabel("FUTURE METHODS • NOT AVAILABLE")', 1)[1]
         self.assertNotIn("Button(", future)
         self.assertNotIn("onClick", future)

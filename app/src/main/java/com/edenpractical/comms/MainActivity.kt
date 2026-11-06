@@ -2,6 +2,7 @@ package com.edenpractical.comms
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
@@ -209,7 +210,20 @@ private fun EdenCommsApp() {
                             "developer" -> DeveloperScreen(
                                 onIdentity = { navigate("identity") },
                                 onLanTest = { navigate("lan-test") },
-                                onChatSandbox = { navigate("chat-preview") }
+                                onChatSandbox = { navigate("chat-preview") },
+                                onBluetoothScan = {
+                                    if (context.applicationInfo.flags and
+                                        ApplicationInfo.FLAG_DEBUGGABLE != 0
+                                    ) {
+                                        context.startActivity(
+                                            Intent().setClassName(
+                                                context,
+                                                "com.edenpractical.comms.bluetooth." +
+                                                    "DebugBluetoothDiscoveryActivity"
+                                            )
+                                        )
+                                    }
+                                }
                             )
                             "identity" -> DeviceIdentitySetup()
                             "lan-test" -> LanHandshakeTest()
@@ -707,8 +721,12 @@ private fun PrivacyFutureStatus(title: String, status: String, description: Stri
 private fun DeveloperScreen(
     onIdentity: () -> Unit,
     onLanTest: () -> Unit,
-    onChatSandbox: () -> Unit
+    onChatSandbox: () -> Unit,
+    onBluetoothScan: () -> Unit
 ) {
+    val context = LocalContext.current
+    val debuggable = (context.applicationInfo.flags and
+        ApplicationInfo.FLAG_DEBUGGABLE) != 0
     Panel(
         title = "Internal testing",
         detail = "These tools are for development, not normal pairing."
@@ -734,6 +752,13 @@ private fun DeveloperScreen(
         description = "Fictional samples and local typing only; no transport",
         onClick = onChatSandbox
     )
+    if (debuggable) {
+        NavigationRow(
+            title = "Bluetooth discovery test",
+            description = "30-second foreground scan • counts only, no pairing or messages",
+            onClick = onBluetoothScan
+        )
+    }
     Text(
         "Never test with sensitive conversations or share full fingerprints through another messaging app.",
         style = MaterialTheme.typography.bodySmall,

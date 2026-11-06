@@ -199,4 +199,21 @@ class NearbyDiscoverySessionTest {
             assertEquals(Phase.STOPPED, state.snapshot().phase)
         }
     }
+    @Test fun radioFinishedMarksCompleteButCannotMakePeerTrustedOrRestart() {
+        val (state, attempt) = approved()
+        assertTrue(state.candidateObserved(attempt, true, 1_001L))
+        assertTrue(state.complete(attempt))
+        assertEquals(Phase.STOPPED, state.snapshot().phase)
+        assertEquals(StopReason.SCAN_FINISHED, state.snapshot().reason)
+        assertEquals(1, state.snapshot().observations)
+        assertFalse(state.complete(attempt))
+        assertFalse(state.candidateObserved(attempt, true, 1_002L))
+        assertFalse(state.radioScanStarted(attempt, true, true, 1_003L))
+        assertTrue(state.resetAfterStop())
+        val newAttempt = requireNotNull(state.begin(ConnectionMethod.BLUETOOTH, true))
+        assertTrue(newAttempt.generation > attempt.generation)
+        assertFalse(state.complete(attempt))
+        assertEquals(Phase.WAITING_FOR_PERSON_CONSENT, state.snapshot().phase)
+    }
+
 }
