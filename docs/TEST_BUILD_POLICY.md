@@ -4,6 +4,10 @@ Updated 2026-11-03. This applies to internal test/debug builds, NOT a public sec
 ## Why
 Development iterations should be quick and easy to test on a real Android device. Every debug APK is **not** a release candidate and does not need full public-release packaging, a fresh security audit, or store-readiness work.
 
+## M3f developer UX policy
+
+The Home **Text** entry now opens nearby pairing and the active debug-only session's primary conversation UI. The old local-only fictional layout tool remains under Developer tools. New real-typed development text is still explicitly **unreviewed**, not for sensitive conversations, and its on-screen app content is cleared on app background/disconnect; system keyboards and screenshots may retain copies. See [M3f](M3F_CHAT_FIRST_EXPERIENCE.md). Do not confuse polished conversation styling with independent security testing or production chat readiness.
+
 ## Debug/testing builds
 - Android screenshots and screen recording are **allowed** to support bug reports and UI feedback (app checks debuggable flag).
 - Do not use personal or sensitive real-world messages in development builds; test with synthetic data.

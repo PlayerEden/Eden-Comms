@@ -11,7 +11,7 @@ A simple, accessible way for two people nearby to **Connect → Communicate → 
 ## Current implemented prototype (pre-beta source, not a public release)
 
 - Native Kotlin + Jetpack Compose home, connection preview, settings, offline help and opt-in local device identity.
-- **Home → Text** opens a native **local-only text layout preview** with editable composer, message bubbles, local/sample-only state labels and session-end clearing. It is not a real chat: typed content never transmits, fictional example messages are explicitly labeled, and no preview history is saved.
+- **Home → Text** now opens the same nearby debug QR/TLS pairing flow as **Connect nearby**, and after both people approve/confirm a session, shows short typed test messages in a chat-first screen. Real TLS-written and peer-received events are labeled separately. Preset phrases and diagnostics remain behind an optional disclosure. This is **unreviewed debug-only** communication, not a secure release. The older fictional/local-only layout sandbox is preserved under Settings → Developer tools → Text layout sandbox (and never transmits). [M3f notes](docs/M3F_CHAT_FIRST_EXPERIENCE.md).
 - **Home → Connect Nearby**: experimental local Wi-Fi + reciprocal QR identity exchange + pinned TLS/session checks, then **Approve on both phones** and both final confirmations before **four presets OR short typed text** appear. Real debug text bubbles show actual local TLS writes and received packets, not fake receipts. Chat disappears on disconnect; copied QA includes only counts. This is an **unreviewed, debug-only functional experiment**, not approved production messaging; no voice/PTT, saved peer trusts, Bluetooth or Wi-Fi Direct yet.
 - **Permissions now requested:** `INTERNET` (Android also requires it for local TCP), `ACCESS_NETWORK_STATE` (Wi-Fi selection), and `CAMERA` (user-initiated QR scan). No microphone, Bluetooth, contacts or location permissions in the current preview APK.
 - Theme preference is stored locally; Android Keystore identity can persist once explicitly created. App manifest disables backup and cleartext traffic with data-transfer exclusion rules; physical-device behavior still needs verification.
@@ -38,6 +38,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 
 - [Product vision](docs/PRODUCT_VISION.md)
 - [M3e: working debug-only two-way text prototype; physical QA deferred](docs/M3E_DEBUG_TWO_WAY_TEXT.md)
+- [M3f: chat-first navigation, Unicode composer and session cleanup](docs/M3F_CHAT_FIRST_EXPERIENCE.md)
 - [Milestones M0–M6](docs/DEVELOPMENT_ROADMAP.md)
 - [Security threat model and QA](docs/SECURITY_AND_QA.md)
 - [Privacy and security charter — no-ship requirements](docs/PRIVACY_SECURITY_CHARTER.md)
