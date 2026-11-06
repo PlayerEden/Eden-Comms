@@ -1000,7 +1000,9 @@ internal fun LocalPairingTestScreen() {
                                 localApprovalWritten = qaLocalApprovalWritten,
                                 peerApprovalObserved = qaPeerApprovalObserved,
                                 localConfirmationWritten = qaLocalConfirmationWritten,
-                                peerConfirmationObserved = qaPeerConfirmationObserved
+                                peerConfirmationObserved = qaPeerConfirmationObserved,
+                                testTextWrittenToTls = debugText.writtenHere,
+                                testTextReceivedHere = debugText.receivedHere
                             )
                             try {
                                 val clipboard = context.getSystemService(
