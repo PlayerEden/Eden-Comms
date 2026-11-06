@@ -3,9 +3,10 @@ package com.edenpractical.comms.transport
 import com.edenpractical.comms.model.ConnectionMethod
 
 /**
- * FUTURE RADIO DISCOVERY STATE CONTRACT — NOT connected to Android radios/UI.
+ * RADIO DISCOVERY STATE CONTRACT — consumed by a debug-only Bluetooth
+ * Classic scanner; Wi-Fi Direct and production radios are NOT implemented.
  *
- * A future Bluetooth/Wi-Fi Direct adapter must independently prove that its
+ * A Bluetooth/Wi-Fi Direct adapter must independently prove that its
  * Android permission was granted, that the app is foreground, and that the
  * OS radio scan was actually started. This object only tests the required
  * lifecycle ordering and bounds. It NEVER starts an actual scan, looks up
@@ -23,7 +24,7 @@ internal class NearbyDiscoverySession {
     enum class StopReason {
         USER_CANCELLED, APP_BACKGROUNDED, PERMISSION_DENIED,
         PERMISSION_REVOKED, RADIO_UNAVAILABLE, TIME_LIMIT,
-        INVALID_CLOCK, EVENT_LIMIT, INVALID_SEQUENCE
+        INVALID_CLOCK, EVENT_LIMIT, INVALID_SEQUENCE, SCAN_FINISHED
     }
 
     class Attempt internal constructor(
@@ -175,6 +176,13 @@ internal class NearbyDiscoverySession {
     fun tick(attempt: Attempt, elapsedMs: Long): Boolean {
         if (!isCurrent(attempt) || phase != Phase.SCANNING) return false
         return withinWindow(elapsedMs)
+    }
+
+    /** Adapter reports its real scan ended; no peer is authenticated. */
+    @Synchronized
+    fun complete(attempt: Attempt): Boolean {
+        if (!isCurrent(attempt) || phase != Phase.SCANNING) return false
+        return stopCurrent(StopReason.SCAN_FINISHED)
     }
 
     @Synchronized
