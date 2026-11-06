@@ -68,7 +68,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var adapter: BluetoothAdapter? = null
     private var receiverRegistered = false
     private var radioRunning = false
-    private var foreground = false
+    @Volatile private var foreground = false
     private var busy by mutableStateOf(false)
     private var observations by mutableIntStateOf(0)
     private var status by mutableStateOf("Search is off. No Bluetooth device is trusted.")
@@ -127,6 +127,27 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         pendingLink = PendingLink.NONE
         if (mayStart) startHostLink()
         else linkStatus = "Discoverability wasn't approved, or this screen was left. No host started."
+    }
+
+    private val linkPermissionMonitor = object : Runnable {
+        override fun run() {
+            if (linkPhase in setOf(
+                    DebugRfcommAttemptGate.Phase.CONNECTING,
+                    DebugRfcommAttemptGate.Phase.LINK_OPEN
+                )
+            ) {
+                if (!foreground || !hasConnectPermission()) {
+                    linkController.permissionLost()
+                } else {
+                    handler.postDelayed(this, 1_000L)
+                }
+            }
+        }
+    }
+
+    private fun watchLinkPermission() {
+        handler.removeCallbacks(linkPermissionMonitor)
+        handler.postDelayed(linkPermissionMonitor, 1_000L)
     }
 
     private val timeout = Runnable {
@@ -278,8 +299,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         if (selectedOrdinal != null) {
                             Text(
                                 "Signal $selectedOrdinal is staged locally ONLY. Its owner " +
-                                    "and identity have NOT been verified; no connection, " +
-                                    "pairing or messages are possible."
+                                    "and identity have NOT been verified. A separate debug " +
+                                    "RFCOMM socket test is possible, but no messages are sent."
                             )
                             OutlinedButton(
                                 onClick = { clearCandidateMemory() },
@@ -358,6 +379,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         stopHardware()
         clearCandidateMemory()
         linkController.background()
+        handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen) pendingLink = PendingLink.NONE
         attempt = null
         busy = false
@@ -369,6 +391,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         stopHardware()
         clearCandidateMemory()
         linkController.background()
+        handler.removeCallbacks(linkPermissionMonitor)
         super.onDestroy()
     }
 
@@ -459,6 +482,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         }
         if (linkController.host(hostAdapter)) {
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
+            watchLinkPermission()
             linkStatus = "Listening for one RFCOMM connection (max 18 seconds)."
         }
     }
@@ -477,6 +501,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         if (linkController.join(target, joinAdapter)) {
             clearCandidateMemory()
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
+            watchLinkPermission()
             linkStatus = "Opening one unverified RFCOMM socket (max 18 seconds)."
         }
     }
@@ -631,7 +656,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         candidateRows = emptyList()
         selectedOrdinal = candidateLedger.selectedOrdinal()
         status = "Unverified signal staged on this phone only. " +
-            "Identity verification and Bluetooth connection are not implemented."
+            "Verified Bluetooth messaging is not implemented; a separate debug " +
+            "socket connection may be attempted with your permission."
     }
 
     @Suppress("MissingPermission")
