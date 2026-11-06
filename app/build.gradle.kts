@@ -11,7 +11,15 @@ android {
         }
     }
 
+    // Public source revision identifies the exact CI checkout in each test APK.
+    // A local/IDE build with no injected Git revision says "unavailable".
+    val sourceRevision = providers.gradleProperty("edenSourceRevision").orNull ?: "unavailable"
+    require(sourceRevision == "unavailable" || sourceRevision.matches(Regex("[0-9a-f]{40}"))) {
+        "Build source revision must be a 40-character lowercase Git SHA or unavailable"
+    }
+
     defaultConfig {
+        buildConfigField("String", "SOURCE_REVISION", "\\"$sourceRevision\\"")
         applicationId = "com.edenpractical.comms"
         minSdk = 26
         targetSdk = 36
@@ -53,6 +61,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
