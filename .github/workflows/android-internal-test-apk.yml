@@ -54,7 +54,8 @@ jobs:
         run: |
           set -euo pipefail
           gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug \
-            "-PedenInternalTestVersionCode=$EDEN_INTERNAL_CODE"
+            "-PedenInternalTestVersionCode=$EDEN_INTERNAL_CODE" \
+            "-PedenSourceRevision=$GITHUB_SHA"
       - name: Review-only security boundary
         run: bash scripts/check_security_review_boundary.sh
       - name: Run Play-surface and APK evidence unit tests
