@@ -33,6 +33,10 @@
 - Normal PR CI also produces a short **smoke signature** using a **disposable CI-only key**, which is immediately destroyed and not distributed as an update-safe signer. It validates tooling but does not prove a persistent key exists.
 - Signing secrets are passed **only to the post-build signing step**, never into Gradle build or normal PR jobs. Only the signed internal APK is included in the internal manual artifact.
 
+## M3c in-app evidence added (not signing setup)
+
+The development-only Connect nearby screen now displays and copies the **installed APK's public signing certificate SHA-256**, versionCode and CI source revision using Android PackageManager. See [M3c](M3C_ON_DEVICE_BUILD_EVIDENCE.md). These fields allow two testers to compare their actually installed builds without exporting Android Keystore keys or peer QR identities. They do **not** prove a persistent signing key exists, that a proposed APK can upgrade the installed version, or that both phones reached the same approved session.
+
 ## Upgrade safety gate, still open
 
 1. Record exact **old** and **new** APK fingerprints, package IDs and versionCodes. Compare using `scripts/audit_apk_identity.py --previous <old-apk-identity.json>` where appropriate.

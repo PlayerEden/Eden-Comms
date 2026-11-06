@@ -122,4 +122,28 @@ class LocalQaReportTest {
             }
         }
     }
+    @Test fun localQaBuildMetadataIsPublicAndNotConfusedWithPeerIdentity() {
+        val source = "a".repeat(40)
+        val signer = "b".repeat(64)
+        val report = LocalQaReport.format(sample().copy(
+            installedVersionCode = 10017,
+            sourceRevision = source,
+            apkSignerSha256 = signer
+        ))
+        assertTrue(report.contains("App versionCode: 10017"))
+        assertTrue(report.contains("Source revision: $source"))
+        assertTrue(report.contains("APK signing certificate SHA-256: $signer"))
+        assertTrue(report.contains("NOT the TLS peer identity or QR certificate"))
+        assertFalse(report.contains("IP ADDRESS"))
+        val sanitized = LocalQaReport.format(sample().copy(
+            installedVersionCode = -1,
+            sourceRevision = source + "\\npeer=secret",
+            apkSignerSha256 = "bad"
+        ))
+        assertTrue(sanitized.contains("App versionCode: unavailable"))
+        assertTrue(sanitized.contains("Source revision: unavailable"))
+        assertTrue(sanitized.contains("APK signing certificate SHA-256: unavailable"))
+        assertFalse(sanitized.contains("peer=secret"))
+    }
+
 }

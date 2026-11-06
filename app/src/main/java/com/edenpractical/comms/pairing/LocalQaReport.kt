@@ -5,7 +5,7 @@ import com.edenpractical.comms.transport.LanProbeDiagnostics
 
 /**
  * A deliberately non-sensitive, human-shareable observation of ONE PHONE'S
- * debug-only fixed-phrase test. No QR tokens, certificates, Wi-Fi addresses,
+ * debug-only fixed-phrase test. No QR tokens, peer certificates, Wi-Fi addresses,
  * exception details, phrase content, or human/device identifiers are included.
  *
  * This is not a success certificate or a peer delivery/read receipt.
@@ -38,7 +38,10 @@ internal object LocalQaReport {
         val localApprovalWritten: Boolean = false,
         val peerApprovalObserved: Boolean = false,
         val localConfirmationWritten: Boolean = false,
-        val peerConfirmationObserved: Boolean = false
+        val peerConfirmationObserved: Boolean = false,
+        val installedVersionCode: Long? = null,
+        val sourceRevision: String = "unavailable",
+        val apkSignerSha256: String? = null
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -46,16 +49,14 @@ internal object LocalQaReport {
         require(observation.writtenToTls in 0..10_000 &&
             observation.receivedHere in 0..10_000) { "Invalid debug-only counters" }
         require(observation.androidApiLevel in 1..100) { "Invalid Android API level" }
-        val safeVersion = observation.versionName.takeIf {
-            it.length in 1..64 && it.all { ch ->
-                ch in '0'..'9' || ch in 'a'..'z' || ch in 'A'..'Z' ||
-                    ch == '.' || ch == '_' || ch == '-'
-            }
-        } ?: "unavailable"
         return listOf(
             "EDEN COMMS — LOCAL TEST OBSERVATION",
             "One phone only; NOT a security certification or a completed two-phone test.",
-            "App version: $safeVersion",
+            "App version: ${BuildEvidenceReport.version(observation.versionName)}",
+            "App versionCode: ${BuildEvidenceReport.code(observation.installedVersionCode)}",
+            "Source revision: ${BuildEvidenceReport.revision(observation.sourceRevision)}",
+            "APK signing certificate SHA-256: ${BuildEvidenceReport.signer(observation.apkSignerSha256)}",
+            "This public APK signer is NOT the TLS peer identity or QR certificate.",
             "Android API: ${observation.androidApiLevel}",
             "QR role: ${observation.role.label}",
             "Reached debug READY: ${if (observation.reachedReady) "YES" else "NO"}",
@@ -81,7 +82,7 @@ internal object LocalQaReport {
             "An operation STARTED is not proof it finished successfully.",
             "TLS writes are NOT delivery or read receipts.",
             "Physical peer verification and no-WAN behavior require separate QA.",
-            "No QR, IP, keys, identities, or phrase contents are included."
+            "No QR, IP, private keys, peer identities, or phrase contents are included."
         ).joinToString("\n")
     }
 }
