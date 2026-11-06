@@ -2,7 +2,7 @@
 
 **Working name:** Eden Comms (EC) — an Eden Practical Android communications utility.
 
-> **DEVELOPMENT PROTOTYPE — NOT A PRODUCTION SECURE MESSENGER.** The Android debug build supports an experimental, foreground-only two-phone pairing test (two in-person QR scans, mutually pinned TLS 1.3 and a temporary exchange of four fixed test phrases). It cannot send arbitrary messages or voice. Real-device compatibility and independent security review are still pending; **do not use for sensitive communications**. Production text, connection and PTT capability switches remain off.
+> **DEVELOPMENT PROTOTYPE — NOT A PRODUCTION SECURE MESSENGER.** The Android debuggable build now has a functional prototype of short two-way **test** text over the QR-pinned TLS 1.3 session, after bilateral approval and matching final confirmations. It also keeps the four fixed test phrases. It is **unreviewed and not physically verified**; do not use for sensitive or emergency communications. Production connection, normal text and PTT capability flags remain off. See [M3e](docs/M3E_DEBUG_TWO_WAY_TEXT.md).
 
 ## Product goal
 
@@ -12,7 +12,7 @@ A simple, accessible way for two people nearby to **Connect → Communicate → 
 
 - Native Kotlin + Jetpack Compose home, connection preview, settings, offline help and opt-in local device identity.
 - **Home → Text** opens a native **local-only text layout preview** with editable composer, message bubbles, local/sample-only state labels and session-end clearing. It is not a real chat: typed content never transmits, fictional example messages are explicitly labeled, and no preview history is saved.
-- Experimental local pairing: current Wi-Fi + reciprocal QR identity exchange + pinned TLS/session checks, then **an explicit Approve/Decline control on both phones** before any of the four preset phrases. This is an **unreviewed, debug-only test**, not approved real messaging; no arbitrary text, voice/PTT, saved peer trusts, Bluetooth or Wi-Fi Direct yet.
+- **Home → Connect Nearby**: experimental local Wi-Fi + reciprocal QR identity exchange + pinned TLS/session checks, then **Approve on both phones** and both final confirmations before **four presets OR short typed text** appear. Real debug text bubbles show actual local TLS writes and received packets, not fake receipts. Chat disappears on disconnect; copied QA includes only counts. This is an **unreviewed, debug-only functional experiment**, not approved production messaging; no voice/PTT, saved peer trusts, Bluetooth or Wi-Fi Direct yet.
 - **Permissions now requested:** `INTERNET` (Android also requires it for local TCP), `ACCESS_NETWORK_STATE` (Wi-Fi selection), and `CAMERA` (user-initiated QR scan). No microphone, Bluetooth, contacts or location permissions in the current preview APK.
 - Theme preference is stored locally; Android Keystore identity can persist once explicitly created. App manifest disables backup and cleartext traffic with data-transfer exclusion rules; physical-device behavior still needs verification.
 - Android debug CI: JVM tests, security boundary checks, packaged permission audit, strict direct-dependency baseline, public-safe launch evidence, and APK checksum. **These do not prove there are zero SDK data transfers or establish security certification.**
@@ -37,6 +37,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 ## Roadmap and safety
 
 - [Product vision](docs/PRODUCT_VISION.md)
+- [M3e: working debug-only two-way text prototype; physical QA deferred](docs/M3E_DEBUG_TWO_WAY_TEXT.md)
 - [Milestones M0–M6](docs/DEVELOPMENT_ROADMAP.md)
 - [Security threat model and QA](docs/SECURITY_AND_QA.md)
 - [Privacy and security charter — no-ship requirements](docs/PRIVACY_SECURITY_CHARTER.md)
