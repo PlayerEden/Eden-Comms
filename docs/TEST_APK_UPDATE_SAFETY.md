@@ -23,6 +23,10 @@ For an offline static comparison against earlier published evidence, supply `--p
 
 A **separate** [manual internal-test APK workflow](../.github/workflows/android-internal-test-apk.yml) and [M2l setup guide](M2L_INTERNAL_TEST_SIGNING.md) can now be reviewed and exercised with disposable credentials. It has not been activated with a persistent dedicated key or proven on two sequential signed releases. Ordinary CI debug artifacts still use transient debug signing. The internal workflow refuses wrong/missing secrets or configured certificate-pin mismatch and is owner/main-only by design.
 
+## M3b: read-only check of a candidate against the phone actually installed
+
+The existing JSON-to-JSON static comparison cannot know what is **currently installed**. The new [M3b ADB preflight](M3B_READ_ONLY_DEVICE_UPGRADE_PREFLIGHT.md) provides a separate, strictly read-only tool, `scripts/preflight_device_apk_update.py`, which inspects the selected phone's installed public base APK, checks its package/certificate/version against a candidate, and deletes the temporary copy. It **never installs, uninstalls, resets or reads app-private identity data**. It fails if no eligible installed APK is visible. Even PASS is only pre-install evidence; the actual device update and Keystore/settings-preservation test remain OPEN.
+
 ## Outstanding signing continuity work (Issue #27)
 
 A future separate implementation should adopt a durable **test-only signing identity**, protected in a suitable secret store, with limited access and a documented recovery/rotation plan. Never commit the keystore or password to this public repository or re-use a future production signing identity. Keep `applicationId = com.edenpractical.comms` unchanged. Increment `versionCode` for each distributed update build.

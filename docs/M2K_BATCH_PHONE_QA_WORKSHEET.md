@@ -11,7 +11,8 @@ Use **one deliberate hands-on session** after the no-device CI passes are merged
 2. Confirm the exact APK artifact URL, source commit, package name, versionCode, SHA-256, and **signing certificate digest**. Refer to [test APK update safety](TEST_APK_UPDATE_SAFETY.md).
 3. Check whether each existing installation has a matching signer. **Never uninstall merely to fix an update error** without recognizing that this discards locally created Android Keystore identity/settings.
 4. If a stable internal test signer hasn't been configured, assume each ordinary CI debug APK might have a different signer. Do not claim upgrade preservation.
-5. Keep active QR images, certificate pins, session nonces, private IPs, raw logs and network captures out of public reports.
+5. If updating an existing installed APK and you have a trusted computer/ADB, run the optional [read-only installed-APK preflight](M3B_READ_ONLY_DEVICE_UPGRADE_PREFLIGHT.md) **separately on A and B** before any install; it cannot authorize a signer reset or replace T16.
+6. Keep active QR images, certificate pins, session nonces, private IPs, raw logs and network captures out of public reports.
 
 ## One paired test run
 
