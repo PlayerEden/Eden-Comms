@@ -8,7 +8,9 @@ import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
 /**
- * UNWIRED, UNREVIEWED candidate for a future text/ACK INNER payload.
+ * UNREVIEWED candidate for a future text/ACK INNER payload. M3e reuses
+ * its TEXT-only shape in a FLAG_DEBUGGABLE-gated, QR-pinned TLS test path.
+ * ACK remains forbidden in that runtime. Never use for production chat.
  *
  * This is only a bounded, versioned serializer/parser. It provides ZERO
  * encryption, TLS authentication, peer identity, replay defense, bilateral
