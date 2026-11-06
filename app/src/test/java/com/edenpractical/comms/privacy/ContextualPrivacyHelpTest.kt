@@ -15,11 +15,15 @@ class ContextualPrivacyHelpTest {
         assertFalse(text.contains("guaranteed secure"))
     }
 
-    @Test fun sessionOnlySeparatesCurrentDemoFromFutureTextAndLocalIdentity() {
+    @Test fun sessionOnlyExplainsRealTestTextWithoutImplyingHistoryOrRemoteErase() {
         val text = ContextualPrivacyHelp.SESSION_ONLY_BODY
         assertTrue(text.contains("Today's development build"))
+        assertTrue(text.contains("short typed test messages"))
+        assertTrue(text.contains("both phones approve and confirm"))
         assertTrue(text.contains("does not save a chat history"))
-        assertTrue(text.contains("intended future default"))
+        assertTrue(text.contains("current session-only mode"))
+        assertTrue(text.contains("encrypted local history feature"))
+        assertTrue(text.contains("unavailable"))
         assertTrue(text.contains("Android Keystore device key"))
         assertTrue(text.contains("cannot erase their copy"))
         assertFalse(text.contains("automatically erase their messages"))

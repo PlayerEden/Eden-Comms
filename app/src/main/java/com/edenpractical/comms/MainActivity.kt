@@ -44,6 +44,7 @@ import com.edenpractical.comms.ui.FieldHeaderRule
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
+import com.edenpractical.comms.privacy.ConversationPrivacyContent
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.pairing.LocalPairingTestScreen
@@ -539,32 +540,50 @@ private fun SettingsScreen(
         Switch(checked = darkMode, onCheckedChange = onDarkModeChange)
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
-    SectionLabel("PRIVACY")
+    SectionLabel("PRIVACY & CONVERSATIONS")
     NavigationRow(
         title = "Privacy & data",
-        description = "What this preview stores, shares and cannot protect",
+        description = "What this development app stores, transmits and cannot protect",
         onClick = onPrivacy
     )
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("Message history", modifier = Modifier.weight(1f),
-                fontWeight = FontWeight.SemiBold)
-            TextButton(
-                onClick = { showHistoryHelp = true },
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("What does this mean?") }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(ConversationPrivacyContent.currentTitle, fontWeight = FontWeight.SemiBold)
+            Text(
+                ConversationPrivacyContent.currentState,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
-        Text(
-            "Session-only by default (once messaging is available)",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        TextButton(
+            onClick = { showHistoryHelp = true },
+            modifier = Modifier.heightIn(min = 48.dp)
+        ) { Text("Learn more") }
     }
     Text(
-        "Optional encrypted history for up to 30 days is planned.",
+        ConversationPrivacyContent.currentExplanation,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
+    PrivacyFutureStatus(
+        ConversationPrivacyContent.futureHistoryTitle,
+        ConversationPrivacyContent.futureHistoryState,
+        ConversationPrivacyContent.futureHistoryExplanation
+    )
+    PrivacyFutureStatus(
+        ConversationPrivacyContent.futureTimerTitle,
+        ConversationPrivacyContent.futureTimerState,
+        ConversationPrivacyContent.futureTimerExplanation
+    )
+    PrivacyFutureStatus(
+        ConversationPrivacyContent.futureTrustTitle,
+        ConversationPrivacyContent.futureTrustState,
+        ConversationPrivacyContent.futureTrustExplanation
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("ADVANCED")
@@ -588,6 +607,32 @@ private fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showHistoryHelp = false }) { Text("Close") }
             }
+        )
+    }
+}
+
+@Composable
+private fun PrivacyFutureStatus(title: String, status: String, description: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            Text(
+                status,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

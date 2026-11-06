@@ -57,4 +57,64 @@ class DebugTextTranscriptTest {
         assertTrue(fresh.visible.isEmpty())
         assertFalse(fresh == state)
     }
+    @Test fun clearVisibleDropsTextButKeepsCountersAndRejectsLateCallbacks() {
+        var active = DebugTextTranscript.fresh().ready()
+        active = active.record(DebugTextTranscript.Direction.WRITTEN_TO_TLS, 1L, "sent")
+        active = active.record(DebugTextTranscript.Direction.RECEIVED_HERE, 1L, "received")
+        val cleared = active.clearVisible()
+        assertTrue(cleared.visible.isEmpty())
+        assertEquals(DebugTextTranscript.State.ACTIVE, cleared.state)
+        assertEquals(1, cleared.writtenHere)
+        assertEquals(1, cleared.receivedHere)
+        assertSame(cleared, cleared.clearVisible())
+        assertSame(cleared, cleared.record(
+            DebugTextTranscript.Direction.WRITTEN_TO_TLS, 1L, "late old send"
+        ))
+        assertSame(cleared, cleared.record(
+            DebugTextTranscript.Direction.RECEIVED_HERE, 1L, "late old receive"
+        ))
+        val next = cleared.record(
+            DebugTextTranscript.Direction.RECEIVED_HERE, 2L, "new incoming"
+        )
+        assertEquals("new incoming", next.visible.single().text)
+        assertEquals(2, next.receivedHere)
+        assertEquals(1, next.writtenHere)
+        assertTrue(active.visible.isNotEmpty()) // Old immutable state not mutated.
+        val ended = next.finish()
+        assertTrue(ended.visible.isEmpty())
+        assertSame(ended, ended.clearVisible())
+    }
+
+    @Test fun oldIdsCannotReappearAfterFallingOffBoundedTail() {
+        var active = DebugTextTranscript.fresh().ready()
+        repeat(45) { index ->
+            active = active.record(
+                DebugTextTranscript.Direction.RECEIVED_HERE,
+                index.toLong() + 1L, "test $index"
+            )
+        }
+        assertEquals(12, active.visible.size)
+        assertEquals(45, active.receivedHere)
+        assertSame(active, active.record(
+            DebugTextTranscript.Direction.RECEIVED_HERE, 1L, "old again"
+        ))
+        assertSame(active, active.record(
+            DebugTextTranscript.Direction.RECEIVED_HERE, 43L, "old again"
+        ))
+        val cleared = active.clearVisible()
+        assertSame(cleared, cleared.record(
+            DebugTextTranscript.Direction.RECEIVED_HERE, 45L, "replay after clear"
+        ))
+        assertTrue(cleared.visible.isEmpty())
+    }
+
+    @Test fun clearBeforeReadyOrAfterFinishNeverReopensOrPersists() {
+        val waiting = DebugTextTranscript.fresh()
+        assertSame(waiting, waiting.clearVisible())
+        assertTrue(waiting.visible.isEmpty())
+        val ended = waiting.finish()
+        assertSame(ended, ended.clearVisible())
+        assertSame(ended, ended.ready())
+    }
+
 }

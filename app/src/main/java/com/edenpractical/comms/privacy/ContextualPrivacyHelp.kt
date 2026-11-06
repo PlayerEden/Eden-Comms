@@ -15,10 +15,13 @@ internal object ContextualPrivacyHelp {
 
     const val SESSION_ONLY_TITLE = "What does session-only mean?"
     const val SESSION_ONLY_BODY =
-        "Today's development build only shows temporary fixed test phrases. It does " +
-        "not save a chat history. The intended future default is to keep conversation " +
-        "text in memory for the active session only, with no optional history enabled " +
-        "unless you explicitly choose it. Your own Android Keystore device key " +
-        "may persist separately from chat content. Another person can still " +
-        "record or photograph a conversation, and local deletion cannot erase their copy."
+        "Today's development build can exchange short typed test messages over " +
+        "a QR-pinned TLS connection only after both phones approve and confirm. " +
+        "It does not save a chat history. The current session-only mode keeps " +
+        "conversation text in temporary app memory and clears the screen on " +
+        "disconnect or background. An optional encrypted local history feature " +
+        "is planned but unavailable. Your Android Keystore device key may " +
+        "persist separately from chat content. Another person can still " +
+        "record or photograph a conversation; local deletion cannot erase their copy. " +
+        "Device memory, keyboards and screenshots may also retain text."
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.ui.FieldFrame
+import com.edenpractical.comms.privacy.ConversationPrivacyContent
 
 /**
  * Pure presentation of REAL debug socket callbacks, never fabricated receipt
@@ -30,8 +31,11 @@ import com.edenpractical.comms.ui.FieldFrame
 internal fun DebugConversationPanel(
     transcript: DebugTextTranscript,
     draft: String,
+    hidden: Boolean,
     onDraftChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onToggleHidden: () -> Unit,
+    onClearRequested: () -> Unit
 ) {
     val scroll = rememberScrollState()
     LaunchedEffect(transcript.writtenHere, transcript.receivedHere) {
@@ -74,6 +78,52 @@ internal fun DebugConversationPanel(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onToggleHidden,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                shape = CutCornerShape(6.dp)
+            ) {
+                Text(if (hidden) "Show conversation" else "Hide conversation")
+            }
+            OutlinedButton(
+                onClick = onClearRequested,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                enabled = transcript.visible.isNotEmpty() || draft.isNotEmpty(),
+                shape = CutCornerShape(6.dp)
+            ) {
+                Text("Clear my screen")
+            }
+        }
+        if (hidden) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                shape = CutCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Conversation hidden on this screen",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        ConversationPrivacyContent.curtainExplanation,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "Tap Show conversation to reveal messages and write again.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        } else {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -180,6 +230,7 @@ internal fun DebugConversationPanel(
             shape = CutCornerShape(6.dp)
         ) {
             Text("SEND TEST MESSAGE", fontWeight = FontWeight.Bold)
+        }
         }
         Text(
             "Session-only: leaving this screen or disconnecting clears the app's " +
