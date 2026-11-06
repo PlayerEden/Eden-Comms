@@ -45,18 +45,24 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
 
 /**
  * Debug-build-only Bluetooth CLASSIC inquiry. No paired-device access, device
- * names, MAC addresses, SDP, RFCOMM sockets, discovery result lists, messages,
+ * names, MAC addresses, SDP, RFCOMM sockets, durable discovery data, messages,
  * telemetry, automatic reconnection or trusted-peer enrollment.
  *
  * This activity and the scan permission live in src/debug only, so a release
  * APK cannot launch the activity or request BLUETOOTH_SCAN.
  *
  * Explicit permission + start required; every exit best-effort cancels the OS
- * inquiry and unregisters broadcasts. Results are untrusted observation COUNTS.
- * Not a Bluetooth Eden Comms connection, and no physical QA has occurred.
+ * inquiry and unregisters broadcasts. This M3l debug experiment holds up to
+ * 12 anonymous BluetoothDevice object handles in memory, as numbered signals.
+ * Selecting one stops scanning but NEVER opens a connection or grants trust.
+ * No physical QA has occurred.
  */
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val discoveryState = NearbyDiscoverySession()
+    private val candidateLedger = DebugBluetoothCandidateLedger<BluetoothDevice>()
+    private var candidateToken: DebugBluetoothCandidateLedger.Token? = null
+    private var candidateRows by mutableStateOf(emptyList<DebugBluetoothCandidateLedger.Row>())
+    private var selectedOrdinal by mutableStateOf<Int?>(null)
     private var attempt: NearbyDiscoverySession.Attempt? = null
     private var adapter: BluetoothAdapter? = null
     private var receiverRegistered = false
@@ -69,10 +75,11 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val timeout = Runnable {
         val token = attempt ?: return@Runnable
         discoveryState.tick(token, SystemClock.elapsedRealtime())
+        finishCandidatesForReview()
         stopHardware()
         attempt = null
         busy = false
-        status = "Search time limit reached. No connection or pairing was made."
+        status = "Search time limit reached. Review unverified signals or search again. No connection was made."
     }
 
     private val receiver = object : BroadcastReceiver() {
@@ -81,6 +88,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             if (!foreground || !radioRunning || !hasScanPermission()) {
                 if (radioRunning && !hasScanPermission()) {
                     discoveryState.permissionRevoked(token)
+                    clearCandidateMemory()
                     stopHardware()
                     attempt = null
                     busy = false
@@ -90,25 +98,36 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             }
             when (intent?.action) {
                 BluetoothDevice.ACTION_FOUND -> {
-                    // Never obtain intent's EXTRA_DEVICE, device name, address,
-                    // bond state or advertised service data. This is a count only.
                     val accepted = discoveryState.candidateObserved(
                         token, foreground = true, elapsedMs = SystemClock.elapsedRealtime()
                     )
                     observations = discoveryState.snapshot().observations
-                    if (!accepted) {
+                    if (accepted) {
+                        // EXTRA_DEVICE is an untrusted opaque handle. Do NOT
+                        // read the friendly name, MAC, class, RSSI or bond state.
+                        val handle = discoveredDevice(intent)
+                        val current = candidateToken
+                        if (current != null && handle != null) {
+                            candidateLedger.observe(current, handle)
+                            candidateRows = candidateLedger.rows(current)
+                        }
+                    } else {
+                        finishCandidatesForReview()
                         stopHardware()
                         attempt = null
                         busy = false
-                        status = "Search ended at its safety or observation limit."
+                        status = "Search ended at its safety or observation limit. " +
+                            "Signals are unverified and not connected."
                     }
                 }
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
                     discoveryState.complete(token)
+                    finishCandidatesForReview()
                     stopHardware()
                     attempt = null
                     busy = false
-                    status = "Bluetooth inquiry finished. No devices were trusted or connected."
+                    status = "Bluetooth inquiry finished. You may stage an unverified signal " +
+                        "for a future verification step; nothing is connected."
                 }
             }
         }
@@ -120,6 +139,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         val token = attempt ?: return@registerForActivityResult
         val granted = approved && hasScanPermission()
         if (!discoveryState.platformPermissionResult(token, foreground, granted)) {
+            clearCandidateMemory()
             stopHardware()
             attempt = null
             busy = false
@@ -159,7 +179,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         )
                         Text(
                             "Radio observations: $observations (unverified events). " +
-                                "No device names, addresses, or histories are kept."
+                                "Up to 12 unnamed signal handles are held temporarily " +
+                                "in memory; no names, addresses or history are saved."
                         )
                         Text(status, style = MaterialTheme.typography.bodyLarge)
                         Button(
@@ -171,7 +192,39 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             onClick = { stopByUser() },
                             enabled = busy,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("STOP SEARCH") }
+                        ) { Text("STOP SEARCH AND CLEAR RESULTS") }
+                        if (candidateRows.isNotEmpty()) {
+                            Text(
+                                "Unverified nearby signals — these can include unrelated " +
+                                    "Bluetooth devices. The numbers are local to this scan."
+                            )
+                            for (candidate in candidateRows) {
+                                OutlinedButton(
+                                    onClick = { selectCandidate(candidate.ordinal) },
+                                    enabled = foreground && hasScanPermission(),
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                                ) {
+                                    Text("STAGE ${candidate.label.uppercase()}")
+                                }
+                            }
+                        }
+                        if (!busy && candidateRows.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = { clearCandidateMemory() },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("CLEAR ALL SIGNAL RESULTS") }
+                        }
+                        if (selectedOrdinal != null) {
+                            Text(
+                                "Signal $selectedOrdinal is staged locally ONLY. Its owner " +
+                                    "and identity have NOT been verified; no connection, " +
+                                    "pairing or messages are possible."
+                            )
+                            OutlinedButton(
+                                onClick = { clearCandidateMemory() },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("FORGET SELECTED SIGNAL") }
+                        }
                         Spacer(Modifier.height(2.dp))
                         Text(
                             "Bluetooth results can include unrelated devices. " +
@@ -200,14 +253,16 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         val token = attempt
         if (token != null) discoveryState.onBackground(token)
         stopHardware()
+        clearCandidateMemory()
         attempt = null
         busy = false
-        if (token != null) status = "Search stopped when this screen was left."
+        status = "Search and local signal choices cleared when this screen was left."
         super.onStop()
     }
 
     override fun onDestroy() {
         stopHardware()
+        clearCandidateMemory()
         super.onDestroy()
     }
 
@@ -219,6 +274,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
 
     private fun beginInquiry() {
         if (!foreground || busy || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        clearCandidateMemory() // new inquiry never inherits an old selection
         if (discoveryState.snapshot().phase == NearbyDiscoverySession.Phase.STOPPED) {
             discoveryState.resetAfterStop()
         }
@@ -247,6 +303,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private fun startInquiry(token: NearbyDiscoverySession.Attempt) {
         if (!foreground || !hasScanPermission()) {
             discoveryState.permissionRevoked(token)
+            clearCandidateMemory()
             stopHardware()
             attempt = null
             busy = false
@@ -258,6 +315,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             val local = adapter
             if (local == null) {
                 discoveryState.radioUnavailable(token)
+                clearCandidateMemory()
                 stopHardware()
                 attempt = null
                 busy = false
@@ -282,6 +340,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     token, foreground, started, SystemClock.elapsedRealtime()
                 )
             ) {
+                clearCandidateMemory()
                 stopHardware()
                 attempt = null
                 busy = false
@@ -289,16 +348,19 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 return
             }
             radioRunning = true
+            candidateToken = candidateLedger.begin()
             handler.postDelayed(timeout, NearbyDiscoverySession.MAX_SCAN_MS + 100L)
             status = "Searching nearby Bluetooth radio signals. Tap Stop at any time."
         } catch (_: SecurityException) {
             discoveryState.permissionRevoked(token)
+            clearCandidateMemory()
             stopHardware()
             attempt = null
             busy = false
             status = "Bluetooth permission unavailable. No scan started."
         } catch (_: RuntimeException) {
             discoveryState.radioUnavailable(token)
+            clearCandidateMemory()
             stopHardware()
             attempt = null
             busy = false
@@ -309,10 +371,58 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private fun stopByUser() {
         val token = attempt ?: return
         discoveryState.cancel(token)
+        clearCandidateMemory()
         stopHardware()
         attempt = null
         busy = false
-        status = "You stopped the search. No connection was made."
+        status = "Search and results cleared. No connection was made."
+    }
+
+    @Suppress("DEPRECATION")
+    private fun discoveredDevice(intent: Intent): BluetoothDevice? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(
+                BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java
+            )
+        } else {
+            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+        }
+    } catch (_: RuntimeException) {
+        // This broadcast is untrusted and may contain malformed extras.
+        null
+    }
+
+    private fun finishCandidatesForReview() {
+        val current = candidateToken ?: return
+        candidateLedger.finish(current)
+        candidateRows = candidateLedger.rows(current)
+    }
+
+    private fun clearCandidateMemory() {
+        candidateLedger.clear()
+        candidateToken = null
+        candidateRows = emptyList()
+        selectedOrdinal = null
+    }
+
+    private fun selectCandidate(ordinal: Int) {
+        if (!foreground || !hasScanPermission()) {
+            stopByUser()
+            clearCandidateMemory()
+            return
+        }
+        val token = candidateToken ?: return
+        if (!candidateLedger.select(token, ordinal)) return
+        // Selection is deliberately not peer verification. Stop inquiry now.
+        attempt?.let { discoveryState.cancel(it) }
+        stopHardware()
+        attempt = null
+        busy = false
+        candidateToken = null
+        candidateRows = emptyList()
+        selectedOrdinal = candidateLedger.selectedOrdinal()
+        status = "Unverified signal staged on this phone only. " +
+            "Identity verification and Bluetooth connection are not implemented."
     }
 
     @Suppress("MissingPermission")

@@ -277,4 +277,23 @@ if find "$MAIN" -name 'DebugBluetoothDiscoveryActivity.kt' -print -quit | grep -
   echo "FAIL: Bluetooth inquiry activity was moved into release source" >&2
   exit 1
 fi
-echo "PASS: debug-only Bluetooth inquiry isolated; M3e consent-gated text and release voice disabled"
+# M3l may temporarily hold only opaque Bluetooth device OBJECTS in the
+# debug-only activity. Source must NEVER extract identifiers, persist the
+# unverified results, open a Bluetooth socket, or expand release permissions.
+BT_LEDGER="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothCandidateLedger.kt"
+test -f "$BT_LEDGER"
+grep -Fq 'MAX_CANDIDATES = 12' "$BT_LEDGER"
+grep -Fq 'token !== current' "$BT_LEDGER"
+grep -Fq 'fun select(current: Token, ordinal: Int): Boolean' "$BT_LEDGER"
+grep -Fq 'candidateLedger.clear()' "$BT_DEBUG"
+grep -Fq 'stopHardware()' "$BT_DEBUG"
+if grep -REn '(getAddress\(|getName\(|createRfcommSocket|createBond\(|bondedDevices|SharedPreferences|openFileOutput\()' \
+  "$BT_DEBUG" "$BT_LEDGER"; then
+  echo "FAIL: debug Bluetooth selection accessed peer identity, storage or socket" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugBluetoothCandidateLedger.kt' -print -quit | grep -q .; then
+  echo "FAIL: unverified Bluetooth candidate ledger entered release source" >&2
+  exit 1
+fi
+echo "PASS: M3l temporary unverified Bluetooth handles confined to debug; no peer trust or production messaging"

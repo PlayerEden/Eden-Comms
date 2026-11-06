@@ -50,8 +50,11 @@ internal object PrivacyPreviewContent {
                 "is requested for QR scanning. Debug builds also declare " +
                 "Nearby devices / BLUETOOTH_SCAN only for an explicitly started " +
                 "Bluetooth Classic inquiry under Developer Tools. That test " +
-                "counts unverified radio observations, does not connect or " +
-                "save device identities, and is absent from release builds. " +
+                "counts unverified radio observations and temporarily keeps " +
+                "up to 12 opaque discovered-device objects in memory for " +
+                "numbered, unverified local selection. It reads no device names " +
+                "or addresses, makes no connection and saves no peer history. " +
+                "This experiment is absent from release builds. " +
                 "This preview does not request microphone, contacts or " +
                 "location permissions."
         ),
