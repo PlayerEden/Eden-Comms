@@ -38,7 +38,9 @@ class LaunchEvidenceTests(unittest.TestCase):
         self.assertEqual(audit.GENERATED_MERGED_ONLY_PERMISSIONS, {expected})
         self.assertEqual(
             audit.EXPECTED_APK_PERMISSIONS - audit.ALLOWED_PERMISSIONS,
-            {expected, "android.permission.BLUETOOTH_SCAN"}
+            {expected, "android.permission.BLUETOOTH_SCAN",
+             "android.permission.BLUETOOTH_CONNECT",
+             "android.permission.BLUETOOTH_ADVERTISE"}
         )
         extra = "com.otherapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         self.assertNotIn(extra, audit.EXPECTED_APK_PERMISSIONS)

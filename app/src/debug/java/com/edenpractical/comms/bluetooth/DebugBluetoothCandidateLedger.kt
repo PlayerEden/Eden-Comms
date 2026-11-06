@@ -77,6 +77,14 @@ internal class DebugBluetoothCandidateLedger<T : Any>(
         return true
     }
 
+    /**
+     * A staged handle is only an untrusted Bluetooth target. A caller must
+     * separately request CONNECT and receive explicit user permission before
+     * constructing a socket; this does NOT grant verified peer identity.
+     */
+    fun selectedHandle(): T? =
+        if (phase == Phase.SELECTED) selection?.second else null
+
     /** Forget all temporary Bluetooth device objects and UI ordinals. */
     fun clear() {
         handles.clear()

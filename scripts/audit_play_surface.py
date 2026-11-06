@@ -28,9 +28,14 @@ ALLOWED_PERMISSIONS = frozenset({
 GENERATED_MERGED_ONLY_PERMISSIONS = frozenset({
     "com.edenpractical.comms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
 })
-# Android 12+ experimental Classic inquiry exists in debug variant ONLY.
+# Android 12+ experimental Classic inquiry and one-time secure RFCOMM link
+# (CONNECT and explicit discoverability ADVERTISE) exist in debug ONLY.
 # Production main manifest remains at the original LAN+QR permissions.
-DEBUG_ONLY_PERMISSIONS = frozenset({"android.permission.BLUETOOTH_SCAN"})
+DEBUG_ONLY_PERMISSIONS = frozenset({
+    "android.permission.BLUETOOTH_SCAN",
+    "android.permission.BLUETOOTH_CONNECT",
+    "android.permission.BLUETOOTH_ADVERTISE",
+})
 EXPECTED_APK_PERMISSIONS = (
     ALLOWED_PERMISSIONS | DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS
 )

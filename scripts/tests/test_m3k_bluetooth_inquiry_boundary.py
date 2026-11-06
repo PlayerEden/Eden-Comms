@@ -33,7 +33,11 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
         self.assertNotIn("android.permission.RECORD_AUDIO", self.main_manifest)
         root = ET.fromstring(self.debug_manifest)
         permissions = [x.get(AND + "name") for x in root if x.tag == "uses-permission"]
-        self.assertEqual(["android.permission.BLUETOOTH_SCAN"], permissions)
+        self.assertEqual([
+            "android.permission.BLUETOOTH_SCAN",
+            "android.permission.BLUETOOTH_CONNECT",
+            "android.permission.BLUETOOTH_ADVERTISE"
+        ], permissions)
         scan = next(x for x in root if x.tag == "uses-permission")
         self.assertEqual(scan.get(AND + "usesPermissionFlags"), "neverForLocation")
         activity = root.find("application/activity")
@@ -62,7 +66,7 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
             self.assertIn(marker, self.scanner, marker)
         self.assertIn("START 30-SECOND TEST SEARCH", self.scanner)
         self.assertIn("STOP SEARCH", self.scanner)
-        self.assertIn("enabled = !busy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S", self.scanner)
+        self.assertIn("enabled = !busy && pendingLink == PendingLink.NONE", self.scanner)
 
     def test_stop_scanning_and_stale_results_are_bounded_without_leaking_peer_identity(self):
         for marker in (

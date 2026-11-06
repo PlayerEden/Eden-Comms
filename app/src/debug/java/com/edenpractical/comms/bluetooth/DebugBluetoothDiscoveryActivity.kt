@@ -54,8 +54,9 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
  * Explicit permission + start required; every exit best-effort cancels the OS
  * inquiry and unregisters broadcasts. This M3l debug experiment holds up to
  * 12 anonymous BluetoothDevice object handles in memory, as numbered signals.
- * Selecting one stops scanning but NEVER opens a connection or grants trust.
- * No physical QA has occurred.
+ * Selecting one stops scanning and can now support a SEPARATE user-tapped,
+ * permission-gated debug RFCOMM link. No messages, trusted peer, identity
+ * approval or encrypted app session exist over Bluetooth. No physical QA.
  */
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val discoveryState = NearbyDiscoverySession()
@@ -67,11 +68,88 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var adapter: BluetoothAdapter? = null
     private var receiverRegistered = false
     private var radioRunning = false
-    private var foreground = false
+    @Volatile private var foreground = false
     private var busy by mutableStateOf(false)
     private var observations by mutableIntStateOf(0)
     private var status by mutableStateOf("Search is off. No Bluetooth device is trusted.")
     private val handler = Handler(Looper.getMainLooper())
+
+    private enum class PendingLink { NONE, HOST, JOIN }
+    private var pendingLink = PendingLink.NONE
+    private var discoverabilityPromptOpen = false
+    private var linkPhase by mutableStateOf(DebugRfcommAttemptGate.Phase.IDLE)
+    private var linkStatus by mutableStateOf(
+        "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
+    )
+    private val linkController by lazy {
+        DebugRfcommLinkController(
+            handler = handler,
+            isForeground = { foreground },
+            hasConnectPermission = { hasConnectPermission() },
+            onState = { phase, description ->
+                linkPhase = phase
+                linkStatus = description
+            }
+        )
+    }
+
+    private val linkPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        if (!foreground) {
+            pendingLink = PendingLink.NONE
+            linkStatus = "The app left the screen before connection permission was granted."
+        } else when (pendingLink) {
+            PendingLink.HOST -> {
+                if (hasConnectPermission() && hasAdvertisePermission()) {
+                    launchDiscoverablePrompt()
+                } else {
+                    pendingLink = PendingLink.NONE
+                    linkStatus = "Bluetooth connection or visibility permission denied."
+                }
+            }
+            PendingLink.JOIN -> {
+                pendingLink = PendingLink.NONE
+                if (hasConnectPermission()) startJoinLink()
+                else linkStatus = "Bluetooth connection permission denied. No link started."
+            }
+            PendingLink.NONE -> Unit
+        }
+    }
+
+    private val discoverabilityRequest = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        discoverabilityPromptOpen = false
+        val mayStart = foreground && pendingLink == PendingLink.HOST &&
+            hasConnectPermission() && hasAdvertisePermission() &&
+            result.resultCode > 0
+        pendingLink = PendingLink.NONE
+        if (mayStart) startHostLink()
+        else linkStatus = "Discoverability wasn't approved, or this screen was left. No host started."
+    }
+
+    private val linkPermissionMonitor = object : Runnable {
+        override fun run() {
+            if (linkPhase in setOf(
+                    DebugRfcommAttemptGate.Phase.CONNECTING,
+                    DebugRfcommAttemptGate.Phase.LINK_OPEN
+                )
+            ) {
+                if (!foreground || !hasConnectPermission()) {
+                    linkController.permissionLost()
+                } else {
+                    handler.postDelayed(this, 1_000L)
+                }
+            }
+        }
+    }
+
+    private fun watchLinkPermission() {
+        handler.removeCallbacks(linkPermissionMonitor)
+        handler.postDelayed(linkPermissionMonitor, 1_000L)
+    }
+
     private val timeout = Runnable {
         val token = attempt ?: return@Runnable
         discoveryState.tick(token, SystemClock.elapsedRealtime())
@@ -185,7 +263,11 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         Text(status, style = MaterialTheme.typography.bodyLarge)
                         Button(
                             onClick = { beginInquiry() },
-                            enabled = !busy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                            enabled = !busy && pendingLink == PendingLink.NONE &&
+                                linkPhase !in setOf(
+                                    DebugRfcommAttemptGate.Phase.CONNECTING,
+                                    DebugRfcommAttemptGate.Phase.LINK_OPEN
+                                ) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("START 30-SECOND TEST SEARCH") }
                         OutlinedButton(
@@ -217,8 +299,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         if (selectedOrdinal != null) {
                             Text(
                                 "Signal $selectedOrdinal is staged locally ONLY. Its owner " +
-                                    "and identity have NOT been verified; no connection, " +
-                                    "pairing or messages are possible."
+                                    "and identity have NOT been verified. A separate debug " +
+                                    "RFCOMM socket test is possible, but no messages are sent."
                             )
                             OutlinedButton(
                                 onClick = { clearCandidateMemory() },
@@ -233,9 +315,51 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "for communication."
                         )
                         Text(
-                            "Close or background this screen to end the scan. " +
-                                "Android may retain its own Bluetooth state; " +
-                                "Eden Comms does not save scan results."
+                            "Close or background this screen to end the scan and any " +
+                                "RFCOMM test link. Android may retain its own Bluetooth state; " +
+                                "Eden Comms does not save discovery results."
+                        )
+                        Text(
+                            "BLUETOOTH LINK — DEVELOPMENT ONLY",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "Host on one phone, then scan and stage its signal on the other. " +
+                                "The host asks Android to make it discoverable for up to 120 seconds. " +
+                                "Android controls that visibility even after this app disconnects."
+                        )
+                        Button(
+                            onClick = { beginHostLink() },
+                            enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
+                                linkPhase !in setOf(
+                                    DebugRfcommAttemptGate.Phase.CONNECTING,
+                                    DebugRfcommAttemptGate.Phase.LINK_OPEN
+                                ) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("HOST ONE-TIME BLUETOOTH TEST LINK") }
+                        Button(
+                            onClick = { beginJoinLink() },
+                            enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
+                                selectedOrdinal != null &&
+                                linkPhase !in setOf(
+                                    DebugRfcommAttemptGate.Phase.CONNECTING,
+                                    DebugRfcommAttemptGate.Phase.LINK_OPEN
+                                ) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("JOIN STAGED UNVERIFIED SIGNAL") }
+                        Text(linkStatus, style = MaterialTheme.typography.bodyLarge)
+                        OutlinedButton(
+                            onClick = { linkController.disconnect() },
+                            enabled = linkPhase in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            ),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
+                        Text(
+                            "An OS RFCOMM socket is NOT a verified Eden Comms session. " +
+                                "No app text or voice is sent or accepted. " +
+                                "A host may become discoverable beyond this screen under Android control."
                         )
                     }
                 }
@@ -254,6 +378,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         if (token != null) discoveryState.onBackground(token)
         stopHardware()
         clearCandidateMemory()
+        linkController.background()
+        handler.removeCallbacks(linkPermissionMonitor)
+        if (!discoverabilityPromptOpen) pendingLink = PendingLink.NONE
         attempt = null
         busy = false
         status = "Search and local signal choices cleared when this screen was left."
@@ -263,6 +390,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     override fun onDestroy() {
         stopHardware()
         clearCandidateMemory()
+        linkController.background()
+        handler.removeCallbacks(linkPermissionMonitor)
         super.onDestroy()
     }
 
@@ -271,6 +400,111 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.BLUETOOTH_SCAN
             ) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasConnectPermission(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasAdvertisePermission(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.BLUETOOTH_ADVERTISE
+            ) == PackageManager.PERMISSION_GRANTED
+
+    private fun beginHostLink() {
+        if (!foreground || busy || pendingLink != PendingLink.NONE ||
+            linkPhase in setOf(
+                DebugRfcommAttemptGate.Phase.CONNECTING,
+                DebugRfcommAttemptGate.Phase.LINK_OPEN
+            ) || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+        ) return
+        clearCandidateMemory()
+        pendingLink = PendingLink.HOST
+        linkStatus = "Bluetooth connect and discoverable permissions are required."
+        if (hasConnectPermission() && hasAdvertisePermission()) {
+            launchDiscoverablePrompt()
+        } else {
+            linkPermissionRequest.launch(
+                arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
+            )
+        }
+    }
+
+    private fun beginJoinLink() {
+        if (!foreground || busy || pendingLink != PendingLink.NONE ||
+            candidateLedger.selectedHandle() == null ||
+            linkPhase in setOf(
+                DebugRfcommAttemptGate.Phase.CONNECTING,
+                DebugRfcommAttemptGate.Phase.LINK_OPEN
+            ) || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+        ) return
+        pendingLink = PendingLink.JOIN
+        linkStatus = "Bluetooth connection permission required for an unverified socket link."
+        if (hasConnectPermission()) {
+            pendingLink = PendingLink.NONE
+            startJoinLink()
+        } else {
+            linkPermissionRequest.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT))
+        }
+    }
+
+    private fun launchDiscoverablePrompt() {
+        if (!foreground || pendingLink != PendingLink.HOST ||
+            !hasConnectPermission() || !hasAdvertisePermission()
+        ) {
+            pendingLink = PendingLink.NONE
+            linkStatus = "Bluetooth permissions unavailable. Host not started."
+            return
+        }
+        discoverabilityPromptOpen = true
+        linkStatus = "Android asks you to make this phone discoverable for up to 120 seconds."
+        try {
+            discoverabilityRequest.launch(
+                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+            )
+        } catch (_: RuntimeException) {
+            discoverabilityPromptOpen = false
+            pendingLink = PendingLink.NONE
+            linkStatus = "Android discoverability request failed. No host started."
+        }
+    }
+
+    @Suppress("MissingPermission")
+    private fun startHostLink() {
+        if (!foreground || !hasConnectPermission()) return
+        val hostAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        if (hostAdapter == null || !hostAdapter.isEnabled) {
+            linkStatus = "Bluetooth radio unavailable or disabled. No host started."
+            return
+        }
+        if (linkController.host(hostAdapter)) {
+            linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
+            watchLinkPermission()
+            linkStatus = "Listening for one RFCOMM connection (max 60 seconds)."
+        }
+    }
+
+    @Suppress("MissingPermission")
+    private fun startJoinLink() {
+        if (!foreground || !hasConnectPermission()) return
+        val target = candidateLedger.selectedHandle() ?: return
+        val joinAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        if (joinAdapter == null || !joinAdapter.isEnabled) {
+            linkStatus = "Bluetooth radio unavailable or disabled. No join attempted."
+            return
+        }
+        // The user staged this unverified object during a previous scan.
+        // It is NOT peer authentication. No app data may cross this socket.
+        if (linkController.join(target, joinAdapter)) {
+            clearCandidateMemory()
+            linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
+            watchLinkPermission()
+            linkStatus = "Opening one unverified RFCOMM socket (max 18 seconds)."
+        }
+    }
 
     private fun beginInquiry() {
         if (!foreground || busy || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
@@ -422,7 +656,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         candidateRows = emptyList()
         selectedOrdinal = candidateLedger.selectedOrdinal()
         status = "Unverified signal staged on this phone only. " +
-            "Identity verification and Bluetooth connection are not implemented."
+            "Verified Bluetooth messaging is not implemented; a separate debug " +
+            "socket connection may be attempted with your permission."
     }
 
     @Suppress("MissingPermission")

@@ -296,4 +296,31 @@ if find "$MAIN" -name 'DebugBluetoothCandidateLedger.kt' -print -quit | grep -q 
   echo "FAIL: unverified Bluetooth candidate ledger entered release source" >&2
   exit 1
 fi
-echo "PASS: M3l temporary unverified Bluetooth handles confined to debug; no peer trust or production messaging"
+# M3m RFCOMM is an OS socket experiment, STRICTLY in debug sources.
+# No payload stream, unreviewed protocol framing, insecure fallback, secrets,
+# or release Bluetooth permissions are allowed. One activity is user-controlled.
+BT_RFCOMM="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommLinkController.kt"
+BT_GATE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommAttemptGate.kt"
+test -f "$BT_RFCOMM" && test -f "$BT_GATE"
+grep -Fq 'listenUsingRfcommWithServiceRecord(' "$BT_RFCOMM"
+grep -Fq 'device.createRfcommSocketToServiceRecord(SERVICE_UUID)' "$BT_RFCOMM"
+grep -Fq 'created.accept(HOST_WAIT_MS.toInt())' "$BT_RFCOMM"
+grep -Fq 'closeQuietly(oldServer)' "$BT_RFCOMM"
+grep -Fq 'closeQuietly(oldSocket)' "$BT_RFCOMM"
+grep -Fq 'gate.opened(' "$BT_RFCOMM"
+grep -Fq 'Manifest.permission.BLUETOOTH_CONNECT' "$BT_DEBUG"
+grep -Fq 'Manifest.permission.BLUETOOTH_ADVERTISE' "$BT_DEBUG"
+grep -Fq 'Android' "$BT_DEBUG"
+for PERMISSION in BLUETOOTH_SCAN BLUETOOTH_CONNECT BLUETOOTH_ADVERTISE; do
+  grep -Fq "android.permission.$PERMISSION" "$BT_MANIFEST"
+done
+if grep -REn '(getInputStream\(|getOutputStream\(|listenUsingInsecureRfcomm|createInsecureRfcomm|DataOutputStream|sendDebugText\(|TestPacketCodec)' \
+  "$BT_RFCOMM" "$BT_GATE"; then
+  echo "FAIL: Bluetooth debug RFCOMM socket acquired payload streams or insecure path" >&2
+  exit 1
+fi
+if find "$MAIN" \( -name 'DebugRfcommLinkController.kt' -o -name 'DebugRfcommAttemptGate.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: unverified Bluetooth link entered release source" >&2
+  exit 1
+fi
+echo "PASS: M3m bounded debug-only RFCOMM host/join with no application payload stream; release messaging disabled"

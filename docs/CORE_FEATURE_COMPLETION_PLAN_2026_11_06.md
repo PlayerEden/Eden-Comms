@@ -12,7 +12,7 @@
 | LAN connection | Debug two-QR session, pinned mutual TLS 1.3, exporter binding, bilateral human approval and final confirmations | Real two-phone WAN-off/negative device QA, independent protocol security review, approved release networking |
 | Text | Short bounded real debug-only outgoing local TLS writes and received peer test text in an ephemeral conversation; no ACK | Reviewed authorized general text, actual peer delivery ACK semantics, hardware QA |
 | Connection recovery | Wi-Fi status, fresh QR retry, failure guidance and cancellation | On-device network interruption and reliability testing |
-| Bluetooth | M3j testable discovery state machine; **M3k adds an actual debug Classic scan; M3l adds capped anonymous, unverified signal selection in RAM** | Device selection, RFCOMM link, checked identity + authenticated encrypted messages over that link |
+| Bluetooth | M3j testable discovery state machine; **M3k adds raw Classic inquiry; M3l anonymous signal staging; M3m adds one-time secure RFCOMM sockets (no message I/O)** | Device selection, RFCOMM link, checked identity + authenticated encrypted messages over that link |
 | Wi-Fi Direct | Plans, discovery/permission lifecycle model only | Android P2P discovery, link, verified encrypted communication |
 | Voice / PTT | Disabled UI prototype and roadmap | Audio recording/playback and transport with verified-session/permission gates; physical latency/dropout testing |
 | Privacy | Session-only in-memory debug text; Hide conversation and Clear my screen | User opt-in encrypted local 1–30-day history, best-effort disappearing timer, independently optional 1–30-day peer trust |
@@ -31,7 +31,7 @@
 ### Phase B — Bluetooth Classic (next active stream)
 - **M3k. Debug inquiry — NOW:** Include the scanner in `src/debug` only, require explicit Android **Nearby devices** permission, user START and STOP, limit 30 seconds, count untrusted nearby observations, clean up on background/revocation, no MAC/name retention. CI compiles and permission-audits. No pairing or transport yet.
 - **M3l. Anonymous selection — implementation integrated:** A cap of 12 deduplicated opaque BluetoothDevice objects retained in RAM only per debug scan, rendered as numbered unverified signals; explicit selection stops inquiry and stages one for a future verification step. No friendly names, addresses, peer identity, Bluetooth connection or extra permission; do not confuse any signal with Eden Comms. **Still outstanding:** design a truly recognizable Eden Comms peer selection/advertising approach and independently verified identity binding after a real connection.
-- **M3m. Debug RFCOMM transport:** Build actual foreground-only host/join Bluetooth Classic data link in a dedicated Android adapter. No message path or insecure fallback until verified authenticated session architecture can be reused over streams.
+- **M3m. Debug RFCOMM link — integrated:** Build one-shot Android secure Bluetooth Classic RFCOMM host/join in a debug-only socket controller using explicit CONNECT/ADVERTISE permissions, system discoverability prompt, 60-second host/18-second join timeout, 45-second socket cap, and cancellation/foreground/permission-loss guards. **NO app payload streams, peer identity, message sending or TLS integration**; discovery/OS bond is not an authenticated Eden Comms peer.
 - **M3n. Verified Bluetooth text:** Transport-neutral socket/stream bridge reviewed for TLS/session binding; repeat per-connection fresh identity verification, QR or approved comparable verification, both human approvals/final confirmations. Debug-only typed text after all gates. Avoid reusing LAN IP assumptions; never grant trust from Bluetooth bond alone.
 - **Bluetooth completion gate:** two phones with Wi-Fi/cellular disabled can find and select each other, verify peer, exchange text and disconnect; permission deny/revoke, radio-off, timeout, OS lifecycle and unreliable radio failures are tested; no plaintext or unapproved messages.
 
@@ -80,7 +80,7 @@ Every work package should have (1) a narrow reversible branch/PR, (2) actual sou
 ## Immediate sequence (first three actionable PRs)
 1. **PR M3k — merged:** First real debug-only Bluetooth Classic inquiry, opt-in scan permission, 30-second count-only scan, cleanup and Android QA boundary.
 2. **PR M3l — current:** Explicit unverified numbered signal selection in debug, transient bounded BluetoothDevice handles and cancellation. *Identity recognition/connection is still unimplemented*; no fake Eden peer list or unreviewed handshake.
-3. **PR M3m — next:** Transport-specific debug RFCOMM host/join stream link with user permission and guarded teardown; no general text, weak encryption or trusted peer inferred from discovery.
+3. **PR M3m — current:** Real debug-only secure RFCOMM socket host/join with explicit OS permissions, bound lifetime, disconnect and zero user-text/audio I/O. Follow-on: **M3n** approved authenticated session over this connection before any Bluetooth text.
 
 Then prioritize **M3n Bluetooth authenticated debug text** and **C1–C3 Wi-Fi Direct**, while retaining periodic LAN security/ACK work. Once both transport families have viable debug communication paths, proceed with PTT and storage milestones.
 
