@@ -49,15 +49,15 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
             "hasScanPermission()",
             "ContextCompat.checkSelfPermission(",
             "NearbyDiscoverySession()",
-            "lifecycle.begin(ConnectionMethod.BLUETOOTH, foreground)",
-            "lifecycle.personConsented(token, foreground)",
-            "lifecycle.platformPermissionResult(token, foreground, granted = true)",
-            "lifecycle.radioScanStarted(",
+            "discoveryState.begin(ConnectionMethod.BLUETOOTH, foreground)",
+            "discoveryState.personConsented(token, foreground)",
+            "discoveryState.platformPermissionResult(token, foreground, granted = true)",
+            "discoveryState.radioScanStarted(",
             "local.startDiscovery()",
             "registerReceiver(",
             "BluetoothDevice.ACTION_FOUND",
             "BluetoothAdapter.ACTION_DISCOVERY_FINISHED",
-            "observations = lifecycle.snapshot().observations"
+            "observations = discoveryState.snapshot().observations"
         ):
             self.assertIn(marker, self.scanner, marker)
         self.assertIn("START 30-SECOND TEST SEARCH", self.scanner)
@@ -67,15 +67,15 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
     def test_stop_scanning_and_stale_results_are_bounded_without_leaking_peer_identity(self):
         for marker in (
             "override fun onStop()",
-            "lifecycle.onBackground(token)",
+            "discoveryState.onBackground(token)",
             "handler.removeCallbacks(timeout)",
             "adapter?.cancelDiscovery()",
             "unregisterReceiver(receiver)",
-            "lifecycle.candidateObserved(",
-            "lifecycle.complete(token)",
-            "lifecycle.permissionRevoked(token)",
+            "discoveryState.candidateObserved(",
+            "discoveryState.complete(token)",
+            "discoveryState.permissionRevoked(token)",
             "NearbyDiscoverySession.MAX_SCAN_MS",
-            "lifecycle.resetAfterStop()",
+            "discoveryState.resetAfterStop()",
             "radioRunning = started"
         ):
             self.assertIn(marker, self.scanner, marker)
