@@ -1,6 +1,8 @@
 # Eden Comms — Security, Privacy and QA v0.1
 Status: **planning / unaudited**. This document is not a security certification.
 
+> M3e debug exception: while release text and voice remain disabled, the existing debuggable QR-pinned TLS test can now carry short typed **test** messages after both approvals and final confirmations, with no retained history or peer ACK claims. This is an *unreviewed, untested-on-physical-phones development-only* flow; no sensitive communications. See [M3e](M3E_DEBUG_TWO_WAY_TEXT.md). Physical testing will be performed by the owner when ready.
+
 **Normative product requirements:** [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md). The charter documents intent and release blockers; actual implementation and security claims require independent review.
 
 ## Threat model
