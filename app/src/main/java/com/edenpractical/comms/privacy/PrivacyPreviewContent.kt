@@ -48,13 +48,21 @@ internal object PrivacyPreviewContent {
             "Local network access uses INTERNET and ACCESS_NETWORK_STATE " +
                 "permissions for a nearby Wi-Fi connection. Camera permission " +
                 "is requested for QR scanning. Debug builds also declare " +
-                "Nearby devices / BLUETOOTH_SCAN only for an explicitly started " +
-                "Bluetooth Classic inquiry under Developer Tools. That test " +
+                "Nearby devices permissions BLUETOOTH_SCAN for explicitly started " +
+                "Classic inquiry, BLUETOOTH_CONNECT for a separate unverified " +
+                "RFCOMM socket test, and BLUETOOTH_ADVERTISE for a user-approved " +
+                "Android discoverability request under Developer Tools. " +
+                "These are not requested merely by opening the main app. " +
+                "The inquiry "
                 "counts unverified radio observations and temporarily keeps " +
                 "up to 12 opaque discovered-device objects in memory for " +
                 "numbered, unverified local selection. It reads no device names " +
-                "or addresses, makes no connection and saves no peer history. " +
-                "This experiment is absent from release builds. " +
+                "or addresses and saves no peer history. A separate explicit host/join " +
+                "test can briefly open a Bluetooth socket, but NO app messages " +
+                "or audio cross it, and peer identity is not authenticated. " +
+                "Android may continue device discoverability for its approved " +
+                "duration after a socket closes. All these tools are absent " +
+                "from release builds. " +
                 "This preview does not request microphone, contacts or " +
                 "location permissions."
         ),
