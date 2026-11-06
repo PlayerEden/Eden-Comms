@@ -27,6 +27,10 @@ A **separate** [manual internal-test APK workflow](../.github/workflows/android-
 
 The existing JSON-to-JSON static comparison cannot know what is **currently installed**. The new [M3b ADB preflight](M3B_READ_ONLY_DEVICE_UPGRADE_PREFLIGHT.md) provides a separate, strictly read-only tool, `scripts/preflight_device_apk_update.py`, which inspects the selected phone's installed public base APK, checks its package/certificate/version against a candidate, and deletes the temporary copy. It **never installs, uninstalls, resets or reads app-private identity data**. It fails if no eligible installed APK is visible. Even PASS is only pre-install evidence; the actual device update and Keystore/settings-preservation test remain OPEN.
 
+## M3d owner-assisted activation path (not yet activated)
+
+A [local owner-run M3d helper and setup procedure](M3D_OWNER_SIGNING_SETUP.md) now validates an existing, privately backed-up test-only signing keystore and the GitHub environment's exact-main deployment policy, then uploads five protected environment secrets over GitHub CLI stdin only after explicit owner authorization. It refuses key rotation. **This file/tool change does not provision a signer or prove in-place Android updates**; issue #27 stays open.
+
 ## Outstanding signing continuity work (Issue #27)
 
 A future separate implementation should adopt a durable **test-only signing identity**, protected in a suitable secret store, with limited access and a documented recovery/rotation plan. Never commit the keystore or password to this public repository or re-use a future production signing identity. Keep `applicationId = com.edenpractical.comms` unchanged. Increment `versionCode` for each distributed update build.
