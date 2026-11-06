@@ -483,7 +483,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         if (linkController.host(hostAdapter)) {
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
             watchLinkPermission()
-            linkStatus = "Listening for one RFCOMM connection (max 18 seconds)."
+            linkStatus = "Listening for one RFCOMM connection (max 60 seconds)."
         }
     }
 
