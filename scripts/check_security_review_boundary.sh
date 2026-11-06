@@ -234,9 +234,9 @@ grep -Fq 'DebugApprovalGate.State.CONFIRMED ->' "$DEBUG_LAN"
 grep -Fq 'event.approvalState != DebugApprovalGate.State.CONFIRMED' \
   "$MAIN/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt"
 
-# M3j discovery is a deliberately NON-LIVE lifecycle contract, not a
-# scanner. Future adapter + actual Android permission and transport work must
-# be reviewed separately; this model must not leak into live app UI/sockets.
+# M3k: the M3j discovery contract may ONLY be integrated with the isolated
+# Bluetooth Classic debug activity under src/debug. It must still never leak
+# into main/release UI, transport or production message/voice authorization.
 DISCOVERY_MODEL="$MAIN/com/edenpractical/comms/transport/NearbyDiscoverySession.kt"
 DISCOVERY_COPY="$MAIN/com/edenpractical/comms/model/NearbyDiscoveryPolicy.kt"
 test -f "$DISCOVERY_MODEL" && test -f "$DISCOVERY_COPY"
@@ -255,6 +255,26 @@ grep -Fq 'const val MAX_OBSERVATIONS = 32' "$DISCOVERY_MODEL"
 grep -Fq 'fun onBackground(attempt: Attempt): Boolean' "$DISCOVERY_MODEL"
 grep -Fq 'fun permissionRevoked(attempt: Attempt): Boolean' "$DISCOVERY_MODEL"
 grep -Fq 'fun resetAfterStop(): Boolean' "$DISCOVERY_MODEL"
-grep -Fq 'Nearby device search is OFF and NOT IMPLEMENTED' "$DISCOVERY_COPY"
+grep -Fq 'Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED' "$DISCOVERY_COPY"
 
-echo "PASS: M3j planning-only discovery lifecycle isolated; M3e debug text after four consent events; release messaging/voice disabled"
+# Bluetooth activity and Android Nearby devices permission are debug-only.
+BT_DEBUG="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothDiscoveryActivity.kt"
+BT_MANIFEST="app/src/debug/AndroidManifest.xml"
+test -f "$BT_DEBUG" && test -f "$BT_MANIFEST"
+grep -Fq 'class DebugBluetoothDiscoveryActivity' "$BT_DEBUG"
+grep -Fq 'Manifest.permission.BLUETOOTH_SCAN' "$BT_DEBUG"
+grep -Fq 'NearbyDiscoverySession()' "$BT_DEBUG"
+grep -Fq 'override fun onStop()' "$BT_DEBUG"
+grep -Fq 'cancelDiscovery()' "$BT_DEBUG"
+grep -Fq 'registerForActivityResult(' "$BT_DEBUG"
+grep -Fq 'android:exported="false"' "$BT_MANIFEST"
+if grep -REn 'android.permission.(BLUETOOTH|ACCESS_FINE_LOCATION|NEARBY_WIFI_DEVICES|RECORD_AUDIO)' \
+  app/src/main/AndroidManifest.xml; then
+  echo "FAIL: debug-only Bluetooth permission leaked to release" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugBluetoothDiscoveryActivity.kt' -print -quit | grep -q .; then
+  echo "FAIL: Bluetooth inquiry activity was moved into release source" >&2
+  exit 1
+fi
+echo "PASS: debug-only Bluetooth inquiry isolated; M3e consent-gated text and release voice disabled"
