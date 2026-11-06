@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
+import com.edenpractical.comms.privacy.ConversationPrivacyContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
@@ -91,6 +92,8 @@ internal fun LocalPairingTestScreen() {
     // Session-only chat content; never rememberSaveable or persistent.
     var debugText by remember { mutableStateOf(DebugTextTranscript.fresh()) }
     var textDraft by remember { mutableStateOf("") }
+    var privacyHidden by remember { mutableStateOf(false) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
     var showTestTools by remember { mutableStateOf(false) }
     var qaRole by remember { mutableStateOf(LocalQaReport.Role.NOT_SELECTED) }
     var qaFinish by remember { mutableStateOf(LocalQaReport.Finish.NOT_RECORDED) }
@@ -113,6 +116,8 @@ internal fun LocalPairingTestScreen() {
         probe = null
         debugText = debugText.finish()
         textDraft = ""
+        privacyHidden = false
+        showClearConfirmation = false
     }
 
     fun wifiIsOriginalPairingLink(): Boolean {
@@ -144,6 +149,8 @@ internal fun LocalPairingTestScreen() {
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
         textDraft = ""
+        privacyHidden = false
+        showClearConfirmation = false
         qaRole = LocalQaReport.Role.NOT_SELECTED
         qaFinish = LocalQaReport.Finish.NOT_RECORDED
         qaLastCheckpoint = null
@@ -236,6 +243,8 @@ internal fun LocalPairingTestScreen() {
             transcript = DebugSessionTranscript.fresh()
             debugText = DebugTextTranscript.fresh()
             textDraft = ""
+            privacyHidden = false
+            showClearConfirmation = false
             showTestTools = false
             qaLastCheckpoint = null
             qaEndCode = null
@@ -338,6 +347,8 @@ internal fun LocalPairingTestScreen() {
                             approvalSending = false
                             transcript = transcript.ready()
                             debugText = debugText.ready()
+                            privacyHidden = false
+                            showClearConfirmation = false
                             stage = "demo"
                             status = "Debug session confirmed. Presets and short test text available."
                         }
@@ -773,7 +784,10 @@ internal fun LocalPairingTestScreen() {
                     DebugConversationPanel(
                         transcript = debugText,
                         draft = textDraft,
+                        hidden = privacyHidden,
                         onDraftChange = { textDraft = it },
+                        onToggleHidden = { privacyHidden = !privacyHidden },
+                        onClearRequested = { showClearConfirmation = true },
                         onSend = {
                             when (probe?.sendDebugText(textDraft)) {
                                 LanDemoSession.TextSendResult.QUEUED -> {
@@ -1000,6 +1014,39 @@ internal fun LocalPairingTestScreen() {
                 "phones approve. Production messaging, retained history and Voice / PTT remain disabled.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    // Clear applies only to this screen's in-memory test conversation, NOT
+    // peer copies, OS keyboard content or local signing/identity state.
+    if (showClearConfirmation && stage == "demo") {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation = false },
+            title = { Text(ConversationPrivacyContent.clearTitle) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(ConversationPrivacyContent.clearExplanation)
+                    Text(
+                        ConversationPrivacyContent.privacyLimits,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    debugText = debugText.clearVisible()
+                    textDraft = ""
+                    showClearConfirmation = false
+                    status = "This phone's visible test messages and draft were cleared. " +
+                        "The session is still connected."
+                }) { Text("Clear this phone") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
