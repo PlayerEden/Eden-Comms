@@ -38,12 +38,14 @@ class DebugBluetoothCandidateLedgerTest {
         assertTrue(ledger.select(token, 2))
         assertEquals(DebugBluetoothCandidateLedger.Phase.SELECTED, ledger.phase())
         assertEquals(2, ledger.selectedOrdinal())
+        assertTrue(ledger.selectedHandle() === b)
         assertTrue(ledger.rows(token).isEmpty())
         assertFalse(ledger.observe(token, Any()))
         assertFalse(ledger.finish(token))
         assertFalse(ledger.select(token, 1))
         ledger.clear()
         assertNull(ledger.selectedOrdinal())
+        assertNull(ledger.selectedHandle())
         assertEquals(DebugBluetoothCandidateLedger.Phase.EMPTY, ledger.phase())
     }
 
