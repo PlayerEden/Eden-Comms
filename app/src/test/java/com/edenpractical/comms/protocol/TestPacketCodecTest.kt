@@ -162,7 +162,7 @@ class TestPacketCodecTest {
     }
 
     @Test fun boundedDebugTextUsesExistingVersionedUnicodePacketInsideFrames() {
-        val text = "Hello 👋\\nHej världen"
+        val text = "Hello 👋\nHej världen"
         val actual = codec.debugText(3L, text)
         assertEquals(TestPacketCodec.Type.DEBUG_TEXT, actual.type)
         assertEquals(3L, actual.messageId)
@@ -176,8 +176,8 @@ class TestPacketCodecTest {
     }
 
     @Test fun invalidDebugTextAndUnreviewedAcksFailClosed() {
-        for (text in listOf("", "   ", "x".repeat(281), "ok\\u0001",
-            "\\uD800", "\\uDC00")) {
+        for (text in listOf("", "   ", "x".repeat(281), "ok\u0001",
+            "\uD800", "\uDC00")) {
             assertThrows(ProposedChatWireException::class.java) {
                 codec.debugText(1, text)
             }
