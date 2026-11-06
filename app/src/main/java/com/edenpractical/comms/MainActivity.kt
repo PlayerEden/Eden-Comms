@@ -179,7 +179,7 @@ private fun EdenCommsApp() {
                             "home" -> HomeScreen(
                                 onPtt = { navigate("ptt") },
                                 onConnect = { navigate("pairing-test") },
-                                onChatPreview = { navigate("chat-preview") },
+                                onChatPreview = { navigate("pairing-test") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
                             )
@@ -201,7 +201,8 @@ private fun EdenCommsApp() {
                             )
                             "developer" -> DeveloperScreen(
                                 onIdentity = { navigate("identity") },
-                                onLanTest = { navigate("lan-test") }
+                                onLanTest = { navigate("lan-test") },
+                                onChatSandbox = { navigate("chat-preview") }
                             )
                             "identity" -> DeviceIdentitySetup()
                             "lan-test" -> LanHandshakeTest()
@@ -210,7 +211,7 @@ private fun EdenCommsApp() {
                             else -> HomeScreen(
                                 onPtt = { navigate("ptt") },
                                 onConnect = { navigate("connect") },
-                                onChatPreview = { navigate("chat-preview") },
+                                onChatPreview = { navigate("pairing-test") },
                                 onSettings = { navigate("settings") },
                                 onHelp = { navigate("help") }
                             )
@@ -228,7 +229,7 @@ private fun titleForPage(page: String): String = when (page) {
     "connect" -> "Connect nearby"
     "wifi" -> "Local Wi-Fi"
     "pairing-test" -> "Connect nearby"
-    "chat-preview" -> "Text preview"
+    "chat-preview" -> "Local text sandbox"
     "ptt" -> "Voice / PTT"
     "settings" -> "Settings"
     "developer" -> "Developer tools"
@@ -337,7 +338,7 @@ private fun HomeScreen(
             modifier = Modifier.weight(1f),
             glyph = R.drawable.ic_eden_chat,
             title = "Text",
-            detail = "Local UI preview",
+            detail = "Nearby test chat",
             onClick = onChatPreview
         )
         CompactModeTile(
@@ -356,7 +357,7 @@ private fun HomeScreen(
         NavigationRow("How it works", "A quick guide to connecting", onHelp, R.drawable.ic_eden_info)
     }
     Text(
-        "DEVELOPMENT PREVIEW  /  TEXT LAYOUT AVAILABLE LOCALLY",
+        "DEVELOPMENT TEST  /  NO PRIVATE MESSAGING",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -594,7 +595,8 @@ private fun SettingsScreen(
 @Composable
 private fun DeveloperScreen(
     onIdentity: () -> Unit,
-    onLanTest: () -> Unit
+    onLanTest: () -> Unit,
+    onChatSandbox: () -> Unit
 ) {
     Panel(
         title = "Internal testing",
@@ -615,6 +617,11 @@ private fun DeveloperScreen(
         title = "LAN TLS handshake test",
         description = "Host / Join over same Wi-Fi; no messages",
         onClick = onLanTest
+    )
+    NavigationRow(
+        title = "Text layout sandbox",
+        description = "Fictional samples and local typing only; no transport",
+        onClick = onChatSandbox
     )
     Text(
         "Never test with sensitive conversations or share full fingerprints through another messaging app.",
@@ -640,7 +647,7 @@ private fun HelpScreen(onPrivacy: () -> Unit) {
     SectionLabel("THE BASICS")
     StepLine("01", "Connect nearby", "Use the same Wi-Fi network")
     StepLine("02", "Confirm the other phone", "Approve the connection on both devices")
-    StepLine("03", "Communicate", "Text or voice after the connection is verified")
+    StepLine("03", "Communicate", "Short test text in development; voice later")
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     Text(
         "What privacy means here",
