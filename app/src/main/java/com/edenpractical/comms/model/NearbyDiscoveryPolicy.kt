@@ -30,5 +30,9 @@ internal object NearbyDiscoveryPolicy {
         "No background scanning, public account directory, automatic reconnection, " +
         "or saved scan results are planned for the first version."
 
-    fun availableNow(method: ConnectionMethod): Boolean = false
+    fun availableNow(method: ConnectionMethod): Boolean = when (method) {
+        ConnectionMethod.LAN,
+        ConnectionMethod.BLUETOOTH,
+        ConnectionMethod.WIFI_DIRECT -> false
+    }
 }
