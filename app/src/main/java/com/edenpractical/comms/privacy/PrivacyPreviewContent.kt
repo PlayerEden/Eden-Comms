@@ -11,7 +11,7 @@ internal object PrivacyPreviewContent {
     const val status = "DEVELOPMENT PREVIEW"
     const val introduction =
         "Eden Comms has an experimental same-Wi-Fi, two-phone QR/TLS connection. " +
-        "After BOTH phones approve and confirm, short typed TEST messages can " +
+        "After both phones approve and confirm, short typed TEST messages can " +
         "travel between the phones over the test connection. A separate " +
         "local-only text layout sandbox never transmits. This is unreviewed, " +
         "not physically accepted secure messaging. Voice is disabled. " +
@@ -52,8 +52,8 @@ internal object PrivacyPreviewContent {
         ),
         Section(
             "Local-only sandbox versus real test text",
-            "The developer Text layout sandbox does not intentionally save or " +
-                "transmit that text. The Home Text pathway instead pairs phones " +
+            "The developer Text layout sandbox is local-only and does not intentionally " +
+                "save or transmit that text. The Home Text pathway instead pairs phones " +
                 "and can transmit typed test messages over a pinned TLS " +
                 "connection. The keyboard, Android snapshots, screen recording " +
                 "or an observer may retain what you type or display. Avoid secrets."
