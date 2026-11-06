@@ -9,7 +9,7 @@ package com.edenpractical.comms.model
  */
 internal object NearbyDiscoveryPolicy {
     const val currentStatus =
-        "Nearby device search is OFF and NOT IMPLEMENTED in this build."
+        "Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED. A separate raw Bluetooth scan-count test is available only in Developer Tools."
 
     const val optInStep =
         "First you will choose Bluetooth or Wi-Fi Direct and explicitly start a search."
