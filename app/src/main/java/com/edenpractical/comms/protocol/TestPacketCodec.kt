@@ -5,13 +5,16 @@ import java.io.InputStream
 import java.io.OutputStream
 
 /**
- * Fixed, non-user-supplied test phrases and approval control for DEVELOPMENT-ONLY local TLS
- * session. This is NOT a production messaging format or an endorsement of
- * sending sensitive information through an unaudited application.
+ * Strict debug-only control frames and bounded development text envelopes
+ * inside the already-pinned local TLS test session. These are NOT production
+ * messaging formats or an endorsement of sending sensitive information through
+ * an unaudited application. Development typed text is never used in release.
  *
- * FrameCodec gives a bounded envelope; this layer accepts only a fixed
- * version, packet type, known phrase IDs, and v2 experimental 32-byte
- * approval session commitments. Old 3-byte approvals fail closed.
+ * FrameCodec bounds the outer envelope. Control packets accept only fixed
+ * versions, known phrase IDs and session-bound 32-byte approval commitments.
+ * Debug TEXT reuses the independently *unreviewed* ECTX candidate parser.
+ * ACK is deliberately still REJECTED: no false receipt semantics.
+ * Old 3-byte approvals fail closed.
  * Never use on plaintext sockets.
  */
 internal object TestPacketCodec {
@@ -34,13 +37,15 @@ internal object TestPacketCodec {
         Phrase(4, "Can you read this?")
     )
 
-    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM }
+    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT }
     // List makes byte-wise data class equality work in JVM wire tests.
     // Consent commitments are debug-only, never a transport secret.
     data class Packet(
         val type: Type,
         val phraseId: Int = 0,
-        val sessionCommitment: List<Byte> = emptyList()
+        val sessionCommitment: List<Byte> = emptyList(),
+        val messageId: Long = 0,
+        val text: String = ""
     )
 
     fun phrase(id: Int): String = phrases.firstOrNull { it.id == id }?.label
@@ -57,6 +62,16 @@ internal object TestPacketCodec {
     fun decline(commitment: ByteArray): Packet = boundControl(Type.DECLINE, commitment)
     fun confirm(commitment: ByteArray): Packet = boundControl(Type.CONFIRM, commitment)
 
+    /**
+     * Only LanDemoSession may send this over the debuggable pinned-TLS
+     * four-confirmation test path. Parser enforces strict UTF-8 and bounds.
+     */
+    fun debugText(messageId: Long, content: String): Packet {
+        val packet = Packet(Type.DEBUG_TEXT, messageId = messageId, text = content)
+        encode(packet) // Validate before queuing; fail closed on bad Unicode/size.
+        return packet
+    }
+
     private fun boundControl(type: Type, commitment: ByteArray): Packet {
         require(commitment.size == COMMITMENT_BYTES &&
             commitment.any { it != 0.toByte() }) { "Invalid debug session commitment" }
@@ -64,6 +79,17 @@ internal object TestPacketCodec {
     }
 
     fun encode(packet: Packet): ByteArray {
+        if (packet.type == Type.DEBUG_TEXT) {
+            require(packet.phraseId == 0 && packet.sessionCommitment.isEmpty()) {
+                "Debug typed text cannot carry approval fields"
+            }
+            return ProposedChatWireCodec.encode(
+                ProposedChatWireCodec.Packet.Text(packet.messageId, packet.text)
+            )
+        }
+        require(packet.messageId == 0L && packet.text.isEmpty()) {
+            "Only debug typed text may carry text or message IDs"
+        }
         val wireType = when (packet.type) {
             Type.READY -> READY
             Type.PRESET -> PRESET
@@ -72,6 +98,7 @@ internal object TestPacketCodec {
             Type.APPROVE -> APPROVE
             Type.DECLINE -> DECLINE
             Type.CONFIRM -> CONFIRM
+            Type.DEBUG_TEXT -> error("Debug text handled before controls")
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
@@ -94,6 +121,19 @@ internal object TestPacketCodec {
     }
 
     fun decode(bytes: ByteArray): Packet {
+        // The opaque candidate inner payload is accepted ONLY for a TEXT
+        // shape. Peer ACK cannot imply delivered/read, and is rejected here.
+        if (bytes.size >= 4 && bytes[0] == 0x45.toByte() &&
+            bytes[1] == 0x43.toByte() && bytes[2] == 0x54.toByte() &&
+            bytes[3] == 0x58.toByte()
+        ) {
+            val candidate = ProposedChatWireCodec.decode(bytes)
+            if (candidate !is ProposedChatWireCodec.Packet.Text) throw TestPacketException()
+            return Packet(
+                Type.DEBUG_TEXT, messageId = candidate.messageId,
+                text = candidate.content
+            )
+        }
         if (bytes.size < 3 || (bytes[0].toInt() and 0xFF) != VERSION)
             throw TestPacketException()
         val type = when (bytes[1].toInt() and 0xFF) {
