@@ -571,6 +571,12 @@ internal fun LocalPairingTestScreen() {
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
+                        "Current method: same-Wi-Fi test. Bluetooth and Wi-Fi Direct are planned, " +
+                            "but are not available or being scanned by this build.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
                         NearbyRecoveryGuide.wifiStatus(wifi != null),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
