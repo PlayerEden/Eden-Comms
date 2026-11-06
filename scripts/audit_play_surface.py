@@ -28,7 +28,12 @@ ALLOWED_PERMISSIONS = frozenset({
 GENERATED_MERGED_ONLY_PERMISSIONS = frozenset({
     "com.edenpractical.comms.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
 })
-EXPECTED_APK_PERMISSIONS = ALLOWED_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS
+# Android 12+ experimental Classic inquiry exists in debug variant ONLY.
+# Production main manifest remains at the original LAN+QR permissions.
+DEBUG_ONLY_PERMISSIONS = frozenset({"android.permission.BLUETOOTH_SCAN"})
+EXPECTED_APK_PERMISSIONS = (
+    ALLOWED_PERMISSIONS | DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS
+)
 SCOPES = ("implementation", "debugImplementation", "testImplementation",
           "releaseImplementation", "api", "runtimeOnly", "compileOnly")
 
@@ -146,6 +151,9 @@ def aapt_permissions(apk):
 def build_report(repo, apk):
     manifest = repo / "app/src/main/AndroidManifest.xml"
     declared, attrs, components = parse_manifest(manifest)
+    debug_declared, _, debug_exported = parse_manifest(
+        repo / "app/src/debug/AndroidManifest.xml"
+    )
     binary = aapt_permissions(apk)
     deps = direct_dependencies((repo / "app/build.gradle.kts").read_text(encoding="utf-8"))
     baseline = approved_dependencies(repo / "scripts/play_direct_dependency_baseline.txt")
@@ -155,10 +163,12 @@ def build_report(repo, apk):
     )
     problems = []
     if declared != ALLOWED_PERMISSIONS:
-        problems.append("Source manifest permissions differ from approved set")
+        problems.append("Release/main manifest permissions differ from approved set")
+    if debug_declared != DEBUG_ONLY_PERMISSIONS or debug_exported:
+        problems.append("Debug-only Bluetooth scan manifest differs from approved set")
     if binary != EXPECTED_APK_PERMISSIONS:
-        problems.append("Packaged APK permissions differ from approved merged set")
-    if binary - declared != GENERATED_MERGED_ONLY_PERMISSIONS:
+        problems.append("Packaged debug APK permissions differ from approved merged set")
+    if binary - declared != (DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS):
         problems.append("Unexpected manifest-merge permission addition or removal")
     if deps != baseline:
         problems.append("Direct dependency baseline changed: manual privacy/license review required")
@@ -178,6 +188,8 @@ def build_report(repo, apk):
         "source_permissions": sorted(declared),
         "apk_permissions": sorted(binary),
         "approved_source_permissions": sorted(ALLOWED_PERMISSIONS),
+        "approved_debug_only_permissions": sorted(DEBUG_ONLY_PERMISSIONS),
+        "actual_debug_only_permissions": sorted(debug_declared),
         "expected_androidx_merged_only_permission": sorted(GENERATED_MERGED_ONLY_PERMISSIONS),
         "application_settings": attrs,
         "exported_main_components": [
