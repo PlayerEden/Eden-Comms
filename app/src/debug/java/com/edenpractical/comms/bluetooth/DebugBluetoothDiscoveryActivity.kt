@@ -56,7 +56,7 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
  * Not a Bluetooth Eden Comms connection, and no physical QA has occurred.
  */
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
-    private val lifecycle = NearbyDiscoverySession()
+    private val discoveryState = NearbyDiscoverySession()
     private var attempt: NearbyDiscoverySession.Attempt? = null
     private var adapter: BluetoothAdapter? = null
     private var receiverRegistered = false
@@ -68,7 +68,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val timeout = Runnable {
         val token = attempt ?: return@Runnable
-        lifecycle.tick(token, SystemClock.elapsedRealtime())
+        discoveryState.tick(token, SystemClock.elapsedRealtime())
         stopHardware()
         attempt = null
         busy = false
@@ -80,7 +80,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             val token = attempt ?: return
             if (!foreground || !radioRunning || !hasScanPermission()) {
                 if (radioRunning && !hasScanPermission()) {
-                    lifecycle.permissionRevoked(token)
+                    discoveryState.permissionRevoked(token)
                     stopHardware()
                     attempt = null
                     busy = false
@@ -92,10 +92,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 BluetoothDevice.ACTION_FOUND -> {
                     // Never obtain intent's EXTRA_DEVICE, device name, address,
                     // bond state or advertised service data. This is a count only.
-                    val accepted = lifecycle.candidateObserved(
+                    val accepted = discoveryState.candidateObserved(
                         token, foreground = true, elapsedMs = SystemClock.elapsedRealtime()
                     )
-                    observations = lifecycle.snapshot().observations
+                    observations = discoveryState.snapshot().observations
                     if (!accepted) {
                         stopHardware()
                         attempt = null
@@ -104,7 +104,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     }
                 }
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
-                    lifecycle.complete(token)
+                    discoveryState.complete(token)
                     stopHardware()
                     attempt = null
                     busy = false
@@ -119,7 +119,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     ) { approved ->
         val token = attempt ?: return@registerForActivityResult
         val granted = approved && hasScanPermission()
-        if (!lifecycle.platformPermissionResult(token, foreground, granted)) {
+        if (!discoveryState.platformPermissionResult(token, foreground, granted)) {
             stopHardware()
             attempt = null
             busy = false
@@ -198,7 +198,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     override fun onStop() {
         foreground = false
         val token = attempt
-        if (token != null) lifecycle.onBackground(token)
+        if (token != null) discoveryState.onBackground(token)
         stopHardware()
         attempt = null
         busy = false
@@ -219,21 +219,21 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
 
     private fun beginInquiry() {
         if (!foreground || busy || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        if (lifecycle.snapshot().phase == NearbyDiscoverySession.Phase.STOPPED) {
-            lifecycle.resetAfterStop()
+        if (discoveryState.snapshot().phase == NearbyDiscoverySession.Phase.STOPPED) {
+            discoveryState.resetAfterStop()
         }
-        val token = lifecycle.begin(ConnectionMethod.BLUETOOTH, foreground)
+        val token = discoveryState.begin(ConnectionMethod.BLUETOOTH, foreground)
             ?: return
         attempt = token
         busy = true
         observations = 0
         status = "Confirming your permission to start nearby Bluetooth inquiry."
-        if (!lifecycle.personConsented(token, foreground)) {
+        if (!discoveryState.personConsented(token, foreground)) {
             stopByUser()
             return
         }
         if (hasScanPermission()) {
-            if (lifecycle.platformPermissionResult(token, foreground, granted = true)) {
+            if (discoveryState.platformPermissionResult(token, foreground, granted = true)) {
                 startInquiry(token)
             } else {
                 stopByUser()
@@ -246,7 +246,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     @Suppress("MissingPermission")
     private fun startInquiry(token: NearbyDiscoverySession.Attempt) {
         if (!foreground || !hasScanPermission()) {
-            lifecycle.permissionRevoked(token)
+            discoveryState.permissionRevoked(token)
             stopHardware()
             attempt = null
             busy = false
@@ -257,7 +257,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             adapter = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
             val local = adapter
             if (local == null) {
-                lifecycle.radioUnavailable(token)
+                discoveryState.radioUnavailable(token)
                 stopHardware()
                 attempt = null
                 busy = false
@@ -278,7 +278,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             // Mark actual hardware inquiry before validating lifecycle: if
             // validation rejects a state, stopHardware MUST still cancel radio.
             radioRunning = started
-            if (!lifecycle.radioScanStarted(
+            if (!discoveryState.radioScanStarted(
                     token, foreground, started, SystemClock.elapsedRealtime()
                 )
             ) {
@@ -292,13 +292,13 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             handler.postDelayed(timeout, NearbyDiscoverySession.MAX_SCAN_MS + 100L)
             status = "Searching nearby Bluetooth radio signals. Tap Stop at any time."
         } catch (_: SecurityException) {
-            lifecycle.permissionRevoked(token)
+            discoveryState.permissionRevoked(token)
             stopHardware()
             attempt = null
             busy = false
             status = "Bluetooth permission unavailable. No scan started."
         } catch (_: RuntimeException) {
-            lifecycle.radioUnavailable(token)
+            discoveryState.radioUnavailable(token)
             stopHardware()
             attempt = null
             busy = false
@@ -308,7 +308,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
 
     private fun stopByUser() {
         val token = attempt ?: return
-        lifecycle.cancel(token)
+        discoveryState.cancel(token)
         stopHardware()
         attempt = null
         busy = false
