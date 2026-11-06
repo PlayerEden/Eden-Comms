@@ -42,6 +42,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [M3f: chat-first navigation, Unicode composer and session cleanup](docs/M3F_CHAT_FIRST_EXPERIENCE.md)
 - [M3g: working local privacy curtain, confirmed clear and honest retention status](docs/M3G_SESSION_PRIVACY_CONTROLS.md)
 - [M3h: nearby Wi-Fi recovery, targeted guidance and fresh-QR restart](docs/M3H_NEARBY_RECOVERY.md)
+- [M3i: real nearby connection method catalog and one-tap QR navigation](docs/M3I_CONNECTION_METHOD_CATALOG.md)
 - [Milestones M0–M6](docs/DEVELOPMENT_ROADMAP.md)
 - [Security threat model and QA](docs/SECURITY_AND_QA.md)
 - [Privacy and security charter — no-ship requirements](docs/PRIVACY_SECURITY_CHARTER.md)
