@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        buildConfigField("String", "SOURCE_REVISION", "\\"$sourceRevision\\"")
+        buildConfigField("String", "SOURCE_REVISION", "\"$sourceRevision\"")
         applicationId = "com.edenpractical.comms"
         minSdk = 26
         targetSdk = 36
