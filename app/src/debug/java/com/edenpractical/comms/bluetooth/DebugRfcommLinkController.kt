@@ -220,6 +220,13 @@ internal class DebugRfcommLinkController(
         closeQuietly(oldServer)
         closeQuietly(oldSocket)
         handler.post {
+            // An old connection's queued closure message cannot overwrite
+            // a newer user-started link after reset or reconnect.
+            synchronized(lock) {
+                if (active != null || gate.snapshot().phase !=
+                    DebugRfcommAttemptGate.Phase.STOPPED
+                ) return@post
+            }
             val reason = when (why) {
                 DebugRfcommAttemptGate.End.USER -> "You disconnected the test link."
                 DebugRfcommAttemptGate.End.BACKGROUND -> "Link closed when the app left the screen."
