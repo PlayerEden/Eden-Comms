@@ -22,17 +22,19 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.SSLServerSocket
 import javax.net.ssl.SSLSocket
 
 /**
  * DEVELOPMENT/DEBUG-ONLY, in-memory two-phone test conversation.
  *
- * Sends ONLY four fixed, synthetic phrases, never user-supplied chat text.
- * Every byte is inside strict mutual TLS 1.3, after both exact certificate pins
- * and the existing two-QR session proof pass. A READY exchange follows proof.
- * No advertising of secure messenger readiness, persistent trust, notifications,
- * message history, file transfer, voice, or unencrypted socket fallback.
+ * Sends four fixed synthetic phrases AND bounded user-typed development
+ * text for functional QA ONLY after the existing session-bound, two-party
+ * debug approvals and final confirmations. This is an UNREVIEWED preview,
+ * never a safe destination for sensitive content or a production messenger.
+ * Every byte is inside pinned mutual TLS 1.3 after the two-QR session proof.
+ * No saved history, delivery claims, voice or plaintext socket fallback.
  *
  * The older LanTlsProbe remains available as a one-shot diagnostic.
  */
@@ -42,10 +44,11 @@ internal class LanDemoSession(
 ) : AutoCloseable {
     enum class Phase {
         LISTENING, CONNECTING, PROGRESS, READY, APPROVAL_UPDATE, APPROVAL_COMPLETE,
-        SENT, RECEIVED, ENDED, FAILED
+        SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, ENDED, FAILED
     }
     enum class SendResult { QUEUED, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     enum class ApprovalResult { QUEUED, ALREADY_PENDING, NOT_CONNECTED }
+    enum class TextSendResult { QUEUED, INVALID_TEXT, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     data class Event(
         val phase: Phase,
         val description: String,
@@ -53,7 +56,9 @@ internal class LanDemoSession(
         val progress: LanDemoStatus.Progress? = null,
         val endCode: LanDemoStatus.EndCode? = null,
         val failureCode: LanProbeDiagnostics.Code? = null,
-        val approvalState: DebugApprovalGate.State? = null
+        val approvalState: DebugApprovalGate.State? = null,
+        val text: String? = null,
+        val messageId: Long? = null
     )
 
     companion object {
@@ -91,6 +96,9 @@ internal class LanDemoSession(
     private val outputLock = Any()
     private val sockets = SessionSocketRegistry()
     private val sendBudget = DemoSendBudget(2)
+    private val nextDebugTextId = AtomicLong(1L)
+    // Reader-thread only; old/replayed/non-increasing IDs fail closed.
+    private var lastReceivedDebugTextId = 0L
     private val heartbeatQueued = AtomicBoolean(false)
     private val approvalQueued = AtomicBoolean(false)
     private val confirmationQueued = AtomicBoolean(false)
@@ -230,14 +238,14 @@ internal class LanDemoSession(
             Phase.READY,
             "Pinned TLS 1.3, QR proof and matching RFC 9266 debug channel " +
                 "binding passed on this phone. Both experimental approvals must " +
-                "match this QR/challenge/TLS session before the four preset " +
-                "phrases; not independently reviewed secure text authorization."
+                "match this QR/challenge/TLS session before development-only " +
+                "text or preset phrases; not independently reviewed authorization."
         ))
         startHeartbeat()
 
-        // Only fixed 3-byte preset/heartbeat/READY/CLOSE or 35-byte
-        // session-bound approval, decline and final-confirm controls inside FrameCodec.
-        // Absolutely no general text or unsolicited packet types.
+        // Fixed control types and a strict, bounded debug TEXT inner payload
+        // inside FrameCodec. Never treat this as reviewed production messaging.
+        // An unreviewed ACK candidate is NOT part of the accepted protocol.
         while (!stopped.get()) {
             when (val packet = TestPacketCodec.read(socket.inputStream)) {
                 is TestPacketCodec.Packet -> {
@@ -270,6 +278,17 @@ internal class LanDemoSession(
                                 state == DebugApprovalGate.State.DECLINED
                             ) throw TestPacketException()
                             emitApprovalState(state)
+                        }
+                        TestPacketCodec.Type.DEBUG_TEXT -> {
+                            if (!approvalGate.maySendPreset() ||
+                                packet.messageId <= lastReceivedDebugTextId ||
+                                packet.text.isEmpty()
+                            ) throw TestPacketException()
+                            lastReceivedDebugTextId = packet.messageId
+                            emit(Event(
+                                Phase.TEXT_RECEIVED, "Development text received in this app",
+                                messageId = packet.messageId, text = packet.text
+                            ))
                         }
                         TestPacketCodec.Type.HEARTBEAT -> Unit
                         TestPacketCodec.Type.CLOSE -> {
@@ -307,6 +326,60 @@ internal class LanDemoSession(
         } catch (_: RuntimeException) {
             sendBudget.release()
             SendResult.NOT_CONNECTED
+        }
+    }
+
+
+    /**
+     * Development-build ONLY. The caller cannot enable this from a non-debug
+     * application (constructor checks FLAG_DEBUGGABLE). Explicitly confirmed
+     * current pinned TLS session only. This is NOT trusted personal messaging.
+     *
+     * A QUEUED result only means queued for the writer; the later TEXT_WRITTEN
+     * callback means this phone wrote it to TLS, not peer delivery/read.
+     */
+    fun sendDebugText(rawText: String): TextSendResult {
+        if (!ready || stopped.get() || ending.get()) return TextSendResult.NOT_CONNECTED
+        if (!approvalGate.maySendPreset()) return TextSendResult.AWAITING_APPROVAL
+        val clean = rawText.trim()
+        if (clean.isEmpty()) return TextSendResult.INVALID_TEXT
+        // Validate Unicode, control characters and byte/code-point bounds
+        // before allocating a slot in the bounded outgoing queue.
+        try {
+            TestPacketCodec.debugText(1, clean)
+        } catch (_: IOException) {
+            return TextSendResult.INVALID_TEXT
+        } catch (_: IllegalArgumentException) {
+            return TextSendResult.INVALID_TEXT
+        }
+        if (!sendBudget.tryAcquire()) return TextSendResult.BUSY
+        val id = nextDebugTextId.getAndIncrement()
+        if (id <= 0L) {
+            sendBudget.release()
+            return TextSendResult.INVALID_TEXT
+        }
+        val packet = TestPacketCodec.debugText(id, clean)
+        return try {
+            writer.execute {
+                try {
+                    if (!ready || stopped.get() || ending.get() ||
+                        !approvalGate.maySendPreset()) return@execute
+                    sendPacket(packet)
+                    emit(Event(
+                        Phase.TEXT_WRITTEN, "Development text written to TLS (not delivery)",
+                        messageId = id, text = clean
+                    ))
+                } catch (_: IOException) {
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                    close()
+                } finally {
+                    sendBudget.release()
+                }
+            }
+            TextSendResult.QUEUED
+        } catch (_: RuntimeException) {
+            sendBudget.release()
+            TextSendResult.NOT_CONNECTED
         }
     }
 
