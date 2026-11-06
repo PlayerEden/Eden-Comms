@@ -38,6 +38,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 
 - [Product vision](docs/PRODUCT_VISION.md)
 - [M3e: working debug-only two-way text prototype; physical QA deferred](docs/M3E_DEBUG_TWO_WAY_TEXT.md)
+- [M3f: chat-first navigation, Unicode composer and session cleanup](docs/M3F_CHAT_FIRST_EXPERIENCE.md)
 - [Milestones M0–M6](docs/DEVELOPMENT_ROADMAP.md)
 - [Security threat model and QA](docs/SECURITY_AND_QA.md)
 - [Privacy and security charter — no-ship requirements](docs/PRIVACY_SECURITY_CHARTER.md)
