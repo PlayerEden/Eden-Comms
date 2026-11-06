@@ -234,4 +234,27 @@ grep -Fq 'DebugApprovalGate.State.CONFIRMED ->' "$DEBUG_LAN"
 grep -Fq 'event.approvalState != DebugApprovalGate.State.CONFIRMED' \
   "$MAIN/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt"
 
-echo "PASS: M3e debuggable-only bounded text after four consent events; release messaging/voice disabled"
+# M3j discovery is a deliberately NON-LIVE lifecycle contract, not a
+# scanner. Future adapter + actual Android permission and transport work must
+# be reviewed separately; this model must not leak into live app UI/sockets.
+DISCOVERY_MODEL="$MAIN/com/edenpractical/comms/transport/NearbyDiscoverySession.kt"
+DISCOVERY_COPY="$MAIN/com/edenpractical/comms/model/NearbyDiscoveryPolicy.kt"
+test -f "$DISCOVERY_MODEL" && test -f "$DISCOVERY_COPY"
+if grep -RFn --include='*.kt' --exclude='NearbyDiscoverySession.kt' \
+  'NearbyDiscoverySession' "$MAIN"; then
+  echo "FAIL: model-only discovery state reached a live app codepath" >&2
+  exit 1
+fi
+if grep -REn '^(import android\\.|import java\\.net\\.|import javax\\.net\\.)' \
+  "$DISCOVERY_MODEL"; then
+  echo "FAIL: future discovery state opened Android/platform networking dependencies" >&2
+  exit 1
+fi
+grep -Fq 'const val MAX_SCAN_MS = 30_000L' "$DISCOVERY_MODEL"
+grep -Fq 'const val MAX_OBSERVATIONS = 32' "$DISCOVERY_MODEL"
+grep -Fq 'fun onBackground(attempt: Attempt): Boolean' "$DISCOVERY_MODEL"
+grep -Fq 'fun permissionRevoked(attempt: Attempt): Boolean' "$DISCOVERY_MODEL"
+grep -Fq 'fun resetAfterStop(): Boolean' "$DISCOVERY_MODEL"
+grep -Fq 'Nearby device search is OFF and NOT IMPLEMENTED' "$DISCOVERY_COPY"
+
+echo "PASS: M3j planning-only discovery lifecycle isolated; M3e debug text after four consent events; release messaging/voice disabled"
