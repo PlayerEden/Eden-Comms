@@ -91,6 +91,7 @@ internal fun LocalPairingTestScreen() {
     // Session-only chat content; never rememberSaveable or persistent.
     var debugText by remember { mutableStateOf(DebugTextTranscript.fresh()) }
     var textDraft by remember { mutableStateOf("") }
+    var showTestTools by remember { mutableStateOf(false) }
     var qaRole by remember { mutableStateOf(LocalQaReport.Role.NOT_SELECTED) }
     var qaFinish by remember { mutableStateOf(LocalQaReport.Finish.NOT_RECORDED) }
     var qaLastCheckpoint by remember { mutableStateOf<LanDemoStatus.Progress?>(null) }
@@ -137,6 +138,7 @@ internal fun LocalPairingTestScreen() {
         clearTemporaryPairing()
         details = ""
         showDetails = false
+        showTestTools = false
         showPairingHelp = false
         cameraError = false
         transcript = DebugSessionTranscript.fresh()
@@ -234,6 +236,7 @@ internal fun LocalPairingTestScreen() {
             transcript = DebugSessionTranscript.fresh()
             debugText = DebugTextTranscript.fresh()
             textDraft = ""
+            showTestTools = false
             qaLastCheckpoint = null
             qaEndCode = null
             qaFailureCode = null
@@ -387,6 +390,8 @@ internal fun LocalPairingTestScreen() {
                             details = event.description
                             status = "Couldn't connect. Check both phones are on the same Wi-Fi."
                             transcript = transcript.finish()
+                            debugText = debugText.finish()
+                            textDraft = ""
                             stage = "result"
                         }
                     }
@@ -472,13 +477,18 @@ internal fun LocalPairingTestScreen() {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Connect nearby", style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
         Text(
-            "Connection test only • Both phones need the same Wi-Fi. No internet required.",
+            if (stage == "demo") "Nearby conversation" else "Connect nearby",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            if (stage == "demo") "Temporary two-way chat • Unreviewed development test"
+            else "Connection test only • Both phones need the same Wi-Fi. No internet required.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (stage != "demo") {
         Text(
             "Installed test build: ${BuildEvidenceReport.brief(installedBuildEvidence)}",
             style = MaterialTheme.typography.labelSmall,
@@ -500,6 +510,7 @@ internal fun LocalPairingTestScreen() {
                 status = "Couldn't copy build details on this phone."
             }
         }) { Text("Copy installed build details") }
+        }
         FieldFrame(accent = true) {
             PairingTestUiCopy.progress(stage)?.let { progress ->
                 Text(progress, style = MaterialTheme.typography.labelSmall,
@@ -746,6 +757,8 @@ internal fun LocalPairingTestScreen() {
                             clearTemporaryPairing()
                             approvalSending = false
                             transcript = transcript.finish()
+                            debugText = debugText.finish()
+                            textDraft = ""
                             details = "You declined the experimental connection."
                             status = "Debug approval declined. Test disconnected."
                             stage = "result"
@@ -754,25 +767,62 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("Decline and disconnect") }
                 }
                 "demo" -> {
-                    Text("Development conversation", fontWeight = FontWeight.SemiBold)
-                    Text("Unreviewed DEBUG TEST ONLY. Type ordinary test words, not private information. " +
-                        "Short text travels over this test connection only after both approvals. " +
-                        "No voice, saved history or guaranteed delivery.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // A connected debug socket is not user consent or authorization
-                    // to send real text. Keep provider diagnostics behind a disclosure.
-                    TextButton(onClick = { showDetails = !showDetails }) {
-                        Text(if (showDetails) "Hide technical link status" else "Technical link status")
+                    // Make actual development text the PRIMARY interaction.
+                    // Fixed phrases, packet counts and TLS diagnostics remain
+                    // available but don't bury the composer on small screens.
+                    DebugConversationPanel(
+                        transcript = debugText,
+                        draft = textDraft,
+                        onDraftChange = { textDraft = it },
+                        onSend = {
+                            when (probe?.sendDebugText(textDraft)) {
+                                LanDemoSession.TextSendResult.QUEUED -> {
+                                    textDraft = ""
+                                    status = "Test text queued. A local TLS write is not delivery."
+                                }
+                                LanDemoSession.TextSendResult.INVALID_TEXT ->
+                                    status = "Use a short test message without invalid characters."
+                                LanDemoSession.TextSendResult.BUSY ->
+                                    status = "Busy sending. Please try again."
+                                LanDemoSession.TextSendResult.AWAITING_APPROVAL ->
+                                    status = "Both phones must approve and confirm this test."
+                                LanDemoSession.TextSendResult.NOT_CONNECTED, null ->
+                                    status = "The test connection is no longer active."
+                            }
+                        }
+                    )
+                    OutlinedButton(
+                        onClick = { showTestTools = !showTestTools },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        shape = CutCornerShape(6.dp)
+                    ) {
+                        Text(
+                            if (showTestTools) "Hide test tools and connection details"
+                            else "Show preset phrases and connection details"
+                        )
                     }
-                    if (showDetails) {
-                        Text(details,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Both phones compared this TLS channel's binding in the experimental test. It is not independent security review or human permission.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    if (showTestTools) {
+                        Text(
+                            "PRESET PHRASES / DIAGNOSTICS",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        TextButton(onClick = { showDetails = !showDetails }) {
+                            Text(if (showDetails) "Hide technical link status" else "Technical link status")
+                        }
+                        if (showDetails) {
+                            Text(
+                                details,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "TLS channel binding is part of an experimental test, " +
+                                    "not an independent security review.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     Text("Written to TLS here: ${transcript.writtenToTls}  •  Received here: ${transcript.receivedHere}",
                         style = MaterialTheme.typography.labelMedium)
                     if (transcript.recent.isEmpty()) {
@@ -851,103 +901,7 @@ internal fun LocalPairingTestScreen() {
                             }
                         }
                     }
-                    FieldFrame {
-                        Text(
-                            "SHORT TEXT • TEST CONNECTION",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (debugText.visible.isEmpty()) {
-                            Text(
-                                "No typed test messages yet. You can exchange short text " +
-                                    "after both phones confirm the connection.",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                debugText.visible.forEach { entry ->
-                                    val local = entry.direction ==
-                                        DebugTextTranscript.Direction.WRITTEN_TO_TLS
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = if (local)
-                                            Arrangement.End else Arrangement.Start
-                                    ) {
-                                        Surface(
-                                            modifier = Modifier.fillMaxWidth(0.92f),
-                                            shape = CutCornerShape(6.dp),
-                                            color = if (local)
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                            else MaterialTheme.colorScheme.surfaceVariant
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.padding(10.dp),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                Text(
-                                                    if (local) "You • Written to TLS (not delivered)"
-                                                    else "Other phone • Received here",
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    style = MaterialTheme.typography.labelSmall
-                                                )
-                                                Text(
-                                                    entry.text,
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        OutlinedTextField(
-                            value = textDraft,
-                            onValueChange = { candidate ->
-                                if (candidate.length <= 280) textDraft = candidate
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Type a short TEST message") },
-                            placeholder = { Text("Hello from this phone…") },
-                            minLines = 2,
-                            maxLines = 4,
-                            supportingText = {
-                                Text("${textDraft.length}/280 • Don't enter sensitive text")
-                            },
-                            shape = CutCornerShape(6.dp)
-                        )
-                        Button(
-                            onClick = {
-                                when (probe?.sendDebugText(textDraft)) {
-                                    LanDemoSession.TextSendResult.QUEUED -> {
-                                        textDraft = ""
-                                        status = "Test text queued; wait for local TLS write."
-                                    }
-                                    LanDemoSession.TextSendResult.INVALID_TEXT ->
-                                        status = "Use a nonempty test message without control characters."
-                                    LanDemoSession.TextSendResult.BUSY ->
-                                        status = "Writer is busy. Try again shortly."
-                                    LanDemoSession.TextSendResult.AWAITING_APPROVAL ->
-                                        status = "Both people must approve and confirm this test first."
-                                    LanDemoSession.TextSendResult.NOT_CONNECTED, null ->
-                                        status = "The test socket is no longer connected."
-                                }
-                            },
-                            enabled = textDraft.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) {
-                            Text("SEND TEST TEXT", fontWeight = FontWeight.Bold)
-                        }
-                        Text(
-                            "Only this temporary session stores the conversation in RAM. " +
-                                "Leaving the screen or disconnecting clears it; " +
-                                "Android keyboards and screenshots can still keep copies.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
-                    Text("Written to TLS is not a receipt. Compare both screens to verify actual arrival.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(
                         onClick = {
                             val ending = probe
@@ -959,10 +913,13 @@ internal fun LocalPairingTestScreen() {
                             details = "Test ended on this phone."
                             status = "Test ended."
                             transcript = transcript.finish()
+                            debugText = debugText.finish()
+                            textDraft = ""
+                            showTestTools = false
                             stage = "result"
                         },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                    ) { Text("End test and disconnect") }
+                    ) { Text("End chat and disconnect") }
                 }
                 "result" -> {
                     Text(PairingTestUiCopy.resultHeading(transcript.reachedReady, qaTlsReady),
@@ -1039,8 +996,8 @@ internal fun LocalPairingTestScreen() {
             }
         }
         Text(
-            "This development build can send only preset test phrases over a verified local connection. " +
-                "Normal text messaging, history and Voice / PTT remain disabled.",
+            "Debug builds can exchange short typed test text and preset phrases after both " +
+                "phones approve. Production messaging, retained history and Voice / PTT remain disabled.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
