@@ -167,6 +167,23 @@ internal class DebugBluetoothQrCoordinator {
         status = "Camera could not start. Tap Retry, or cancel the QR exchange."
     }
 
+    /**
+     * Fresh QR only prepares the EXPECTED peer certificate pin for a real
+     * TLS signature check. The selected Bluetooth device remains untrusted
+     * until an actual pinned TLS 1.3 engine handshake succeeds.
+     */
+    fun newTlsProbeInput(hostRole: Boolean): DebugBluetoothTlsProbeInput? {
+        if (!readyForDebugLink(hostRole)) return null
+        val own = identity ?: return null
+        val pin = prepared?.peerFingerprint(System.currentTimeMillis() / 1000)
+            ?: return null
+        return try {
+            DebugBluetoothTlsProbeInput(own, pin, hostRole)
+        } finally {
+            pin.fill(0)
+        }
+    }
+
     fun retryCamera() {
         if (stage == Stage.HOST_SCAN_REPLY || stage == Stage.JOIN_SCAN_HOST)
             scannerGeneration++

@@ -12,10 +12,11 @@ import java.util.UUID
 /**
  * Actual secure-Bluetooth-RFCOMM socket experiment in src/debug ONLY.
  *
- * No InputStream, OutputStream, application frames, chat, peer identity,
- * certificates, trusted contact or persisted data. A BluetoothSocket only
- * proves an OS link was opened; it does NOT prove the Eden Comms peer identity
- * or establish an approved message session. No unencrypted fallback.
+ * M3n-B1: after a fresh two-QR exchange, a real pinned mutual TLS 1.3
+ * SSLEngine HANDSHAKE ONLY runs over this RFCOMM socket, checking peer key
+ * possession, exact certificate pin and exporter availability. No QR nonce
+ * binding, bilateral approvals, application packets, chat, voice or
+ * persisted data. No plaintext or insecure RFCOMM fallback.
  *
  * Socket accept/connect always run off the UI thread. Closing the socket/server
  * aborts pending blocking operations. Each callback is fenced by a token so
@@ -46,7 +47,8 @@ internal class DebugRfcommLinkController(
     fun phase(): DebugRfcommAttemptGate.Phase = gate.snapshot().phase
 
     @Suppress("MissingPermission")
-    fun host(adapter: BluetoothAdapter): Boolean {
+    fun host(adapter: BluetoothAdapter, request: DebugBluetoothTlsProbeInput): Boolean {
+        if (!request.hostRole) return false
         val token = begin(DebugRfcommAttemptGate.Role.HOST) ?: return false
         Thread({
             var listening: BluetoothServerSocket? = null
@@ -61,7 +63,7 @@ internal class DebugRfcommLinkController(
                 synchronized(lock) { if (server === created) server = null }
                 closeQuietly(created)
                 listening = null
-                connected(token, accepted)
+                connected(token, accepted, request)
             } catch (_: IOException) {
                 fail(token)
             } catch (_: SecurityException) {
@@ -69,6 +71,7 @@ internal class DebugRfcommLinkController(
             } catch (_: RuntimeException) {
                 fail(token)
             } finally {
+                request.close()
                 closeQuietly(listening)
                 synchronized(lock) { if (server === listening) server = null }
             }
@@ -77,7 +80,8 @@ internal class DebugRfcommLinkController(
     }
 
     @Suppress("MissingPermission")
-    fun join(device: BluetoothDevice, adapter: BluetoothAdapter): Boolean {
+    fun join(device: BluetoothDevice, adapter: BluetoothAdapter, request: DebugBluetoothTlsProbeInput): Boolean {
+        if (request.hostRole) return false
         val token = begin(DebugRfcommAttemptGate.Role.JOIN) ?: return false
         Thread({
             try {
@@ -88,13 +92,15 @@ internal class DebugRfcommLinkController(
                 val created = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
                 if (!claimSocket(token, created)) return@Thread
                 created.connect() // blocking; stop/timeout closes it
-                connected(token, created)
+                connected(token, created, request)
             } catch (_: IOException) {
                 fail(token)
             } catch (_: SecurityException) {
                 fail(token, DebugRfcommAttemptGate.End.PERMISSION_LOST)
             } catch (_: RuntimeException) {
                 fail(token)
+            } finally {
+                request.close()
             }
         }, "EC-debug-rfcomm-join").start()
         return true
@@ -142,7 +148,11 @@ internal class DebugRfcommLinkController(
             }
         }
 
-    private fun connected(token: DebugRfcommAttemptGate.Token, created: BluetoothSocket) {
+    private fun connected(
+        token: DebugRfcommAttemptGate.Token,
+        created: BluetoothSocket,
+        request: DebugBluetoothTlsProbeInput
+    ) {
         var accepted = false
         synchronized(lock) {
             if (active === token && gate.opened(
@@ -157,9 +167,22 @@ internal class DebugRfcommLinkController(
         }
         if (!accepted) {
             closeQuietly(created)
+            stop(
+                token,
+                if (!isForeground()) DebugRfcommAttemptGate.End.BACKGROUND
+                else DebugRfcommAttemptGate.End.PERMISSION_LOST
+            )
             return
         }
-        announce(token, "RFCOMM socket opened (UNVERIFIED). No app messages are sent. Disconnect to close.")
+        announce(token, "RFCOMM open: testing strict pinned mutual TLS 1.3. No app messages.")
+        try {
+            // Worker thread: the TLS handshake only. No channel authorizes
+            // chat/voice, and the socket is closed after this probe returns.
+            DebugRfcommTlsProbe.run(created, request)
+            stop(token, DebugRfcommAttemptGate.End.TLS_PROBE_PASSED)
+        } catch (_: Exception) {
+            stop(token, DebugRfcommAttemptGate.End.FAILED)
+        }
     }
 
     private fun announce(token: DebugRfcommAttemptGate.Token, message: String) {
@@ -210,7 +233,13 @@ internal class DebugRfcommLinkController(
         val oldServer: BluetoothServerSocket?
         val oldSocket: BluetoothSocket?
         synchronized(lock) {
-            if (active !== token || !gate.stop(token, why)) return
+            if (active !== token) return
+            // opened() itself may already have set STOPPED on a detected
+            // permission/foreground failure. We still MUST close owned sockets
+            // and clear the attempt even when the model transitioned first.
+            if (!gate.stop(token, why) &&
+                gate.snapshot().phase != DebugRfcommAttemptGate.Phase.STOPPED
+            ) return
             active = null
             cancelTimer()
             oldServer = server
@@ -235,7 +264,12 @@ internal class DebugRfcommLinkController(
                 DebugRfcommAttemptGate.End.PERMISSION_LOST -> "Bluetooth permission lost; link closed."
                 DebugRfcommAttemptGate.End.TIMEOUT -> "Bluetooth connection attempt timed out."
                 DebugRfcommAttemptGate.End.EXPIRED -> "Debug link reached its 45-second limit and closed."
-                DebugRfcommAttemptGate.End.FAILED -> "Bluetooth RFCOMM connection failed. No messages sent."
+                DebugRfcommAttemptGate.End.FAILED ->
+                    "Bluetooth link/TLS probe failed or peer pin mismatched. No messages sent."
+                DebugRfcommAttemptGate.End.TLS_PROBE_PASSED ->
+                    "Pinned TLS 1.3 certificate verified and local exporter available. " +
+                        "QR nonce/channel agreement and human approvals NOT tested. " +
+                        "Diagnostic socket closed; no messages sent."
             }
             onState(DebugRfcommAttemptGate.Phase.STOPPED, reason)
         }

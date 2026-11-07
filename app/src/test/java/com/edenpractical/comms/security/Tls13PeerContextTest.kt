@@ -36,6 +36,17 @@ class Tls13PeerContextTest {
         }
     }
 
+    @Test fun bluetoothEngineRequiresTls13AndHostMutualAuth() {
+        val policy = Tls13PeerContext(stubLocalCredentials, ByteArray(32) { 0x21 })
+        val serverEngine = policy.unconnectedEngine(client = false)
+        assertArrayEquals(arrayOf("TLSv1.3"), serverEngine.enabledProtocols)
+        assertTrue(!serverEngine.useClientMode)
+        assertTrue(serverEngine.needClientAuth)
+        val clientEngine = policy.unconnectedEngine(client = true)
+        assertArrayEquals(arrayOf("TLSv1.3"), clientEngine.enabledProtocols)
+        assertTrue(clientEngine.useClientMode)
+    }
+
     @Test fun missingPeerPinCannotMakeContext() {
         assertThrows(IllegalArgumentException::class.java) {
             Tls13PeerContext(stubLocalCredentials, ByteArray(0))
