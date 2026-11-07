@@ -12,11 +12,11 @@ import java.util.UUID
 /**
  * Actual secure-Bluetooth-RFCOMM socket experiment in src/debug ONLY.
  *
- * M3n-B2: this RFCOMM socket runs a pinned mutual TLS 1.3 engine,
- * four encrypted fresh QR proof records, two encrypted exporter comparisons,
- * and two role-ordered encrypted transcript commitments. These are strictly
- * fixed protocol control records, NOT messages. No bilateral human approval,
- * text, voice, saved peers or production connection. Closes on any outcome.
+ * M3n-C1: this RFCOMM socket runs pinned TLS 1.3, fresh QR proof,
+ * same-channel exporter and transcript commitments, then requires explicit
+ * APPROVE from EACH person and exchanges two encrypted final CONFIRM records.
+ * It still closes after diagnostic success, with no text, audio, saved peers
+ * or production connection. Only a bounded, foreground debug experiment.
  * No plaintext or insecure RFCOMM fallback.
  *
  * Socket accept/connect always run off the UI thread. Closing the socket/server
@@ -27,7 +27,8 @@ internal class DebugRfcommLinkController(
     private val handler: Handler,
     private val isForeground: () -> Boolean,
     private val hasConnectPermission: () -> Boolean,
-    private val onState: (DebugRfcommAttemptGate.Phase, String) -> Unit
+    private val onState: (DebugRfcommAttemptGate.Phase, String) -> Unit,
+    private val onApprovalReady: (Boolean) -> Unit
 ) {
     companion object {
         // Fixed DEMO SDP UUID, not a secret or a peer identity.
@@ -43,6 +44,7 @@ internal class DebugRfcommLinkController(
     private var active: DebugRfcommAttemptGate.Token? = null
     private var server: BluetoothServerSocket? = null
     private var socket: BluetoothSocket? = null
+    private var consent: DebugBluetoothConsentDecision? = null
     private var deadline: Runnable? = null
 
     fun phase(): DebugRfcommAttemptGate.Phase = gate.snapshot().phase
@@ -177,10 +179,36 @@ internal class DebugRfcommLinkController(
         }
         announce(token, "RFCOMM open: testing strict pinned mutual TLS 1.3. No app messages.")
         try {
-            // Worker thread: the TLS handshake only. No channel authorizes
-            // chat/voice, and the socket is closed after this probe returns.
-            DebugRfcommTlsProbe.run(created, request)
-            stop(token, DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED)
+            // Worker thread. After fully agreeing on the pinned session,
+            // solicit one explicit per-person decision, then exchange
+            // encrypted approvals and final confirmations. Never enable chat.
+            DebugRfcommTlsProbe.run(created, request) { decision ->
+                synchronized(lock) {
+                    if (active !== token || !gate.isLive(token) ||
+                        !isForeground() || !hasConnectPermission()
+                    ) {
+                        decision.close()
+                    } else {
+                        consent = decision
+                        handler.post {
+                            synchronized(lock) {
+                                if (active !== token || consent !== decision ||
+                                    !gate.isLive(token)
+                                ) return@post
+                                onApprovalReady(true)
+                                onState(
+                                    gate.snapshot().phase,
+                                    "QR + TLS session matched. Both people must " +
+                                        "independently approve this one test link."
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            stop(token, DebugRfcommAttemptGate.End.CONSENT_CONFIRMED)
+        } catch (_: DebugBluetoothConsentDenied) {
+            stop(token, DebugRfcommAttemptGate.End.CONSENT_DECLINED)
         } catch (_: Exception) {
             stop(token, DebugRfcommAttemptGate.End.FAILED)
         }
@@ -215,6 +243,19 @@ internal class DebugRfcommLinkController(
         DebugRfcommAttemptGate.End.FAILED
     ) { stop(token, why) }
 
+    /** These actions only choose the current socket's pending decision. */
+    fun approve(): Boolean = synchronized(lock) {
+        if (active == null || gate.snapshot().phase !=
+            DebugRfcommAttemptGate.Phase.LINK_OPEN
+        ) false else consent?.approve() ?: false
+    }
+
+    fun decline(): Boolean = synchronized(lock) {
+        if (active == null || gate.snapshot().phase !=
+            DebugRfcommAttemptGate.Phase.LINK_OPEN
+        ) false else consent?.decline() ?: false
+    }
+
     fun disconnect() {
         val token = synchronized(lock) { active } ?: return
         stop(token, DebugRfcommAttemptGate.End.USER)
@@ -233,6 +274,7 @@ internal class DebugRfcommLinkController(
     private fun stop(token: DebugRfcommAttemptGate.Token, why: DebugRfcommAttemptGate.End) {
         val oldServer: BluetoothServerSocket?
         val oldSocket: BluetoothSocket?
+        val oldConsent: DebugBluetoothConsentDecision?
         synchronized(lock) {
             if (active !== token) return
             // opened() itself may already have set STOPPED on a detected
@@ -245,9 +287,13 @@ internal class DebugRfcommLinkController(
             cancelTimer()
             oldServer = server
             oldSocket = socket
+            oldConsent = consent
             server = null
             socket = null
+            consent = null
         }
+        // Wake any human-consent waiter before closing its TLS socket.
+        oldConsent?.close()
         // Socket closure may unblock accept() / connect() on worker threads.
         closeQuietly(oldServer)
         closeQuietly(oldSocket)
@@ -259,6 +305,7 @@ internal class DebugRfcommLinkController(
                     DebugRfcommAttemptGate.Phase.STOPPED
                 ) return@post
             }
+            onApprovalReady(false)
             val reason = when (why) {
                 DebugRfcommAttemptGate.End.USER -> "You disconnected the test link."
                 DebugRfcommAttemptGate.End.BACKGROUND -> "Link closed when the app left the screen."
@@ -267,10 +314,13 @@ internal class DebugRfcommLinkController(
                 DebugRfcommAttemptGate.End.EXPIRED -> "Debug link reached its 45-second limit and closed."
                 DebugRfcommAttemptGate.End.FAILED ->
                     "Bluetooth link/TLS probe failed or peer pin mismatched. No messages sent."
-                DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED ->
-                    "Debug TLS 1.3 QR nonce, challenge, exporter and transcript " +
-                        "agreement completed. Human approvals NOT performed. " +
-                        "Diagnostic socket closed; no messages sent."
+                DebugRfcommAttemptGate.End.CONSENT_CONFIRMED ->
+                    "Both people approved this exact QR + TLS session, and " +
+                        "both final confirmations were exchanged. Test socket " +
+                        "closed; NO messages or voice were enabled."
+                DebugRfcommAttemptGate.End.CONSENT_DECLINED ->
+                    "Bluetooth test was declined or approval timed out. " +
+                        "Connection closed; no messages sent."
             }
             onState(DebugRfcommAttemptGate.Phase.STOPPED, reason)
         }
