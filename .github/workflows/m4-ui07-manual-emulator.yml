@@ -1,0 +1,70 @@
+name: M4-UI07 manual emulator visual QA
+# Manual-only, NEVER run as a PR, push, schedule, or workflow_run.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eden-m4-ui07-emulator
+  cancel-in-progress: false
+
+jobs:
+  emulator-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android platform
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - name: Compile source and unit tests
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug "-PedenSourceRevision=$GITHUB_SHA"
+      - name: Enforce release and privacy boundaries before emulator
+        run: |
+          set -euo pipefail
+          bash scripts/check_security_review_boundary.sh
+          bash scripts/check_preview_permissions.sh app/build/outputs/apk/debug/app-debug.apk
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+          python3 scripts/audit_play_surface.py --apk app/build/outputs/apk/debug/app-debug.apk --output-dir app/build/play-evidence
+          python3 scripts/audit_apk_identity.py --apk app/build/outputs/apk/debug/app-debug.apk --output-dir app/build/play-evidence
+      - name: Enable hardware accelerated emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run safe emulator scenes and screenshot checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: python3 scripts/emulator_visual_qa.py --apk app/build/outputs/apk/debug/app-debug.apk --out qa-results/m4-ui07
+      - name: Publish sanitized screenshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eden-comms-m4-ui07-emulator
+          path: |
+            qa-results/m4-ui07/*.png
+            qa-results/m4-ui07/summary.json
+            app/build/play-evidence/apk-identity.md
+            app/build/play-evidence/launch-surface.md
+          if-no-files-found: warn
+          retention-days: 7
