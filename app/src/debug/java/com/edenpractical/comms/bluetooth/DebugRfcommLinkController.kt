@@ -48,6 +48,7 @@ internal class DebugRfcommLinkController(
 
     @Suppress("MissingPermission")
     fun host(adapter: BluetoothAdapter, request: DebugBluetoothTlsProbeInput): Boolean {
+        if (!request.hostRole) return false
         val token = begin(DebugRfcommAttemptGate.Role.HOST) ?: return false
         Thread({
             var listening: BluetoothServerSocket? = null
@@ -80,6 +81,7 @@ internal class DebugRfcommLinkController(
 
     @Suppress("MissingPermission")
     fun join(device: BluetoothDevice, adapter: BluetoothAdapter, request: DebugBluetoothTlsProbeInput): Boolean {
+        if (request.hostRole) return false
         val token = begin(DebugRfcommAttemptGate.Role.JOIN) ?: return false
         Thread({
             try {
