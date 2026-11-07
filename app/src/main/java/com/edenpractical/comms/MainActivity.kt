@@ -223,6 +223,19 @@ private fun EdenCommsApp() {
                                             )
                                         )
                                     }
+                                },
+                                onWifiDirectPreflight = {
+                                    if (context.applicationInfo.flags and
+                                        ApplicationInfo.FLAG_DEBUGGABLE != 0
+                                    ) {
+                                        context.startActivity(
+                                            Intent().setClassName(
+                                                context,
+                                                "com.edenpractical.comms.wifidirect." +
+                                                    "DebugWifiDirectPreflightActivity"
+                                            )
+                                        )
+                                    }
                                 }
                             )
                             "identity" -> DeviceIdentitySetup()
@@ -722,7 +735,8 @@ private fun DeveloperScreen(
     onIdentity: () -> Unit,
     onLanTest: () -> Unit,
     onChatSandbox: () -> Unit,
-    onBluetoothScan: () -> Unit
+    onBluetoothScan: () -> Unit,
+    onWifiDirectPreflight: () -> Unit
 ) {
     val context = LocalContext.current
     val debuggable = (context.applicationInfo.flags and
@@ -757,6 +771,11 @@ private fun DeveloperScreen(
             title = "Bluetooth discovery test",
             description = "30-second foreground scan • counts only, no pairing or messages",
             onClick = onBluetoothScan
+        )
+        NavigationRow(
+            title = "Wi-Fi Direct device preflight",
+            description = "Read-only capability check • no scanning or permissions",
+            onClick = onWifiDirectPreflight
         )
     }
     Text(
