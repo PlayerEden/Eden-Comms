@@ -348,4 +348,32 @@ if find "$MAIN" \( -name 'BluetoothQrPairingCodec.kt' -o -name 'DebugBluetoothQr
   echo "FAIL: QR-only Bluetooth debug preparation entered release source" >&2
   exit 1
 fi
-echo "PASS: M3n-A fresh reciprocal Bluetooth QR prep gates debug socket only; no link identity, payload or production text"
+# M3n-B1: only this DEBUG TLS engine driver may consume RFCOMM streams.
+# The flow MUST enforce exact Keystore-backed pinned TLSv1.3 plus exporter
+# availability, and MUST close immediately with no application message API.
+BT_TLS_ENGINE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsEngineHandshake.kt"
+BT_TLS_PROBE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommTlsProbe.kt"
+BT_TLS_INPUT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothTlsProbeInput.kt"
+for FILE in "$BT_TLS_ENGINE" "$BT_TLS_PROBE" "$BT_TLS_INPUT"; do test -f "$FILE"; done
+grep -Fq 'DebugRfcommTlsProbe.run(created, request)' "$BT_RFCOMM"
+grep -Fq 'DebugTlsEngineHandshake.negotiate(' "$BT_TLS_PROBE"
+grep -Fq 'PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)' "$BT_TLS_PROBE"
+grep -Fq 'SSLEngines.isSupportedEngine(engine)' "$BT_TLS_PROBE"
+grep -Fq 'SSLEngines.exportKeyingMaterial(' "$BT_TLS_PROBE"
+grep -Fq 'MAX_RECORD_BODY = 18_432' "$BT_TLS_ENGINE"
+grep -Fq 'MAX_STEPS = 256' "$BT_TLS_ENGINE"
+grep -Fq 'result.bytesProduced() != 0' "$BT_TLS_ENGINE"
+grep -Fq 'fun unconnectedEngine(client: Boolean): SSLEngine' app/src/main/java/com/edenpractical/comms/security/Tls13PeerContext.kt
+grep -Fq 'if (!client) needClientAuth = true' app/src/main/java/com/edenpractical/comms/security/Tls13PeerContext.kt
+grep -Fq 'qrCoordinator.newTlsProbeInput(hostRole = true)' "$BT_DEBUG"
+grep -Fq 'qrCoordinator.newTlsProbeInput(hostRole = false)' "$BT_DEBUG"
+if grep -REn '(TestPacketCodec|sendDebugText\(|listenUsingInsecureRfcomm|createInsecureRfcomm|onAuthenticatedRemoteApproval\(|SessionProofExchange.run)' \
+ "$BT_RFCOMM" "$BT_TLS_PROBE" "$BT_TLS_ENGINE" "$BT_TLS_INPUT"; then
+  echo "FAIL: unreviewed Bluetooth text/consent or insecure fallback in TLS probe" >&2
+  exit 1
+fi
+if find "$MAIN" \( -name 'DebugRfcommTlsProbe.kt' -o -name 'DebugTlsEngineHandshake.kt' -o -name 'DebugBluetoothTlsProbeInput.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: debug-only Bluetooth TLS handshake probe entered release code" >&2
+  exit 1
+fi
+echo "PASS: M3n-B1 bounded QR-pinned mutual TLSv1.3 probe on RFCOMM, zero app messages, release flags closed"
