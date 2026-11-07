@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import com.edenpractical.comms.chat.LocalChatPreviewScreen
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
+import com.edenpractical.comms.ui.FieldHelp
+import com.edenpractical.comms.ui.FieldDisclosureCard
 import androidx.core.view.WindowCompat
 import com.edenpractical.comms.model.ReleaseCapabilities
 import com.edenpractical.comms.model.ConnectionMethod
@@ -341,7 +343,7 @@ private fun HomeScreen(
 ) {
     FieldSectionHeader("NEARBY", "Connect and communicate")
     Text(
-        "Designed for conversations without permanent chat history.",
+        "Nearby conversations, without permanent chat history.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -367,8 +369,15 @@ private fun HomeScreen(
     TextButton(
         onClick = onMethods,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-    ) { Text("Connection methods and availability") }
+    ) { Text("Other connection options") }
 
+    FieldHelp(
+        question = "What can this preview do?",
+        answer = "Same-Wi-Fi QR pairing and short typed test messages are for " +
+            "development only. Bluetooth and Wi-Fi Direct have separate " +
+            "developer diagnostics, not a normal chat connection. " +
+            "Voice is not available. Do not use this test build for secrets."
+    )
     FieldSectionHeader("COMMUNICATION", null)
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -449,15 +458,16 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
         }
         Text(wifi.description, style = MaterialTheme.typography.bodyMedium)
         Text(
-            wifi.requirements,
+            "Both phones must be on the same Wi-Fi. One shows a code; " +
+                "the other scans it.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
-            "Use one phone to show a QR code and the other to scan it. " +
-                "Both phones then complete a second code and explicitly approve.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        FieldHelp(
+            question = "Why do we scan codes?",
+            answer = wifi.requirements + " After the first QR scan, " +
+                "the phones exchange a second QR and both people must approve. " +
+                "This is an unreviewed test, not verified secure messaging."
         )
         Button(
             onClick = {
@@ -480,69 +490,22 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
         )
     }
 
-    SectionLabel("FUTURE METHODS • NOT AVAILABLE")
-    for (method in listOf(ConnectionMethod.BLUETOOTH, ConnectionMethod.WIFI_DIRECT)) {
-        val entry = NearbyMethodCatalog.current(method)
-        val glyph = if (method == ConnectionMethod.BLUETOOTH)
-            R.drawable.ic_eden_bluetooth else R.drawable.ic_eden_wifi
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                painter = painterResource(glyph),
-                contentDescription = null,
-                modifier = Modifier.padding(top = 5.dp).size(23.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(entry.title, fontWeight = FontWeight.SemiBold)
-                Text(
-                    entry.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "PLANNED • Not scanning or connecting",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)
-        )
-    }
-    SectionLabel("HOW FUTURE DISCOVERY WILL WORK")
-    Text(
-        NearbyDiscoveryPolicy.currentStatus,
-        style = MaterialTheme.typography.bodySmall,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    for (description in listOf(
-        NearbyDiscoveryPolicy.optInStep,
-        NearbyDiscoveryPolicy.permissionStep,
-        NearbyDiscoveryPolicy.foregroundStep,
-        NearbyDiscoveryPolicy.trustStep,
-        NearbyDiscoveryPolicy.privacyStep
-    )) {
-        Text(
-            description,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-    Text(
-        "Future radios will need their own permission prompts, local discovery " +
-            "and the same fresh two-person identity checks. Merely finding a " +
-            "nearby phone will never authorize messaging.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    FieldDisclosureCard(
+        title = "Other connection methods",
+        summary = "Bluetooth and Wi-Fi Direct — planned, not available for normal use.",
+        fullText = listOf(
+            NearbyMethodCatalog.current(ConnectionMethod.BLUETOOTH).title + ": " +
+                NearbyMethodCatalog.current(ConnectionMethod.BLUETOOTH).description,
+            NearbyMethodCatalog.current(ConnectionMethod.WIFI_DIRECT).title + ": " +
+                NearbyMethodCatalog.current(ConnectionMethod.WIFI_DIRECT).description,
+            NearbyDiscoveryPolicy.currentStatus,
+            NearbyDiscoveryPolicy.optInStep,
+            NearbyDiscoveryPolicy.permissionStep,
+            NearbyDiscoveryPolicy.foregroundStep,
+            NearbyDiscoveryPolicy.trustStep,
+            NearbyDiscoveryPolicy.privacyStep,
+            "Discovery alone never proves a phone is trusted or permits messaging."
+        ).joinToString("\n\n")
     )
 }
 
@@ -663,20 +626,20 @@ private fun SettingsScreen(
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
-    PrivacyFutureStatus(
-        ConversationPrivacyContent.futureHistoryTitle,
-        ConversationPrivacyContent.futureHistoryState,
-        ConversationPrivacyContent.futureHistoryExplanation
-    )
-    PrivacyFutureStatus(
-        ConversationPrivacyContent.futureTimerTitle,
-        ConversationPrivacyContent.futureTimerState,
-        ConversationPrivacyContent.futureTimerExplanation
-    )
-    PrivacyFutureStatus(
-        ConversationPrivacyContent.futureTrustTitle,
-        ConversationPrivacyContent.futureTrustState,
-        ConversationPrivacyContent.futureTrustExplanation
+    FieldDisclosureCard(
+        title = "Planned privacy features",
+        summary = "Saved history, disappearing messages and remembered peers are not available.",
+        fullText = listOf(
+            ConversationPrivacyContent.futureHistoryTitle + " — " +
+                ConversationPrivacyContent.futureHistoryState + "\n" +
+                ConversationPrivacyContent.futureHistoryExplanation,
+            ConversationPrivacyContent.futureTimerTitle + " — " +
+                ConversationPrivacyContent.futureTimerState + "\n" +
+                ConversationPrivacyContent.futureTimerExplanation,
+            ConversationPrivacyContent.futureTrustTitle + " — " +
+                ConversationPrivacyContent.futureTrustState + "\n" +
+                ConversationPrivacyContent.futureTrustExplanation
+        ).joinToString("\n\n")
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("ADVANCED")
@@ -837,13 +800,37 @@ private fun PrivacyInfoScreen() {
         color = MaterialTheme.colorScheme.primary
     )
     Text(
-        PrivacyPreviewContent.introduction,
+        "This build has an experimental same-Wi-Fi QR/TLS test. Short typed " +
+            "TEST messages may be transmitted after both phones approve. " +
+            "Voice is disabled. This is NOT reviewed secure messaging; " +
+            "do not use it for sensitive conversations.",
         style = MaterialTheme.typography.bodyMedium
     )
+    FieldHelp(
+        question = "What exactly is available?",
+        answer = PrivacyPreviewContent.introduction
+    )
+    SectionLabel("READ PRIVACY DETAILS")
     PrivacyPreviewContent.sections.forEach { section ->
-        Panel(title = section.heading, detail = section.description) {
-            // Content is intentionally a readable, static statement of current
-            // behavior, not a permission switch, consent prompt or policy link.
+        key(section.heading) {
+            val summary = when (section.heading) {
+                "On your phone" -> "Local identity, appearance and temporary test chat."
+                "Shared when pairing and chatting" ->
+                    "What is visible to the phone you pair with."
+                "Permissions" -> "Camera, local network and debug-only nearby access."
+                "Local-only sandbox versus real test text" ->
+                    "Why the sandbox and actual test chat are different."
+                "What privacy cannot hide" ->
+                    "What others, the network and Android can still observe."
+                "What is not available" ->
+                    "No normal messaging, voice, account or saved conversations."
+                else -> "Read the full explanation."
+            }
+            FieldDisclosureCard(
+                title = section.heading,
+                summary = summary,
+                fullText = section.description
+            )
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
@@ -853,10 +840,9 @@ private fun PrivacyInfoScreen() {
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary
     )
-    Text(
-        PrivacyPreviewContent.policyNote,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    FieldHelp(
+        question = "About the public privacy policy",
+        answer = PrivacyPreviewContent.policyNote
     )
 }
 

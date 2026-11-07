@@ -60,7 +60,11 @@ class NearbyRecoveryUiContractTest(unittest.TestCase):
         self.assertNotIn("decodeHost(", result)
 
     def test_future_radios_are_not_claimed_ready(self):
-        self.assertIn("Bluetooth and Wi-Fi Direct are planned", self.screen)
+        # M4-UI01 makes this distinction explicit in an optional methods card,
+        # rather than cluttering the Show/Scan QR landing screen.
+        main = (SRC / "MainActivity.kt").read_text()
+        self.assertIn("Bluetooth and Wi-Fi Direct — planned, not available for normal use.", main)
+        self.assertIn("Connection test only • Both phones need the same Wi-Fi.", self.screen)
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn("const val " + flag + " = false", self.release)
         self.assertIn("FLAG_DEBUGGABLE", self.transport)

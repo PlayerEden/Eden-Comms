@@ -79,6 +79,7 @@ internal fun LocalPairingTestScreen() {
     var loading by remember { mutableStateOf(false) }
     var showIdentityConsent by remember { mutableStateOf(false) }
     var showPairingHelp by remember { mutableStateOf(false) }
+    var showBuildEvidence by remember { mutableStateOf(false) }
     var showUpgradeConfirmation by remember { mutableStateOf(false) }
     var pendingRole by remember { mutableStateOf<String?>(null) }
     var hostInvite by remember { mutableStateOf<LocalPairingQrCodec.HostInvite?>(null) }
@@ -163,6 +164,7 @@ internal fun LocalPairingTestScreen() {
         showDetails = false
         showTestTools = false
         showPairingHelp = false
+        showBuildEvidence = false
         cameraError = false
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
@@ -533,27 +535,39 @@ internal fun LocalPairingTestScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (stage != "demo") {
-        Text(
-            "Installed test build: ${BuildEvidenceReport.brief(installedBuildEvidence)}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        TextButton(onClick = {
-            try {
-                val clipboard = context.getSystemService(ClipboardManager::class.java)
-                if (clipboard == null) {
-                    status = "Couldn't copy build details on this phone."
-                } else {
-                    clipboard.setPrimaryClip(ClipData.newPlainText(
-                        "Eden Comms installed build evidence",
-                        BuildEvidenceReport.format(installedBuildEvidence)
-                    ))
-                    status = "Public build details copied for your QA notes."
-                }
-            } catch (_: Exception) {
-                status = "Couldn't copy build details on this phone."
+            TextButton(
+                onClick = { showBuildEvidence = !showBuildEvidence },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text(if (showBuildEvidence) "− Hide advanced build details"
+                    else "?  Advanced: build details")
             }
-        }) { Text("Copy installed build details") }
+            if (showBuildEvidence) {
+                Text(
+                    "Installed test build: ${BuildEvidenceReport.brief(installedBuildEvidence)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = {
+                        try {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            if (clipboard == null) {
+                                status = "Couldn't copy build details on this phone."
+                            } else {
+                                clipboard.setPrimaryClip(ClipData.newPlainText(
+                                    "Eden Comms installed build evidence",
+                                    BuildEvidenceReport.format(installedBuildEvidence)
+                                ))
+                                status = "Public build details copied for your QA notes."
+                            }
+                        } catch (_: Exception) {
+                            status = "Couldn't copy build details on this phone."
+                        }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("Copy installed build details") }
+            }
         }
         FieldFrame(accent = true) {
             PairingTestUiCopy.progress(stage)?.let { progress ->
@@ -569,12 +583,6 @@ internal fun LocalPairingTestScreen() {
                     Text(
                         "On one phone, choose Show a code. On the other, choose Scan a code.",
                         style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        "Current method: same-Wi-Fi test. Bluetooth and Wi-Fi Direct are planned, " +
-                            "but are not available or being scanned by this build.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         NearbyRecoveryGuide.wifiStatus(wifi != null),
@@ -637,14 +645,10 @@ internal fun LocalPairingTestScreen() {
                         }
                     }
                     if (loading) CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                    Text("The app handles the connection automatically after scanning. " +
-                        "You will scan one more code to verify both phones.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(
                         onClick = { showPairingHelp = true },
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) { Text("Why scan two codes?") }
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) { Text("?  Why scan two codes?") }
                 }
                 "showHost" -> {
                     Text("1 of 2 • Let the other person scan this code.",
