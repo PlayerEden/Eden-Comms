@@ -54,6 +54,7 @@ import com.edenpractical.comms.privacy.ConversationPrivacyContent
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.pairing.LocalPairingTestScreen
+import com.edenpractical.comms.pairing.PairingSessionUi
 import com.edenpractical.comms.security.PairingInviteCodec
 import com.edenpractical.comms.transport.LanTlsProbe
 import com.edenpractical.comms.transport.WifiLanEndpoint
@@ -104,7 +105,17 @@ private fun EdenCommsApp() {
     val navigate: (String) -> Unit = { destination ->
         history = NavigationHistory.push(history, destination)
     }
-    val back: () -> Unit = { history = NavigationHistory.pop(history) }
+    // Only stage names cross the page boundary; never preserve chat or QR data.
+    var pairingStage by remember { mutableStateOf("checking") }
+    var confirmLeavePairing by remember { mutableStateOf(false) }
+    val back: () -> Unit = {
+        if (page == "pairing-test" && PairingSessionUi.needsLeaveWarning(pairingStage)) {
+            confirmLeavePairing = true
+        } else {
+            history = NavigationHistory.pop(history)
+        }
+    }
+    // Both system gestures and the visible back arrow share the same safeguard.
     BackHandler(enabled = history.size > 1) { back() }
 
     // Keep Android system-bar icon contrast AND bar backgrounds synchronized
@@ -155,6 +166,26 @@ private fun EdenCommsApp() {
     }
 
     MaterialTheme(colorScheme = colors) {
+        if (confirmLeavePairing && page == "pairing-test") {
+            AlertDialog(
+                onDismissRequest = { confirmLeavePairing = false },
+                title = { Text("Leave this connection test?") },
+                text = { Text(PairingSessionUi.leaveExplanation(pairingStage)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmLeavePairing = false
+                        // Disposing the session screen invokes its existing
+                        // attempt-fenced socket and temporary-text cleanup.
+                        history = NavigationHistory.pop(history)
+                    }) { Text("Leave and disconnect") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmLeavePairing = false }) {
+                        Text("Stay here")
+                    }
+                }
+            )
+        }
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
@@ -165,7 +196,10 @@ private fun EdenCommsApp() {
                     .statusBarsPadding()
                     .navigationBarsPadding()
             ) {
-                TopBar(page = page, onBack = back)
+                TopBar(
+                    page = page, onBack = back,
+                    sessionActive = page == "pairing-test" && pairingStage == "demo"
+                )
                 FieldHeaderRule()
                 // The core pages are intentionally short enough not to scroll
                 // on typical phones. Keep scrolling as an accessibility and
@@ -195,7 +229,13 @@ private fun EdenCommsApp() {
                             // Alias old navigation state to the honest method chooser;
                             // the legacy screen incorrectly said pairing was "coming soon".
                             "wifi" -> NearbyScreen(onLocalWifi = { navigate("pairing-test") })
-                            "pairing-test" -> LocalPairingTestScreen()
+                            "pairing-test" -> LocalPairingTestScreen(
+                                onStageChanged = { pairingStage = it },
+                                onBackToPrevious = {
+                                    // Only offered from an already-ended result.
+                                    history = NavigationHistory.pop(history)
+                                }
+                            )
                             "chat-preview" -> LocalChatPreviewScreen(
                                 onPairingTest = { navigate("pairing-test") }
                             )
@@ -278,7 +318,7 @@ private fun titleForPage(page: String): String = when (page) {
 }
 
 @Composable
-private fun TopBar(page: String, onBack: () -> Unit) {
+private fun TopBar(page: String, onBack: () -> Unit, sessionActive: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .heightIn(min = 64.dp)
@@ -321,7 +361,7 @@ private fun TopBar(page: String, onBack: () -> Unit) {
             }
             Spacer(Modifier.width(4.dp))
             Text(
-                titleForPage(page).uppercase(),
+                if (sessionActive) "TEST CONVERSATION" else titleForPage(page).uppercase(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.3.sp,
