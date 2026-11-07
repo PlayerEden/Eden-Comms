@@ -165,6 +165,11 @@ internal class DebugRfcommLinkController(
         }
         if (!accepted) {
             closeQuietly(created)
+            stop(
+                token,
+                if (!isForeground()) DebugRfcommAttemptGate.End.BACKGROUND
+                else DebugRfcommAttemptGate.End.PERMISSION_LOST
+            )
             return
         }
         announce(token, "RFCOMM open: testing strict pinned mutual TLS 1.3. No app messages.")
@@ -226,7 +231,13 @@ internal class DebugRfcommLinkController(
         val oldServer: BluetoothServerSocket?
         val oldSocket: BluetoothSocket?
         synchronized(lock) {
-            if (active !== token || !gate.stop(token, why)) return
+            if (active !== token) return
+            // opened() itself may already have set STOPPED on a detected
+            // permission/foreground failure. We still MUST close owned sockets
+            // and clear the attempt even when the model transitioned first.
+            if (!gate.stop(token, why) &&
+                gate.snapshot().phase != DebugRfcommAttemptGate.Phase.STOPPED
+            ) return
             active = null
             cancelTimer()
             oldServer = server
