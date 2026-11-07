@@ -33,7 +33,7 @@ internal object DebugTlsEngineHandshake {
         val type = header[0].toInt() and 0xff
         val legacyMajor = header[1].toInt() and 0xff
         val legacyMinor = header[2].toInt() and 0xff
-        val length = (header[3].toInt() and 255 shl 8) or (header[4].toInt() and 255)
+        val length = ((header[3].toInt() and 255) shl 8) or (header[4].toInt() and 255)
         if (type !in 20..23 || legacyMajor != 3 || legacyMinor !in 1..3 ||
             length < 1 || length > MAX_RECORD_BODY
         ) throw SSLException("Malformed or oversized TLS record")
@@ -115,10 +115,11 @@ internal object DebugTlsEngineHandshake {
                     val record = readRecord(input)
                     app.clear()
                     val result = engine.unwrap(ByteBuffer.wrap(record), app)
+                    val recordLength = record.size
                     record.fill(0)
                     if (result.status != SSLEngineResult.Status.OK ||
                         result.bytesProduced() != 0 ||
-                        result.bytesConsumed() < 1
+                        result.bytesConsumed() != recordLength
                     ) throw SSLException("Unexpected TLS handshake unwrap")
                     packetsSeen++
                     if (result.handshakeStatus ==
