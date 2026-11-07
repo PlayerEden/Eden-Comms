@@ -9,7 +9,7 @@ package com.edenpractical.comms.model
  */
 internal object NearbyDiscoveryPolicy {
     const val currentStatus =
-        "Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED. A separate debug-only Bluetooth Classic inquiry, anonymous signal selection, and unverified RFCOMM socket test are available under Developer Tools. No app messages use them."
+        "Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED. A separate debug-only Bluetooth Classic inquiry, anonymous signal selection, in-person two-QR preparation and unverified RFCOMM socket test are available under Developer Tools. No app messages use them."
 
     const val optInStep =
         "First you will choose Bluetooth or Wi-Fi Direct and explicitly start a search."
