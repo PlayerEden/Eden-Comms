@@ -78,6 +78,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private enum class PendingLink { NONE, HOST, JOIN }
     private var pendingLink = PendingLink.NONE
     private var discoverabilityPromptOpen = false
+    private var connectPermissionPromptOpen = false
     private var linkPhase by mutableStateOf(DebugRfcommAttemptGate.Phase.IDLE)
     private var linkStatus by mutableStateOf(
         "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
@@ -97,6 +98,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val linkPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
+        connectPermissionPromptOpen = false
         if (!foreground) {
             pendingLink = PendingLink.NONE
             linkStatus = "The app left the screen before connection permission was granted."
@@ -374,7 +376,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
                         Text(
-                            "An OS RFCOMM socket is NOT a verified Eden Comms session. " +
+                            "A pinned TLS certificate check is only a debug diagnostic. " +
+                                "QR nonce/channel agreement and two-person approval are NOT done. " +
                                 "No app text or voice is sent or accepted. " +
                                 "A host may become discoverable beyond this screen under Android control."
                         )
@@ -397,7 +400,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         clearCandidateMemory()
         linkController.background()
         handler.removeCallbacks(linkPermissionMonitor)
-        if (!discoverabilityPromptOpen) {
+        if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE
             qrCoordinator.clear()
         }
@@ -451,6 +454,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         if (hasConnectPermission() && hasAdvertisePermission()) {
             launchDiscoverablePrompt()
         } else {
+            connectPermissionPromptOpen = true
             linkPermissionRequest.launch(
                 arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
             )
@@ -475,6 +479,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             pendingLink = PendingLink.NONE
             startJoinLink()
         } else {
+            connectPermissionPromptOpen = true
             linkPermissionRequest.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT))
         }
     }
@@ -510,11 +515,16 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             linkStatus = "Bluetooth radio unavailable or disabled. No host started."
             return
         }
-        if (linkController.host(hostAdapter)) {
+        val request = qrCoordinator.newTlsProbeInput(hostRole = true)
+            ?: run {
+                linkStatus = "QR preparation expired; start a fresh two-code exchange."
+                return
+            }
+        if (linkController.host(hostAdapter, request)) {
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
             watchLinkPermission()
-            linkStatus = "Listening for one RFCOMM connection (max 60 seconds)."
-        }
+            linkStatus = "Listening for RFCOMM, then testing pinned TLS 1.3 (no messages)."
+        } else request.close()
     }
 
     @Suppress("MissingPermission")
@@ -529,12 +539,17 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         }
         // The user staged this unverified object during a previous scan.
         // It is NOT peer authentication. No app data may cross this socket.
-        if (linkController.join(target, joinAdapter)) {
+        val request = qrCoordinator.newTlsProbeInput(hostRole = false)
+            ?: run {
+                linkStatus = "QR preparation expired; start a fresh two-code exchange."
+                return
+            }
+        if (linkController.join(target, joinAdapter, request)) {
             clearCandidateMemory()
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
             watchLinkPermission()
-            linkStatus = "Opening one unverified RFCOMM socket (max 18 seconds)."
-        }
+            linkStatus = "Opening RFCOMM, then testing pinned TLS 1.3 (no messages)."
+        } else request.close()
     }
 
     private fun beginInquiry() {
