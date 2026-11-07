@@ -134,8 +134,7 @@ internal class DebugBluetoothQrCoordinator {
             }
         } catch (_: Exception) {
             // Do not echo raw QR, cert pins, challenge or detailed parser errors.
-            status = "That QR was invalid, unrelated, or expired. Retry with fresh codes."
-            scannerGeneration++
+            status = "That QR was invalid, unrelated, or expired. Tap Retry, or start fresh."
         }
     }
 
