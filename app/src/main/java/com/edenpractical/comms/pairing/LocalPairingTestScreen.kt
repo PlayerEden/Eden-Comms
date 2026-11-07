@@ -40,6 +40,7 @@ import com.edenpractical.comms.transport.WifiLinkContinuity
 import com.edenpractical.comms.transport.LocalIpv4Policy
 import com.edenpractical.comms.transport.WifiLanEndpoint
 import com.edenpractical.comms.ui.FieldFrame
+import com.edenpractical.comms.ui.FieldHelp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -534,41 +535,6 @@ internal fun LocalPairingTestScreen() {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        if (stage != "demo") {
-            TextButton(
-                onClick = { showBuildEvidence = !showBuildEvidence },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) {
-                Text(if (showBuildEvidence) "− Hide advanced build details"
-                    else "?  Advanced: build details")
-            }
-            if (showBuildEvidence) {
-                Text(
-                    "Installed test build: ${BuildEvidenceReport.brief(installedBuildEvidence)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(
-                    onClick = {
-                        try {
-                            val clipboard = context.getSystemService(ClipboardManager::class.java)
-                            if (clipboard == null) {
-                                status = "Couldn't copy build details on this phone."
-                            } else {
-                                clipboard.setPrimaryClip(ClipData.newPlainText(
-                                    "Eden Comms installed build evidence",
-                                    BuildEvidenceReport.format(installedBuildEvidence)
-                                ))
-                                status = "Public build details copied for your QA notes."
-                            }
-                        } catch (_: Exception) {
-                            status = "Couldn't copy build details on this phone."
-                        }
-                    },
-                    modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("Copy installed build details") }
-            }
-        }
         FieldFrame(accent = true) {
             PairingTestUiCopy.progress(stage)?.let { progress ->
                 Text(progress, style = MaterialTheme.typography.labelSmall,
@@ -581,7 +547,7 @@ internal fun LocalPairingTestScreen() {
                 "checking" -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
                 "choose" -> {
                     Text(
-                        "On one phone, choose Show a code. On the other, choose Scan a code.",
+                        "One phone shows a code. The other scans it.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
@@ -645,6 +611,13 @@ internal fun LocalPairingTestScreen() {
                         }
                     }
                     if (loading) CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    FieldHelp(
+                        question = "Which button should I choose?",
+                        answer = "If your phone is displaying the code, the other person " +
+                            "taps Scan a code. If their phone is displaying a code, " +
+                            "you tap Scan a code. Either person can start. Keep both " +
+                            "apps open and use the same Wi-Fi network."
+                    )
                     TextButton(
                         onClick = { showPairingHelp = true },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -753,17 +726,23 @@ internal fun LocalPairingTestScreen() {
                 "approval" -> {
                     Text("Approve this test connection?", fontWeight = FontWeight.SemiBold)
                     Text(
-                        "The QR, pinned TLS and matching channel-binding checks have passed. Only approve " +
-                            "if the person physically holding the other phone is the person " +
-                            "you intended to connect with. You may decline at any time.",
+                        "Only approve if the person holding the other phone is who " +
+                            "you intended to reach. You can decline at any time.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        "This is an experimental debug control exchange—not independently " +
-                            "reviewed security approval. Approval allows ONLY four fixed " +
-                            "test phrases, never typed messages or voice.",
+                        "UNREVIEWED DEBUG TEST • After both phones approve and confirm, " +
+                            "short typed TEST messages and preset phrases can be exchanged. " +
+                            "Never send secrets. Voice stays disabled.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    FieldHelp(
+                        question = "What did Eden Comms check?",
+                        answer = "The test checked the scanned QR identities, pinned TLS " +
+                            "and matching session values. Those are technical checks, " +
+                            "not proof of who is holding the other phone or an independent " +
+                            "security certification. Both people still have to approve."
                     )
                     val localObserved = qaLocalApprovalWritten ||
                         approvalStage == DebugApprovalGate.State.LOCAL_ONLY
@@ -1096,6 +1075,41 @@ internal fun LocalPairingTestScreen() {
                     Text("Open Device identity in Developer Tools for diagnostics.",
                         style = MaterialTheme.typography.bodySmall)
                 }
+            }
+        }
+        if (stage != "demo") {
+            TextButton(
+                onClick = { showBuildEvidence = !showBuildEvidence },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text(if (showBuildEvidence) "− Hide advanced build details"
+                    else "?  Advanced: build details")
+            }
+            if (showBuildEvidence) {
+                Text(
+                    "Installed test build: ${BuildEvidenceReport.brief(installedBuildEvidence)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = {
+                        try {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            if (clipboard == null) {
+                                status = "Couldn't copy build details on this phone."
+                            } else {
+                                clipboard.setPrimaryClip(ClipData.newPlainText(
+                                    "Eden Comms installed build evidence",
+                                    BuildEvidenceReport.format(installedBuildEvidence)
+                                ))
+                                status = "Public build details copied for your QA notes."
+                            }
+                        } catch (_: Exception) {
+                            status = "Couldn't copy build details on this phone."
+                        }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("Copy installed build details") }
             }
         }
         Text(

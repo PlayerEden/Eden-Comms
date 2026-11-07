@@ -18,6 +18,8 @@
 | Privacy | Session-only in-memory debug text; Hide conversation and Clear my screen | User opt-in encrypted local 1–30-day history, best-effort disappearing timer, independently optional 1–30-day peer trust |
 | Release | Green CI, sanitized QR QA worksheet, debug APK artifacts | Stable test signing/update evidence, full device matrix, independent security audit, privacy policy, Google Play prerequisites |
 
+**M4-UI02 UI accuracy checkpoint (2026-11-07):** Keep essential unreviewed/test-only warnings permanently visible, provide optional nontechnical `?` help on Connect/approval and Developer Tools, and don't let debug radio buttons imply normal pairing. The approval page must state the actual current capability: bilateral debug approval/confirmation permits short typed TEST text plus preset phrases, **not** normal secure messaging. [Device UX follow-up](M4_UI02_GUIDED_TOOLS_AND_PAIRING.md).
+
 **Do not conflate** passing tests or discovering a device with authenticating a peer. The source still has `ReleaseCapabilities.CAN_CONNECT=false`, `CAN_SEND_MESSAGES=false`, `CAN_TRANSMIT_VOICE=false`. Leave these false until independent review and actual device acceptance. No sensitive or emergency communication in the debug APK. `main` is source of truth; PRs must include acceptance evidence and a rollback path.
 
 ## Ordered work packages
