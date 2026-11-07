@@ -104,7 +104,7 @@ class BluetoothReciprocalQrBoundaryTest(unittest.TestCase):
         self.assertIn("qrCoordinator.clear()", self.activity)
         self.assertIn("if (!discoverabilityPromptOpen)", self.activity)
         self.assertIn("QR preparation is frozen while this unverified", self.activity)
-        self.assertIn("Peer", self.coordinator)
+        self.assertIn("NOT authenticated", self.coordinator)
         # QR must never trigger any RFCOMM socket directly.
         for dangerous in (
             "linkController.host(", "linkController.join(", "createRfcommSocket",
