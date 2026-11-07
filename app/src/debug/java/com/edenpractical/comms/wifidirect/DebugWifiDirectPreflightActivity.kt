@@ -245,6 +245,20 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                         ) { Text("OPEN 20-SECOND LOCAL GROUP HOST TEST") }
                         Text("Temporary group-host test requires Android 10 or newer. " +
                             "It does not connect to any selected nearby device.")
+                        OutlinedButton(
+                            onClick = {
+                                if (foreground && !requestOutstanding) {
+                                    startActivity(
+                                        Intent(this@DebugWifiDirectPreflightActivity,
+                                            DebugWifiDirectQrActivity::class.java)
+                                    )
+                                }
+                            },
+                            enabled = foreground && !requestOutstanding,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("OPEN IN-PERSON WI-FI DIRECT QR PREPARATION") }
+                        Text("QR identity preparation works without using the Wi-Fi radio. " +
+                            "It does NOT identify or select an Android P2P device.")
                         if (observation?.wifiEnabled != true) {
                             OutlinedButton(
                                 onClick = { openSettings(Settings.ACTION_WIFI_SETTINGS) },

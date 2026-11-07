@@ -36,5 +36,9 @@
             android:name=".wifidirect.DebugWifiDirectGroupHostActivity"
             android:exported="false"
             android:label="Wi-Fi Direct local group development test"/>
+        <activity
+            android:name=".wifidirect.DebugWifiDirectQrActivity"
+            android:exported="false"
+            android:label="Wi-Fi Direct in-person QR preparation"/>
     </application>
 </manifest>
