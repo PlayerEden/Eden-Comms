@@ -23,16 +23,21 @@ import javax.net.ssl.SSLException
  *  4. Both endpoints exchange and compare the resulting domain-separated
  *     QR+identity+challenge+exporter commitment over TLS.
  *
- * On success this reports a TEST-ONLY channel transcript diagnostic and the
- * controller still closes the socket. NO human approval, chat, audio, saved
- * peers, arbitrary plaintext stream or production session authorization.
+ * M3n-C1 after transcript agreement: both people must independently tap
+ * APPROVE (or DECLINE), then two exact-session TLS-encrypted final CONFIRM
+ * frames must be exchanged. Even after success the controller closes the
+ * socket: NO chat, voice, contact trust or production authorization.
  */
 internal object DebugRfcommTlsProbe {
     private const val EXPORTER_LABEL = "EXPORTER-Channel-Binding"
     private const val EXPORTER_LENGTH = 32
 
     @Suppress("MissingPermission")
-    fun run(socket: BluetoothSocket, request: DebugBluetoothTlsProbeInput) {
+    fun run(
+        socket: BluetoothSocket,
+        request: DebugBluetoothTlsProbeInput,
+        onConsentRequired: (DebugBluetoothConsentDecision) -> Unit
+    ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             throw SSLException("TLS engine exporter requires Android 12 or newer")
         }
@@ -103,6 +108,18 @@ internal object DebugRfcommTlsProbe {
                         transport.input, transport.output,
                         request.hostRole, commitment
                     )
+
+                    // Do not solicit human approval before exact TLS pins,
+                    // QR proof, both exporters and commitments match.
+                    val consent = DebugBluetoothConsentDecision()
+                    try {
+                        DebugBluetoothConsentExchange.run(
+                            transport, request.hostRole, commitment, consent,
+                            onApprovalRequired = { onConsentRequired(consent) }
+                        )
+                    } finally {
+                        consent.close()
+                    }
                 } finally {
                     commitment.fill(0)
                 }
@@ -110,7 +127,7 @@ internal object DebugRfcommTlsProbe {
                 exported.fill(0)
             }
 
-            // Fail if QR expired during the encrypted control exchange.
+            // Fail if QR expired during the encrypted control and consent exchange.
             val atEnd = request.freshBinding()
             clearBinding(atEnd)
         } finally {
