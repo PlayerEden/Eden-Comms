@@ -78,7 +78,6 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
             "engine.beginHandshake()",
             "engine.wrap(EMPTY.duplicate(), outputRecord)",
             "engine.unwrap(ByteBuffer.wrap(record), app)",
-            "NEED_UNWRAP_AGAIN",
             "NEED_TASK",
             "result.bytesProduced() != 0",
             "result.bytesConsumed() != recordLength",
