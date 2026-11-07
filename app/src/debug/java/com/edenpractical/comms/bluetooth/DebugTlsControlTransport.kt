@@ -30,7 +30,9 @@ internal class DebugTlsControlTransport(
     enum class Phase(val bytes: Int) {
         QR_PROOF(PROOF_BYTES),
         EXPORTER(DebugExporterBindingFrame.RECORD_BYTES),
-        COMMITMENT(COMMIT_BYTES)
+        COMMITMENT(COMMIT_BYTES),
+        APPROVAL(DebugBluetoothConsentFrame.RECORD_BYTES),
+        CONFIRM(DebugBluetoothConsentFrame.RECORD_BYTES)
     }
 
     private var phase = Phase.QR_PROOF
@@ -95,11 +97,14 @@ internal class DebugTlsControlTransport(
     /**
      * The only permitted protocol transition:
      * four QR challenge records -> two RFC9266 exporter frames ->
-     * two commitment echoes. Both sides must follow the same ordering.
+     * two commitment echoes -> separate human APPROVE/DECLINE records ->
+     * two bilateral CONFIRM frames. All encrypted in exactly this TLS link.
      */
     fun advance(expected: Phase, next: Phase) {
         val allowed = (expected == Phase.QR_PROOF && next == Phase.EXPORTER) ||
-            (expected == Phase.EXPORTER && next == Phase.COMMITMENT)
+            (expected == Phase.EXPORTER && next == Phase.COMMITMENT) ||
+            (expected == Phase.COMMITMENT && next == Phase.APPROVAL) ||
+            (expected == Phase.APPROVAL && next == Phase.CONFIRM)
         if (closed || phase != expected || !allowed) {
             throw SSLException("Invalid Bluetooth TLS control phase transition")
         }
