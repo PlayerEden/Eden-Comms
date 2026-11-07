@@ -61,6 +61,41 @@ class ManualEmulatorHarnessContract(unittest.TestCase):
         self.assertIsNone(module.find(tree, "Invisible"))
         self.assertIsNone(module.find(tree, "scan code"))
 
+    def test_idle_pairing_accepts_network_ready_and_no_wifi_states(self):
+        # The app intentionally hides role buttons when there is no usable Wi-Fi.
+        unavailable = ET.fromstring(
+            '<hierarchy><node text="No usable Wi-Fi connection found on this phone." '
+            'bounds="[10,20][310,70]"/></hierarchy>'
+        )
+        ready = ET.fromstring(
+            '<hierarchy>'
+            '<node text="Show a code" bounds="[10,20][150,70]"/>'
+            '<node text="Scan a code" bounds="[160,20][310,70]"/>'
+            '</hierarchy>'
+        )
+        incomplete = ET.fromstring(
+            '<hierarchy><node text="Show a code" bounds="[10,20][150,70]"/></hierarchy>'
+        )
+        self.assertEqual("wifi-unavailable", module.idle_choice_mode(unavailable))
+        self.assertEqual("wifi-ready", module.idle_choice_mode(ready))
+        self.assertIsNone(module.idle_choice_mode(incomplete))
+
+    def test_visual_smoke_never_requires_wifi_role_buttons(self):
+        source = SCRIPT.read_text()
+        self.assertIn('["One phone shows a code"]', source)
+        self.assertIn('report["idle_wifi_modes"]["normal"] = inspect_idle_choice()', source)
+        self.assertIn('report["idle_wifi_modes"]["compact"] = inspect_idle_choice()', source)
+        self.assertNotIn('["Show a code", "Scan a code"]', source)
+        self.assertNotIn('seek("Show a code"', source)
+
+    def test_failed_scene_retains_summary_without_raw_errors(self):
+        source = SCRIPT.read_text()
+        self.assertIn('report["result"] = "FAILED"', source)
+        self.assertIn('report["failure_type"] = type(exc).__name__', source)
+        self.assertIn('(output / "summary.json").write_text(', source)
+        self.assertNotIn('str(exc)', source)
+        self.assertNotIn("traceback.format_exc", source)
+
     def test_png_rejects_blank_and_corrupt_images(self):
         rows = [bytes(i % 253 for i in range(1200))] * 400
         self.assertEqual(400, module.png_evidence(image(rows))["width"])
