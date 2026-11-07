@@ -13,9 +13,10 @@ import javax.net.ssl.X509KeyManager
  * Prepares TLS-only sockets with an exact out-of-band certificate pin.
  *
  * A local X.509 private-key manager is mandatory (both phones authenticate).
- * Used only by the one-shot opt-in LAN handshake probe. It must not be
- * wired to message/audio IO until peer enrollment, certificate lifecycle
- * and two-sided session confirmation have been reviewed and integrated.
+ * Used by existing LAN test sockets and by M3n-B1 Bluetooth DEBUG TLS 1.3
+ * handshake diagnostics. This must not authorize message/audio IO until
+ * peer enrollment, QR session binding, channel agreement and both human
+ * approvals have been reviewed and integrated.
  *
  * IMPORTANT: SSLContext.getInstance("TLSv1.3") may support older protocols
  * with certain providers, so explicitly constrain every returned socket.
