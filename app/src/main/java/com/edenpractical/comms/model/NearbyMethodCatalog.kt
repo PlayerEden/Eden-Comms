@@ -38,7 +38,7 @@ internal object NearbyMethodCatalog {
             description = "A future nearby phone-to-phone option without a shared router.",
             availability = Availability.PLANNED,
             requirements = "Future device support, explicit permission and fresh verification.",
-            futureDiscovery = "Discovery and radio permission prompts are not implemented."
+            futureDiscovery = "Production discovery is not implemented; a debug-only Bluetooth inquiry and consent experiment exist."
         ),
         Method(
             id = ConnectionMethod.WIFI_DIRECT,
@@ -46,7 +46,7 @@ internal object NearbyMethodCatalog {
             description = "A future direct Wi-Fi link without joining the same router.",
             availability = Availability.PLANNED,
             requirements = "Future Wi-Fi Direct setup, explicit permission and fresh verification.",
-            futureDiscovery = "Discovery and peer-to-peer connection are not implemented."
+            futureDiscovery = "Production discovery and peer-to-peer connection are not implemented; Developer Tools has bounded anonymous debug discovery."
         )
     )
 

@@ -16,6 +16,8 @@
         android:usesPermissionFlags="neverForLocation"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     <uses-feature android:name="android.hardware.wifi.direct" android:required="false"/>
     <application>
         <activity
@@ -26,5 +28,9 @@
             android:name=".wifidirect.DebugWifiDirectPreflightActivity"
             android:exported="false"
             android:label="Wi-Fi Direct device preflight"/>
+        <activity
+            android:name=".wifidirect.DebugWifiDirectDiscoveryActivity"
+            android:exported="false"
+            android:label="Wi-Fi Direct discovery development test"/>
     </application>
 </manifest>

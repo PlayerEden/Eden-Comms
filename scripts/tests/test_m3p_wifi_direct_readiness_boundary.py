@@ -28,7 +28,8 @@ class WifiDirectPermissionGuard(unittest.TestCase):
             A + "usesPermissionFlags"), "neverForLocation")
         self.assertEqual(scoped["android.permission.ACCESS_FINE_LOCATION"].get(
             A + "maxSdkVersion"), "32")
-        self.assertNotIn("android.permission.CHANGE_WIFI_STATE", scoped)
+        self.assertIn("android.permission.CHANGE_WIFI_STATE", scoped)
+        self.assertIn("android.permission.CHANGE_NETWORK_STATE", scoped)
         self.assertFalse((MAIN / "java/com/edenpractical/comms/wifidirect").exists())
         feature = next(x for x in debug.findall("uses-feature")
                        if x.get(A + "name") == "android.hardware.wifi.direct")

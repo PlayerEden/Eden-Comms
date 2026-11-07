@@ -21,6 +21,8 @@ EXPECTED="$(printf '%s\n' \
   android.permission.BLUETOOTH_CONNECT \
   android.permission.BLUETOOTH_ADVERTISE \
   android.permission.ACCESS_WIFI_STATE \
+  android.permission.CHANGE_WIFI_STATE \
+  android.permission.CHANGE_NETWORK_STATE \
   android.permission.NEARBY_WIFI_DEVICES \
   android.permission.ACCESS_FINE_LOCATION \
   android.permission.CAMERA \
@@ -43,7 +45,7 @@ test -f app/src/debug/AndroidManifest.xml
 for BT_PERMISSION in BLUETOOTH_SCAN BLUETOOTH_CONNECT BLUETOOTH_ADVERTISE; do
   grep -Fq "android.permission.$BT_PERMISSION" app/src/debug/AndroidManifest.xml
 done
-for WIFI_PERMISSION in ACCESS_WIFI_STATE NEARBY_WIFI_DEVICES ACCESS_FINE_LOCATION; do
+for WIFI_PERMISSION in ACCESS_WIFI_STATE CHANGE_WIFI_STATE CHANGE_NETWORK_STATE NEARBY_WIFI_DEVICES ACCESS_FINE_LOCATION; do
   grep -Fq "android.permission.$WIFI_PERMISSION" app/src/debug/AndroidManifest.xml
 done
 grep -Fq 'android:maxSdkVersion="32"' app/src/debug/AndroidManifest.xml

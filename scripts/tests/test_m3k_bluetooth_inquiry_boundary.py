@@ -39,7 +39,9 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
             "android.permission.BLUETOOTH_ADVERTISE",
             "android.permission.ACCESS_WIFI_STATE",
             "android.permission.NEARBY_WIFI_DEVICES",
-            "android.permission.ACCESS_FINE_LOCATION"
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.CHANGE_WIFI_STATE",
+            "android.permission.CHANGE_NETWORK_STATE"
         ], permissions)
         scan = next(x for x in root if x.tag == "uses-permission")
         self.assertEqual(scan.get(AND + "usesPermissionFlags"), "neverForLocation")

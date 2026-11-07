@@ -153,7 +153,7 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                     ) {
                         Text("Wi-Fi Direct — permission & radio preflight",
                             style = MaterialTheme.typography.titleLarge)
-                        Text("DEVELOPMENT ONLY • No peer discovery, connections, QR, " +
+                        Text("DEVELOPMENT ONLY • This preflight screen has no peer discovery, connections, QR, " +
                             "messages, voice or background Wi-Fi Direct activity.")
                         val observation = report?.observation
                         val state = report?.state
@@ -207,6 +207,23 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                             onClick = { refresh() },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("RECHECK DEVICE SETTINGS") }
+                        Button(
+                            onClick = {
+                                if (foreground && !requestOutstanding &&
+                                    report?.state ==
+                                        DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED
+                                ) {
+                                    startActivity(
+                                        Intent(this@DebugWifiDirectPreflightActivity,
+                                            DebugWifiDirectDiscoveryActivity::class.java)
+                                    )
+                                }
+                            },
+                            enabled = foreground && !requestOutstanding &&
+                                report?.state ==
+                                    DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("OPEN 30-SECOND DISCOVERY TEST") }
                         if (observation?.wifiEnabled != true) {
                             OutlinedButton(
                                 onClick = { openSettings(Settings.ACTION_WIFI_SETTINGS) },

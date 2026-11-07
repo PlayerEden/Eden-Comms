@@ -1,5 +1,8 @@
 # Eden Comms — Development Roadmap v0.1
 
+> **M3q bounded debug Wi-Fi Direct peer discovery (2026-11-07):** A new separate Developer Tools screen uses real Android `WifiP2pManager.initialize` / `requestP2pState` where available / `discoverPeers` with an explicit human START, 30-second hard deadline, manual STOP, foreground-only dynamic radio/discovery broadcasts, permissions/Wi-Fi/Location Mode monitoring, radio-off and channel-loss cleanup, one-shot generation-fenced async callbacks, and capped anonymous peer-list-change **event counts only**. No `requestPeers` or identifiable devices, no P2P group, connection, QR/authentication, text, voice or release capability. Debug-only normal CHANGE_WIFI_STATE/CHANGE_NETWORK_STATE added to exact permission inventory. Both device QA and independent protocol review remain pending. [M3q handoff](M3Q_WIFI_DIRECT_BOUNDED_DISCOVERY.md).
+
+
 > **M3p Wi-Fi Direct permission and radio preflight (2026-11-07):** Debug Developer Tools now reads Wi-Fi enabled and device Location Mode, and requests only the Android version-specific Wi-Fi Direct prerequisite permission on an explicit tap. API 33+ Nearby Wi-Fi uses `neverForLocation`; API 26–32 fine location has `maxSdkVersion=32`. Only debug manifest/permission audits change. Denial, stale callback, cancellation and background fail closed; **no discovery, group, socket, messaging, voice or release capability**. [Handoff](M3P_WIFI_DIRECT_PERMISSION_READINESS.md). Next M3q is foreground state/discovery testing; owner physical QA and independent security review are still pending.
 
 
