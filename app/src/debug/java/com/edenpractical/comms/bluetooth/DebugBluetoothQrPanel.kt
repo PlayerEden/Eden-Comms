@@ -65,8 +65,8 @@ internal fun DebugBluetoothQrPanel(qr: DebugBluetoothQrCoordinator) {
                         LocalPairingQrScanner(
                             onPayload = qr::scanned,
                             onCameraError = {
-                                // Do not echo device-specific details, QR or pins.
-                                qr.retryCamera()
+                                // Never automatically reopen a broken camera forever.
+                                qr.cameraFailed()
                             }
                         )
                     }
