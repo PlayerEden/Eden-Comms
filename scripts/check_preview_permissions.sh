@@ -11,7 +11,8 @@ echo "$PERMISSIONS"
 # CONNECT for a user-requested RFCOMM socket, and ADVERTISE solely for
 # Android's explicit 120-second discoverability prompt on Host.
 # Main/release manifest MUST NOT request any Bluetooth permission.
-# Location, microphone, contacts and other Bluetooth permissions prohibited.
+# M3p: Android 13+ Nearby Wi-Fi plus API <=32 location and Wi-Fi read state,
+# debug only; microphone, contacts and other radio permissions prohibited.
 # Fail on unexpected permission additions rather than silently expanding access.
 ACTUAL="$(printf '%s\n' "$PERMISSIONS" | grep -oE 'android\.permission\.[A-Z_]+' | sort -u || true)"
 EXPECTED="$(printf '%s\n' \
@@ -19,10 +20,13 @@ EXPECTED="$(printf '%s\n' \
   android.permission.BLUETOOTH_SCAN \
   android.permission.BLUETOOTH_CONNECT \
   android.permission.BLUETOOTH_ADVERTISE \
+  android.permission.ACCESS_WIFI_STATE \
+  android.permission.NEARBY_WIFI_DEVICES \
+  android.permission.ACCESS_FINE_LOCATION \
   android.permission.CAMERA \
   android.permission.INTERNET | sort -u)"
 if test "$ACTUAL" != "$EXPECTED"; then
-  echo "FAIL: debug APK permission set differs from LAN + QR + debug-only Bluetooth SCAN/CONNECT/ADVERTISE baseline" >&2
+  echo "FAIL: debug APK permission set differs from reviewed LAN+QR+Bluetooth+M3p Wi-Fi Direct baseline" >&2
   echo "Expected:" >&2
   echo "$EXPECTED" >&2
   echo "Actual:" >&2
@@ -39,6 +43,10 @@ test -f app/src/debug/AndroidManifest.xml
 for BT_PERMISSION in BLUETOOTH_SCAN BLUETOOTH_CONNECT BLUETOOTH_ADVERTISE; do
   grep -Fq "android.permission.$BT_PERMISSION" app/src/debug/AndroidManifest.xml
 done
-grep -Fq 'android:usesPermissionFlags="neverForLocation"' app/src/debug/AndroidManifest.xml
+for WIFI_PERMISSION in ACCESS_WIFI_STATE NEARBY_WIFI_DEVICES ACCESS_FINE_LOCATION; do
+  grep -Fq "android.permission.$WIFI_PERMISSION" app/src/debug/AndroidManifest.xml
+done
+grep -Fq 'android:maxSdkVersion="32"' app/src/debug/AndroidManifest.xml
+test "$(grep -Fc 'android:usesPermissionFlags="neverForLocation"' app/src/debug/AndroidManifest.xml)" -ge 2
 grep -Fq 'android:exported="false"' app/src/debug/AndroidManifest.xml
-echo "PASS: debug APK includes only LAN+QR and explicit Bluetooth SCAN/CONNECT/ADVERTISE permissions"
+echo "PASS: exact debug LAN+QR/Bluetooth/M3p Wi-Fi Direct permissions"

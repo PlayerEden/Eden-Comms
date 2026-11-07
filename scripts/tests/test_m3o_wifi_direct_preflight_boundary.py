@@ -28,13 +28,14 @@ class WifiDirectPreflightBoundary(unittest.TestCase):
         for word in (
             "discoverPeers(", "discoverServices(", "connect(", "createGroup(",
             "requestPeers(", "initialize(", "startScan(", "requestPermissions(",
-            "RequestPermission(", "requestDeviceInfo(", "Socket(", "DatagramSocket(",
+            "requestDeviceInfo(", "Socket(", "DatagramSocket(",
             "registerReceiver(", "send(", "write(", "openFileOutput(", "SharedPreferences"
         ):
             self.assertNotIn(word, activity + policy, word)
-        for word in ("NEARBY_WIFI_DEVICES", "ACCESS_FINE_LOCATION", "ACCESS_WIFI_STATE",
-                     "CHANGE_WIFI_STATE"):
-            self.assertNotIn('android:name="android.permission.' + word + '"',
-                             manifest)
+        # M3p introduces debug-only permission prompts but still no P2P calls.
+        for word in ("NEARBY_WIFI_DEVICES", "ACCESS_FINE_LOCATION", "ACCESS_WIFI_STATE"):
+            self.assertIn('android:name="android.permission.' + word + '"', manifest)
+        self.assertNotIn('android:name="android.permission.CHANGE_WIFI_STATE"', manifest)
+        self.assertIn('android:maxSdkVersion="32"', manifest)
 if __name__ == "__main__":
     unittest.main()

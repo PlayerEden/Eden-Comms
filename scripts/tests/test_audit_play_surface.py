@@ -40,7 +40,10 @@ class LaunchEvidenceTests(unittest.TestCase):
             audit.EXPECTED_APK_PERMISSIONS - audit.ALLOWED_PERMISSIONS,
             {expected, "android.permission.BLUETOOTH_SCAN",
              "android.permission.BLUETOOTH_CONNECT",
-             "android.permission.BLUETOOTH_ADVERTISE"}
+             "android.permission.BLUETOOTH_ADVERTISE",
+             "android.permission.ACCESS_WIFI_STATE",
+             "android.permission.NEARBY_WIFI_DEVICES",
+             "android.permission.ACCESS_FINE_LOCATION"}
         )
         extra = "com.otherapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         self.assertNotIn(extra, audit.EXPECTED_APK_PERMISSIONS)
