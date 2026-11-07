@@ -14,5 +14,9 @@
             android:name=".bluetooth.DebugBluetoothDiscoveryActivity"
             android:exported="false"
             android:label="Bluetooth development test"/>
+        <activity
+            android:name=".wifidirect.DebugWifiDirectPreflightActivity"
+            android:exported="false"
+            android:label="Wi-Fi Direct device preflight"/>
     </application>
 </manifest>
