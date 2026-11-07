@@ -164,6 +164,10 @@ internal class DebugBluetoothQrCoordinator {
         }
     }
 
+    fun cameraFailed() {
+        status = "Camera could not start. Tap Retry, or cancel the QR exchange."
+    }
+
     fun retryCamera() {
         if (stage == Stage.HOST_SCAN_REPLY || stage == Stage.JOIN_SCAN_HOST)
             scannerGeneration++
