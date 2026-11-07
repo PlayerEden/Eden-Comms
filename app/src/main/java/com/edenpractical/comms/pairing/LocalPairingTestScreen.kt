@@ -56,7 +56,10 @@ import kotlinx.coroutines.withContext
  * This is unreviewed development functionality, not safe private messaging.
  */
 @Composable
-internal fun LocalPairingTestScreen() {
+internal fun LocalPairingTestScreen(
+    onStageChanged: (String) -> Unit,
+    onBackToPrevious: () -> Unit
+) {
     val context = LocalContext.current
     if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
         Text("Local pairing tests are available only in development builds.")
@@ -113,6 +116,11 @@ internal fun LocalPairingTestScreen() {
     var qaLocalConfirmationWritten by remember { mutableStateOf(false) }
     var qaPeerConfirmationObserved by remember { mutableStateOf(false) }
     val latestProbe by rememberUpdatedState(probe)
+    LaunchedEffect(stage) {
+        // Observational UI only: do not pass peer identity, messages or pins
+        // into app-level navigation state.
+        onStageChanged(stage)
+    }
 
     fun stopTest() {
         // Ignore messages posted by previous or cancelled attempts.
@@ -538,6 +546,12 @@ internal fun LocalPairingTestScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         FieldFrame(accent = true) {
+            Text(
+                "LOCAL STATUS  •  " + PairingSessionUi.statusLabel(stage),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
             val guidance = NearbyConnectionCues.forStage(
                 stage = stage,
                 localApprovalObserved = qaLocalApprovalWritten ||
@@ -1037,6 +1051,10 @@ internal fun LocalPairingTestScreen() {
                         onClick = { reset() },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                     ) { Text("Start over with fresh QR codes") }
+                    OutlinedButton(
+                        onClick = onBackToPrevious,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) { Text("Done — return to previous screen") }
                     OutlinedButton(
                         onClick = { showResultDetails = !showResultDetails },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
