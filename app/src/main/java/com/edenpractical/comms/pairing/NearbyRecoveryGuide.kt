@@ -23,9 +23,9 @@ internal object NearbyRecoveryGuide {
 
     fun wifiStatus(available: Boolean): String =
         if (available) {
-            "Local Wi-Fi interface found on this phone. Both phones still need the same Wi-Fi."
+            "Wi-Fi appears available on this phone. Both phones still need the same Wi-Fi."
         } else {
-            "No usable local Wi-Fi interface found on this phone."
+            "No usable Wi-Fi connection found on this phone."
         }
 
     fun forResult(

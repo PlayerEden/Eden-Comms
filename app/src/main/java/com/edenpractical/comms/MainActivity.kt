@@ -704,46 +704,80 @@ private fun DeveloperScreen(
     val context = LocalContext.current
     val debuggable = (context.applicationInfo.flags and
         ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    Panel(
-        title = "Internal testing",
-        detail = "These tools are for development, not normal pairing."
-    ) {
-        StatusLabel("ADVANCED  •  TEST ONLY")
-        Text(
-            "The manual fingerprint is intentionally temporary. The final connection flow will use an in-app QR scan and authenticated confirmation.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
+    var showRadioExperiments by rememberSaveable { mutableStateOf(false) }
+
+    FieldSectionHeader("OPTIONAL TOOLS", "Testing and setup")
+    Text(
+        "You can skip this page for everyday use. Opening a tool does not " +
+            "start a radio search or connect to another phone.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    SectionLabel("ON THIS PHONE")
     NavigationRow(
         title = "Local device identity",
-        description = "Create or inspect a device certificate",
+        description = "View or create this phone's local key",
         onClick = onIdentity
     )
     NavigationRow(
-        title = "LAN TLS handshake test",
-        description = "Host / Join over same Wi-Fi; no messages",
-        onClick = onLanTest
-    )
-    NavigationRow(
         title = "Text layout sandbox",
-        description = "Fictional samples and local typing only; no transport",
+        description = "Try a sample chat layout • does not send messages",
         onClick = onChatSandbox
     )
+    FieldHelp(
+        question = "What is a device identity?",
+        answer = "It is a key held on this phone. It helps the app recognize " +
+            "the same public identity during a connection test. Creating a key " +
+            "does not find, trust or connect to someone else. Never share a private key."
+    )
+
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
+    SectionLabel("ADVANCED CONNECTION CHECKS")
+    NavigationRow(
+        title = "Same-Wi-Fi connection check",
+        description = "Manual two-phone diagnostic • no chat messages",
+        onClick = onLanTest
+    )
     if (debuggable) {
-        NavigationRow(
-            title = "Bluetooth discovery test",
-            description = "30-second foreground scan • counts only, no pairing or messages",
-            onClick = onBluetoothScan
-        )
-        NavigationRow(
-            title = "Wi-Fi Direct device preflight",
-            description = "Read-only capability check • no scanning or permissions",
-            onClick = onWifiDirectPreflight
-        )
+        OutlinedButton(
+            onClick = { showRadioExperiments = !showRadioExperiments },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            shape = CutCornerShape(6.dp)
+        ) {
+            Text(if (showRadioExperiments) "− Hide radio experiments"
+                else "+ Show Bluetooth and Wi-Fi Direct experiments")
+        }
+        if (showRadioExperiments) {
+            Text(
+                "Optional developer diagnostics. These can request Android " +
+                    "radio permissions, scan for nearby devices or briefly form " +
+                    "an unverified OS link, but cannot send Eden Comms messages or voice.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            NavigationRow(
+                title = "Bluetooth discovery test",
+                description = "Check nearby Bluetooth radios • no app messaging",
+                onClick = onBluetoothScan
+            )
+            NavigationRow(
+                title = "Wi-Fi Direct device preflight",
+                description = "Check support, then opt in to separate radio tests",
+                onClick = onWifiDirectPreflight
+            )
+        }
     }
+    FieldHelp(
+        question = "What is a connection handshake?",
+        answer = "It is a technical check of the two phones' test connection " +
+            "and expected public identities. Passing it alone does not authorize " +
+            "chat, certify the app's security or prove who is holding the other phone."
+    )
     Text(
-        "Never test with sensitive conversations or share full fingerprints through another messaging app.",
-        style = MaterialTheme.typography.bodySmall,
+        "DEVELOPMENT TEST ONLY • Do not use these tools for sensitive " +
+            "or emergency conversations.",
+        style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
@@ -757,15 +791,32 @@ private fun HelpScreen(onPrivacy: () -> Unit) {
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            "Eden Comms is being built for simple conversations between nearby phones.",
+            "Simple nearby conversations are the goal. For now, this is " +
+                "an experimental two-phone test.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    SectionLabel("THE BASICS")
-    StepLine("01", "Connect nearby", "Use the same Wi-Fi network")
-    StepLine("02", "Confirm the other phone", "Approve the connection on both devices")
-    StepLine("03", "Communicate", "Short test text in development; voice later")
+    SectionLabel("GETTING STARTED")
+    StepLine("01", "Use the same Wi-Fi",
+        "On one phone, tap Show a code; on the other, tap Scan a code.")
+    StepLine("02", "Check the other phone",
+        "Exchange the second code, then both people approve and confirm.")
+    StepLine("03", "Try a test conversation",
+        "Short test text is available only after both phones agree. Voice is off.")
+    FieldHelp(
+        question = "Do we need internet?",
+        answer = "No internet service or account is needed for the same-Wi-Fi " +
+            "test. Both phones must use the same local Wi-Fi network. " +
+            "Some guest networks prevent phones from reaching each other."
+    )
+    FieldHelp(
+        question = "Why do both people approve?",
+        answer = "The QR codes help the app check the expected public identity. " +
+            "Each person must still decide whether the person holding the other " +
+            "phone is the intended partner. Passing this experimental check " +
+            "does not mean it has passed an independent security review."
+    )
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     Text(
         "What privacy means here",
@@ -773,18 +824,26 @@ private fun HelpScreen(onPrivacy: () -> Unit) {
         fontWeight = FontWeight.SemiBold
     )
     Text(
-        "Session-only chat is the planned default: no permanent message history on your phone. " +
-            "The other person can still save or photograph what they see, and a compromised phone may expose content.",
+        "Test chat is temporary on this phone, but the other person or " +
+            "the phone's operating system may still keep copies.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    FieldHelp(
+        question = "Will the app save my conversations?",
+        answer = "Eden Comms does not intentionally save a permanent chat " +
+            "history in this prototype. Leaving the session clears the visible " +
+            "test messages as best effort, not guaranteed memory erasure. " +
+            "The other phone can still copy or photograph what it receives."
+    )
     NavigationRow(
         title = "Privacy & data",
-        description = "Read what this preview accesses and shares",
+        description = "See what this preview shares and cannot protect",
         onClick = onPrivacy
     )
     Text(
-        "Development preview: secure messaging and voice aren't ready for normal use.",
+        "DEVELOPMENT PREVIEW • Do not use this build for sensitive conversations. " +
+            "Production messaging and voice are not enabled.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
