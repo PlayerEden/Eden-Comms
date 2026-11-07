@@ -63,10 +63,11 @@ internal object PrivacyPreviewContent {
                 "A separate explicit host/join " +
                 "test can briefly open a Bluetooth socket to perform a pinned TLS 1.3 " +
                 "debug diagnostic, exchanging only fixed encrypted QR " +
-                "challenge, channel exporter and transcript commitment " +
-                "controls; it then closes the socket. NO chat, audio or " +
-                "human approval messages cross it. This test is not an " +
-                "independently reviewed communication session. " +
+                "challenge, channel exporter, transcript commitment and " +
+                "bilateral human APPROVE/DECLINE plus final confirmation " +
+                "controls; it then closes the socket. NO chat, audio, " +
+                "saved peer identity or production connection is enabled. " +
+                "This test is not an independently reviewed secure messenger. " +
                 "Android may continue device discoverability for its approved " +
                 "duration after a socket closes. All these tools are absent " +
                 "from release builds. " +

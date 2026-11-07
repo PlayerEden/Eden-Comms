@@ -30,11 +30,13 @@ class DebugTlsControlTransportTest {
         return DebugTlsControlTransport(engine, ByteArrayInputStream(byteArrayOf()), output) to output
     }
 
-    @Test fun exactlyThreeForwardOnlyProtocolPhasesAndBoundedLengths() {
+    @Test fun exactlyFiveForwardOnlyProtocolPhasesAndBoundedLengths() {
         val (transport, _) = fresh()
         assertEquals(134, DebugTlsControlTransport.Phase.QR_PROOF.bytes)
         assertEquals(38, DebugTlsControlTransport.Phase.EXPORTER.bytes)
         assertEquals(38, DebugTlsControlTransport.Phase.COMMITMENT.bytes)
+        assertEquals(39, DebugTlsControlTransport.Phase.APPROVAL.bytes)
+        assertEquals(39, DebugTlsControlTransport.Phase.CONFIRM.bytes)
         assertThrows(SSLException::class.java) {
             transport.advance(
                 DebugTlsControlTransport.Phase.EXPORTER,
@@ -61,9 +63,29 @@ class DebugTlsControlTransportTest {
                 DebugTlsControlTransport.Phase.QR_PROOF
             )
         }
+        transport.advance(
+            DebugTlsControlTransport.Phase.COMMITMENT,
+            DebugTlsControlTransport.Phase.APPROVAL
+        )
+        assertThrows(SSLException::class.java) {
+            transport.advance(
+                DebugTlsControlTransport.Phase.APPROVAL,
+                DebugTlsControlTransport.Phase.COMMITMENT
+            )
+        }
+        transport.advance(
+            DebugTlsControlTransport.Phase.APPROVAL,
+            DebugTlsControlTransport.Phase.CONFIRM
+        )
+        assertThrows(SSLException::class.java) {
+            transport.advance(
+                DebugTlsControlTransport.Phase.CONFIRM,
+                DebugTlsControlTransport.Phase.QR_PROOF
+            )
+        }
         transport.clear()
         assertThrows(SSLException::class.java) {
-            transport.output.write(ByteArray(38))
+            transport.output.write(ByteArray(39))
         }
     }
 
