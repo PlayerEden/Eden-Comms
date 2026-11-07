@@ -323,4 +323,29 @@ if find "$MAIN" \( -name 'DebugRfcommLinkController.kt' -o -name 'DebugRfcommAtt
   echo "FAIL: unverified Bluetooth link entered release source" >&2
   exit 1
 fi
-echo "PASS: M3m bounded debug-only RFCOMM host/join with no application payload stream; release messaging disabled"
+# M3n-A introduces in-person reciprocal QR metadata, NOT TLS or general
+# messaging. Both roles must complete fresh local QR preparation before the
+# existing debug-only unverified RFCOMM socket can be attempted.
+BT_QR_CODEC="app/src/debug/java/com/edenpractical/comms/bluetooth/BluetoothQrPairingCodec.kt"
+BT_QR_COORD="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothQrCoordinator.kt"
+BT_QR_PANEL="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothQrPanel.kt"
+for FILE in "$BT_QR_CODEC" "$BT_QR_COORD" "$BT_QR_PANEL"; do test -f "$FILE"; done
+grep -Fq 'HOST_TAG = "ECBH1"' "$BT_QR_CODEC"
+grep -Fq 'JOIN_TAG = "ECBJ1"' "$BT_QR_CODEC"
+grep -Fq 'MAX_AGE_SECONDS = 300L' "$BT_QR_CODEC"
+grep -Fq 'SessionProofBinding(hostPin, joinPin, hostNonce, joinNonce)' "$BT_QR_CODEC"
+grep -Fq 'qrCoordinator.readyForDebugLink(hostRole = true)' "$BT_DEBUG"
+grep -Fq 'qrCoordinator.readyForDebugLink(hostRole = false)' "$BT_DEBUG"
+grep -Fq 'qrCoordinator.clear()' "$BT_DEBUG"
+grep -Fq 'LocalPairingQrScanner(' "$BT_QR_PANEL"
+grep -Fq 'LocalPairingQrDisplay(' "$BT_QR_PANEL"
+if grep -REn '(getInputStream\(|getOutputStream\(|listenUsingInsecureRfcomm|createInsecureRfcomm|sendDebugText\(|createBond\(|SharedPreferences|openFileOutput\()' \
+  "$BT_RFCOMM" "$BT_GATE" "$BT_QR_CODEC" "$BT_QR_COORD" "$BT_QR_PANEL"; then
+  echo "FAIL: unauthenticated Bluetooth QR or RFCOMM path accessed message streams, storage, or insecure fallback" >&2
+  exit 1
+fi
+if find "$MAIN" \( -name 'BluetoothQrPairingCodec.kt' -o -name 'DebugBluetoothQrCoordinator.kt' -o -name 'DebugBluetoothQrPanel.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: QR-only Bluetooth debug preparation entered release source" >&2
+  exit 1
+fi
+echo "PASS: M3n-A fresh reciprocal Bluetooth QR prep gates debug socket only; no link identity, payload or production text"
