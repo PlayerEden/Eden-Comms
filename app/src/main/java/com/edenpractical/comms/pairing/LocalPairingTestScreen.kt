@@ -859,6 +859,30 @@ internal fun LocalPairingTestScreen() {
                             }
                         }
                     )
+                    Button(
+                        onClick = {
+                            val ending = probe
+                            qaFinish = LocalQaReport.Finish.USER_ENDED
+                            probe = null
+                            attemptVersion += 1
+                            ending?.endByUser()
+                            clearTemporaryPairing()
+                            details = "Test ended on this phone."
+                            status = "Test ended."
+                            transcript = transcript.finish()
+                            debugText = debugText.finish()
+                            textDraft = ""
+                            showTestTools = false
+                            stage = "result"
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("End chat and disconnect") }
+                    Text(
+                        "End the current session at any time. This app clears visible " +
+                            "test text as best effort; the other phone may still keep a copy.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     OutlinedButton(
                         onClick = { showTestTools = !showTestTools },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -970,24 +994,7 @@ internal fun LocalPairingTestScreen() {
                         }
                     }
                     }
-                    Button(
-                        onClick = {
-                            val ending = probe
-                            qaFinish = LocalQaReport.Finish.USER_ENDED
-                            probe = null
-                            attemptVersion += 1
-                            ending?.endByUser()
-                            clearTemporaryPairing()
-                            details = "Test ended on this phone."
-                            status = "Test ended."
-                            transcript = transcript.finish()
-                            debugText = debugText.finish()
-                            textDraft = ""
-                            showTestTools = false
-                            stage = "result"
-                        },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                    ) { Text("End chat and disconnect") }
+
                 }
                 "result" -> {
                     Text(

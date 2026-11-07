@@ -24,7 +24,7 @@ class SessionPrivacyContractTest(unittest.TestCase):
         self.assertIn("Show conversation", self.chat)
         self.assertIn("onToggleHidden: () -> Unit", self.chat)
         self.assertIn("onClearRequested: () -> Unit", self.chat)
-        self.assertLess(self.chat.index("} else {\n        Box("),
+        self.assertLess(self.chat.index("} else {\n            Box("),
                         self.chat.index("transcript.visible.forEach"))
         self.assertNotIn("SharedPreferences", self.chat)
         self.assertNotIn("rememberSaveable", self.chat)
