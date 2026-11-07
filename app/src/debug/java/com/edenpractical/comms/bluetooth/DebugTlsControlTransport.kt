@@ -98,10 +98,11 @@ internal class DebugTlsControlTransport(
      * two commitment echoes. Both sides must follow the same ordering.
      */
     fun advance(expected: Phase, next: Phase) {
-        if (closed || phase != expected ||
-            (expected == Phase.QR_PROOF && next != Phase.EXPORTER) ||
-            (expected == Phase.EXPORTER && next != Phase.COMMITMENT)
-        ) throw SSLException("Invalid Bluetooth TLS control phase transition")
+        val allowed = (expected == Phase.QR_PROOF && next == Phase.EXPORTER) ||
+            (expected == Phase.EXPORTER && next == Phase.COMMITMENT)
+        if (closed || phase != expected || !allowed) {
+            throw SSLException("Invalid Bluetooth TLS control phase transition")
+        }
         phase = next
     }
 
