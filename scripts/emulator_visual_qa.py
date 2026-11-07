@@ -92,6 +92,26 @@ def seek(label, *, scroll=False, timeout=30):
     raise AssertionError("Emulator label missing: " + label)
 
 
+def idle_choice_mode(root):
+    """Observe real idle UI: emulator Wi-Fi may or may not be usable."""
+    if find(root, "No usable Wi-Fi connection found"):
+        return "wifi-unavailable"
+    if find(root, "Show a code") and find(root, "Scan a code"):
+        return "wifi-ready"
+    return None
+
+
+def inspect_idle_choice(timeout=25):
+    until = time.monotonic() + timeout
+    while time.monotonic() < until:
+        mode = idle_choice_mode(dump_ui())
+        if mode is not None:
+            return mode
+        swipe_up()
+        time.sleep(.7)
+    raise AssertionError("Idle pairing showed neither Wi-Fi-ready nor Wi-Fi-unavailable guidance")
+
+
 def tap(label, *, scroll=False):
     x, y = seek(label, scroll=scroll)
     adb("shell", "input", "tap", str(x), str(y))
@@ -170,7 +190,8 @@ def run(apk, output):
         "mode": "manual emulator only",
         "commit": os.environ.get("GITHUB_SHA", "local-unverified"),
         "api": adb("shell", "getprop", "ro.build.version.sdk").strip(),
-        "screens": [],
+        "screens": [], "idle_wifi_modes": {},
+        "result": "INCOMPLETE",
         "not_proven": ["real-device accessibility", "real two-phone behavior",
                        "independent security", "Bluetooth", "Wi-Fi Direct", "voice"]
     }
@@ -182,7 +203,8 @@ def run(apk, output):
         tap("CONNECT NEARBY")
         seek("One phone shows a code", timeout=35)
         report["screens"].append(capture(output, "02-idle-qr-choice",
-                                         ["Show a code", "Scan a code"]))
+                                         ["One phone shows a code"]))
+        report["idle_wifi_modes"]["normal"] = inspect_idle_choice()
         # Never tap Show / Scan: no live QR data or camera permissions.
         back()
         tap("How it works", scroll=True)
@@ -215,17 +237,27 @@ def run(apk, output):
                 tap("CONNECT NEARBY", scroll=True)
                 seek("One phone shows a code", timeout=35)
                 report["screens"].append(capture(output, "09-idle-compact",
-                                                 ["Show a code"]))
+                                                 ["One phone shows a code"]))
+                report["idle_wifi_modes"]["compact"] = inspect_idle_choice()
             if name == "landscape":
                 tap("Voice / PTT", scroll=True)
                 report["screens"].append(capture(output, "10-voice-disabled",
                                                  ["COMING SOON"]))
         report["result"] = "PASS"
         return report
+    except Exception as exc:
+        # Never expose arbitrary exception text: it may include OS details.
+        report["result"] = "FAILED"
+        report["failure_type"] = type(exc).__name__
+        raise
     finally:
-        adb("shell", "am", "force-stop", PACKAGE)
-        configure()
-        adb("shell", "pm", "clear", PACKAGE)
+        try:
+            adb("shell", "am", "force-stop", PACKAGE)
+            configure()
+            adb("shell", "pm", "clear", PACKAGE)
+        finally:
+            # Always retain completed safe scenes and failure category.
+            (output / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 def main():
