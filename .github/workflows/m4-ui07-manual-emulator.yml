@@ -15,6 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Require owner repository and main branch
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "PlayerEden/Eden-Comms"
+          test "$GITHUB_REF" = "refs/heads/main"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false

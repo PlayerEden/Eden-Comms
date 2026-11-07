@@ -13,7 +13,7 @@ is a reproducible visual smoke test; it cannot validate secure communications.
   security, permission and APK signing checks, and launches a Pixel 5 Android 35
   emulator without a camera.
 - An emulator-only ADB driver refuses physical devices, navigates only safe
-  idle and local sandbox routes, captures ten evidence screenshots for Home,
+  idle and local sandbox routes, captures twelve evidence screenshots for Home,
   idle QR choice, Help, Settings, Privacy, local text sandbox, empty keyboard,
   compact size, 200% font and landscape Voice disabled placeholder.
 - No real QR display/scan, public-key identity creation, approval, pair attempt,

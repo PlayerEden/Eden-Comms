@@ -30,6 +30,8 @@ class ManualEmulatorHarnessContract(unittest.TestCase):
     def test_workflow_is_manual_only_without_private_signing(self):
         s = WORKFLOW.read_text()
         self.assertIn("  workflow_dispatch:", s)
+        self.assertIn('test "$GITHUB_REF" = "refs/heads/main"', s)
+        self.assertIn('test "$GITHUB_REPOSITORY" = "PlayerEden/Eden-Comms"', s)
         for bad in ("\n  push:", "\n  pull_request:", "\n  workflow_run:",
                     "\n  schedule:", "secrets.", "EC_INTERNAL_KEYSTORE_",
                     "contents: write"):

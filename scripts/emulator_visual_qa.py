@@ -159,7 +159,7 @@ def configure(size=None, density=None, font="1.0"):
 def keyboard_visible():
     text = adb("shell", "dumpsys", "input_method")
     return any(s in text for s in (
-        "mInputShown=true", "isInputViewShown=true", "mShowRequested=true"
+        "mInputShown=true", "isInputViewShown=true"
     ))
 
 
