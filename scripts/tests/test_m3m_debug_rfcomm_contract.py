@@ -67,8 +67,8 @@ class DebugRfcommContractTest(unittest.TestCase):
             "result.resultCode > 0",
             "beginHostLink()",
             "beginJoinLink()",
-            "linkController.host(hostAdapter)",
-            "linkController.join(target, joinAdapter)",
+            "linkController.host(hostAdapter, request)",
+            "linkController.join(target, joinAdapter, request)",
             "candidateLedger.selectedHandle()",
             "linkController.disconnect()",
             "linkController.background()",
@@ -115,7 +115,7 @@ class DebugRfcommContractTest(unittest.TestCase):
             "fun reset(): Boolean"
         ):
             self.assertIn(item, self.gate, item)
-        self.assertIn("if (active !== token || !gate.stop(token, why)) return",
+        self.assertIn("if (active !== token) return",
                       self.controller)
         self.assertIn("if (active != null || gate.snapshot().phase !=",
                       self.controller)
