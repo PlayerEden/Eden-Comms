@@ -124,10 +124,10 @@ class EncryptedBluetoothTranscriptContract(unittest.TestCase):
         ):
             self.assertIn(piece, self.input)
         self.assertIn("current.binding(now)", self.qr)
-        self.assertIn("DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED", self.link)
+        self.assertIn("DebugRfcommAttemptGate.End.CONSENT_CONFIRMED", self.link)
         self.assertIn("closeQuietly(oldSocket)", self.link)
         self.assertIn("request.close()", self.link)
-        self.assertIn("QR_CHANNEL_AGREEMENT_PASSED", self.gate)
+        self.assertIn("CONSENT_CONFIRMED", self.gate)
         for name in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn("const val " + name + " = false", self.release)
         for name in ("BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "BLUETOOTH_ADVERTISE"):
