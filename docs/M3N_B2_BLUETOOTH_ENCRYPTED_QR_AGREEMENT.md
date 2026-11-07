@@ -1,0 +1,41 @@
+# Eden Comms M3n-B2 — Encrypted Bluetooth QR/session transcript agreement
+
+**2026-11-06 · Debug source only · Experimental security implementation.**
+
+M3n-B2 builds on the already implemented Android 12+ Bluetooth Classic discovery, ephemeral candidate selection, in-person two-QR exchange, RFCOMM host/join socket and pinned mutual TLS 1.3 `SSLEngine` handshake from M3n-B1. M3n-B2 now executes a **real, fixed-width protocol-control exchange inside the pinned TLS channel** to compare the same fresh QR nonces, both peer certificate pins, fresh per-link challenges and RFC 9266 TLS exporter value. The RFCOMM socket is **always closed** when this diagnostic ends.
+
+**This is NOT completed, independently reviewed end-to-end messaging, nor an authorization to send chat/voice. No phones were physically tested. Production release flags remain false.**
+
+## New wire protocol (all frames encrypted by one existing verified TLS 1.3 engine)
+
+1. **QR preparation.** In person, the host shares the `ECBH1` QR containing host public certificate SHA-256 pin, host nonce and issue time. The joining phone scans and shows its own `ECBJ1` reply pin/nonce; the host scans the reply. The two role-ordered in-memory `SessionProofBinding` objects are prepared with exact full certificate pins and both QR nonces. The QR code is valid for at most five minutes; the session request snapshots the complete transcript, checks role and own device fingerprint, and rejects a resumed/expired attempt.
+2. **TLS 1.3 handshake and identity.** M3n-B1 `DebugTlsEngineHandshake` first negotiates TLS over the actual RFCOMM socket. `Tls13PeerContext` uses the local Android Keystore signing key and exact pinned peer certificate, with mandatory client auth; `PinnedTlsPeer.requirePinnedTls13` rechecks the live peer session. The TLS provider must support the standard Android `SSLEngines` exporter.
+3. **Encrypted fresh QR proof (four controls, 134 bytes each).** The existing fixed-size `SessionProofExchange.runHost` / `runJoin` now use `DebugTlsControlTransport.input/output`, which encrypts each control with `SSLEngine.wrap` and decrypts only the exact expected record with `SSLEngine.unwrap`. Host HELLO → Join HELLO → Host ACK → Join ACK include and check BOTH pins, BOTH QR nonces and new independent 16-byte challenges, including the corresponding challenge echoes and exact roles. Mismatches, missing steps and reordered records terminate the socket.
+4. **Encrypted TLS exporter comparison (two controls, 38 bytes each).** Both endpoints separately derive 32 bytes using Android `SSLEngines.exportKeyingMaterial(engine, "EXPORTER-Channel-Binding", empty context, 32)` from the same live, mutually pinned TLS channel. Via `DebugExporterBindingFrame.exchange`, the host sends and checks the joining phone's echoed exporter in fixed role order, then the joiner replies with its own. Both parties must match exactly; unavailable or mismatched values fail closed.
+5. **Encrypted transcript commitment comparison (two controls, 38 bytes each).** `DebugApprovalCommitment.derive` computes a domain-separated 32-byte SHA-256 digest of the canonical host/join certificate pins, QR nonces, fresh proof challenges and TLS exporter (NOT a message key or user consent). `DebugBluetoothCommitmentFrame.exchange` performs one final host-then-join constant-time comparison with strict version/roles. No raw QR, keys, MAC addresses or digest values are logged/displayed/saved.
+6. **Terminal diagnostic only.** A passing exchange transitions the debug RFCOMM controller to **QR_CHANNEL_AGREEMENT_PASSED**, reports only a human-readable completion status, zeroes temporary QR/challenge/exporter/digest buffers, and **closes the socket**. A failed, blocked, revoked or interrupted exchange also closes the connection. The existing 45-second maximum open-socket lifetime, short host/join limits and explicit Disconnect remain in force.
+
+### Protocol limits and fail-closed decisions
+
+- `DebugTlsControlTransport` is **not a general TLS socket**: it only permits the three ordered phases `QR_PROOF` (134-byte), `EXPORTER` (38-byte) and `COMMITMENT` (38-byte), with no backtracking and no single-byte/custom-length API. Only one precisely sized TLS-encrypted control frame may be sent/received at each operation; wrong lengths, additional/decrypted plaintext, incomplete TLS record consumption, unsupported handshake statuses, provider buffer overflow and record size over the established bound reject the attempt.
+- Any Android provider that fragments TLS application plaintext across multiple TLS records or emits unexpected post-handshake control activity may be **rejected** rather than adapted automatically. This is conservative but means real Android interoperability is **not yet proven**; hardware and expert protocol review must evaluate this design.
+- The exporter is transmitted only within the verified TLS channel as a fixed diagnostic comparison frame. It is not stored, displayed, logged, used as an application encryption key or substituted for a missing identity/approval requirement.
+- A correct exporter and matching transcript **do not prove either person approves communication**, and cannot authorize text, file transfer, voice or background reconnect. No production authorization state is touched. The debug-only handshake+controls are isolated from the main/release source set and run only after explicit in-person QR and Android radio permissions.
+- This debug protocol is preliminary and still needs independent security analysis of key lifecycle, Android TLS provider behavior, replay, transcript downgrade, cancellation, session resumption, exporter ordering, Bluetooth discoverability and OEM interoperability.
+
+## Automated evidence in the M3n-B2 PR
+
+- `DebugBluetoothCommitmentFrameTest`: host/join agreement framing, wrong roles/versions/magic/truncation, and changes to **every** pin, QR nonce, fresh challenge or exporter, plus exact fixed-size output.
+- `DebugTlsControlTransportTest`: exact protocol phases and lengths, invalid transitions, wrong buffers, unhandshaken TLS input/output refusal and explicit terminal clear.
+- Existing `SessionProofExchangeTest`, `DebugExporterBindingFrameTest`, `DebugApprovalCommitmentTest`, `DebugTlsEngineHandshakeTest`, `DebugRfcommAttemptGateTest` and all LAN suites remain active.
+- New `scripts/tests/test_m3n_b2_encrypted_transcript_contract.py` plus expanded `scripts/check_security_review_boundary.sh` enforce the exact pinned-TLS → encrypted four-QR-proof → exporter agreement → commitment agreement ordering, debug-only source, strict no user packets, and original release/permission allowlists. The CI Android build proves it compiles/packages and the deterministic tests pass, **not that two physical phones completed the exchange.**
+
+## Follow-on roadmap
+
+**M3n-C: Session-specific human approvals and confirmations, then bounded debug Bluetooth text.** Use the agreed per-link commitment as the source of a separately reviewed user consent mechanism. Neither a button tap on one phone nor the signal list suffices. Require **both** people to explicitly Approve and **both** to acknowledge final confirmation *over the same authenticated session*; reject stale/cross-session events, denial, background/permission loss and replay. Only then may any bounded debug text be considered. Production flags remain false until independent security review and actual two-phone acceptance.
+
+**Owner-triggered physical QA — still pending:** run two different Android 12+ phones side by side, with internet disconnected; scan both QR codes, choose correct device, inspect only sanitized terminal statuses; test wrong pins/nonces/replayed/stale QR, 60s/18s/45s timeouts, mismatched exporter and Android TLS provider variants, radio loss, permission revocation, background/rotation, and absolutely no Bluetooth chat or voice. Do not save raw QR strings, peer keys, Bluetooth MACs or TLS packet dumps.
+
+## Links
+
+[M3n-B1 TLS engine foundation](M3N_B1_PINNED_TLS_ENGINE_RFCOMM.md) · [Master core-feature plan](CORE_FEATURE_COMPLETION_PLAN_2026_11_06.md) · [Bluetooth #59](https://github.com/PlayerEden/Eden-Comms/issues/59) · [Deferred two-phone QA #26](https://github.com/PlayerEden/Eden-Comms/issues/26) · [Independent security review #42](https://github.com/PlayerEden/Eden-Comms/issues/42).

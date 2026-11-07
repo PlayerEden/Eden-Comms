@@ -50,6 +50,7 @@ The preview includes an in-app **Privacy & data** explainer under Settings and H
 - [M3m: real debug-only RFCOMM host/join with no authenticated text](docs/M3M_DEBUG_RFCOMM_LINK.md)
 - [M3n-A: in-person Bluetooth reciprocal QR, not authenticated channel or text](docs/M3N_A_BLUETOOTH_RECIPROCAL_QR.md)
 - [M3n-B1: debug pinned TLS 1.3 engine handshake over RFCOMM (still no app text)](docs/M3N_B1_PINNED_TLS_ENGINE_RFCOMM.md)
+- [M3n-B2: encrypted Bluetooth QR nonce, exporter and transcript agreement, still no app text](docs/M3N_B2_BLUETOOTH_ENCRYPTED_QR_AGREEMENT.md)
 - [Milestones M0–M6](docs/DEVELOPMENT_ROADMAP.md)
 - [Security threat model and QA](docs/SECURITY_AND_QA.md)
 - [Privacy and security charter — no-ship requirements](docs/PRIVACY_SECURITY_CHARTER.md)

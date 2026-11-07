@@ -376,9 +376,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
                         Text(
-                            "A pinned TLS certificate check is only a debug diagnostic. " +
-                                "QR nonce/channel agreement and two-person approval are NOT done. " +
-                                "No app text or voice is sent or accepted. " +
+                            "A successful pinned TLS + QR nonce/channel agreement is " +
+                                "only a development diagnostic. Two-person approval and " +
+                                "final confirmations are NOT done. No app text or voice " +
+                                "is sent or accepted. " +
                                 "A host may become discoverable beyond this screen under Android control."
                         )
                     }
@@ -523,7 +524,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         if (linkController.host(hostAdapter, request)) {
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
             watchLinkPermission()
-            linkStatus = "Listening for RFCOMM, then testing pinned TLS 1.3 (no messages)."
+            linkStatus = "Listening for RFCOMM, then testing QR-bound encrypted control agreement."
         } else request.close()
     }
 
@@ -548,7 +549,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             clearCandidateMemory()
             linkPhase = DebugRfcommAttemptGate.Phase.CONNECTING
             watchLinkPermission()
-            linkStatus = "Opening RFCOMM, then testing pinned TLS 1.3 (no messages)."
+            linkStatus = "Opening RFCOMM, then testing QR-bound encrypted control agreement."
         } else request.close()
     }
 

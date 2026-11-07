@@ -1,7 +1,7 @@
 """M3n-B1: strict debug TLS 1.3 SSLEngine handshake over RFCOMM.
 
-The live probe may exchange ONLY TLS protocol records. It MUST NOT use TLS
-success to grant text/voice approval or claim completed QR nonce agreement.
+The live probe only exchanges TLS-protected, fixed-width protocol controls.
+It does not authorize text or voice, saved peers or bilateral human approval.
 Physical Android interoperability and independent security review are open.
 """
 from pathlib import Path
@@ -42,7 +42,8 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
 
     def test_real_rfccomm_worker_runs_pinned_tls_before_closing_and_never_messages(self):
         for marker in (
-            "socket.inputStream, socket.outputStream",
+            "val wireIn = socket.inputStream",
+            "val wireOut = socket.outputStream",
             "DebugTlsEngineHandshake.negotiate(",
             "PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)",
             "SSLEngines.isSupportedEngine(engine)",
@@ -54,7 +55,7 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
             self.assertIn(marker, self.probe, marker)
         for marker in (
             "DebugRfcommTlsProbe.run(created, request)",
-            "stop(token, DebugRfcommAttemptGate.End.TLS_PROBE_PASSED)",
+            "stop(token, DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED)",
             "stop(token, DebugRfcommAttemptGate.End.FAILED)",
             "request.close()",
             "closeQuietly(oldSocket)",
@@ -65,7 +66,7 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
             self.assertIn(marker, self.controller, marker)
         for insecure in ("sendDebugText(", "TestPacketCodec", "DataOutputStream",
                          "listenUsingInsecureRfcomm", "createInsecureRfcomm",
-                         "writeText(", "readText(", "SessionProofExchange.run",
+                         "writeText(", "readText(",
                          "onAuthenticatedRemoteApproval(", "ReleaseCapabilities.CAN_SEND_MESSAGES = true"):
             self.assertNotIn(insecure, self.controller + self.probe + self.handshake)
 
@@ -92,7 +93,8 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
     def test_bluetooth_qr_identity_copied_to_per_attempt_input_and_no_authorization(self):
         self.assertIn("fun newTlsProbeInput(hostRole: Boolean)", self.qr)
         self.assertIn("readyForDebugLink(hostRole)", self.qr)
-        self.assertIn("prepared?.peerFingerprint(System.currentTimeMillis() / 1000)", self.qr)
+        self.assertIn("current.peerFingerprint(now)", self.qr)
+        self.assertIn("current.binding(now)", self.qr)
         self.assertIn("private val peerPin = expectedPeerPin.copyOf()", self.input)
         self.assertIn("peerPin.fill(0)", self.input)
         self.assertIn("DebugBluetoothTlsProbeInput", self.qr)

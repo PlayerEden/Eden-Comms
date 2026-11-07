@@ -367,7 +367,7 @@ grep -Fq 'fun unconnectedEngine(client: Boolean): SSLEngine' app/src/main/java/c
 grep -Fq 'if (!client) needClientAuth = true' app/src/main/java/com/edenpractical/comms/security/Tls13PeerContext.kt
 grep -Fq 'qrCoordinator.newTlsProbeInput(hostRole = true)' "$BT_DEBUG"
 grep -Fq 'qrCoordinator.newTlsProbeInput(hostRole = false)' "$BT_DEBUG"
-if grep -REn '(TestPacketCodec|sendDebugText\(|listenUsingInsecureRfcomm|createInsecureRfcomm|onAuthenticatedRemoteApproval\(|SessionProofExchange.run)' \
+if grep -REn '(TestPacketCodec|sendDebugText\(|listenUsingInsecureRfcomm|createInsecureRfcomm|onAuthenticatedRemoteApproval\(|ProductionSessionAuthorization)' \
  "$BT_RFCOMM" "$BT_TLS_PROBE" "$BT_TLS_ENGINE" "$BT_TLS_INPUT"; then
   echo "FAIL: unreviewed Bluetooth text/consent or insecure fallback in TLS probe" >&2
   exit 1
@@ -376,4 +376,35 @@ if find "$MAIN" \( -name 'DebugRfcommTlsProbe.kt' -o -name 'DebugTlsEngineHandsh
   echo "FAIL: debug-only Bluetooth TLS handshake probe entered release code" >&2
   exit 1
 fi
-echo "PASS: M3n-B1 bounded QR-pinned mutual TLSv1.3 probe on RFCOMM, zero app messages, release flags closed"
+# M3n-B2: encrypted fixed-width, phase-ordered QR proof, exporter agreement,
+# and final transcript comparison ONLY; RFCOMM closes immediately afterwards.
+# No application messages or consent packets until M3n-C and security review.
+BT_CONTROL="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsControlTransport.kt"
+BT_COMMIT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothCommitmentFrame.kt"
+test -f "$BT_CONTROL" && test -f "$BT_COMMIT"
+grep -Fq 'DebugTlsControlTransport(engine, wireIn, wireOut)' "$BT_TLS_PROBE"
+grep -Fq 'SessionProofExchange.runHost(' "$BT_TLS_PROBE"
+grep -Fq 'SessionProofExchange.runJoin(' "$BT_TLS_PROBE"
+grep -Fq 'DebugExporterBindingFrame.exchange(' "$BT_TLS_PROBE"
+grep -Fq 'DebugApprovalCommitment.derive(' "$BT_TLS_PROBE"
+grep -Fq 'DebugBluetoothCommitmentFrame.exchange(' "$BT_TLS_PROBE"
+grep -Fq 'request.freshBinding()' "$BT_TLS_PROBE"
+grep -Fq 'DebugTlsEngineHandshake.readRecord(wireInput)' "$BT_CONTROL"
+grep -Fq 'engine.unwrap(ByteBuffer.wrap(encoded), clear)' "$BT_CONTROL"
+grep -Fq 'engine.wrap(ByteBuffer.wrap(b, off, len), encrypted)' "$BT_CONTROL"
+grep -Fq 'result.bytesProduced() != phase.bytes' "$BT_CONTROL"
+grep -Fq 'QR_PROOF(PROOF_BYTES)' "$BT_CONTROL"
+grep -Fq 'EXPORTER(DebugExporterBindingFrame.RECORD_BYTES)' "$BT_CONTROL"
+grep -Fq 'COMMITMENT(COMMIT_BYTES)' "$BT_CONTROL"
+grep -Fq 'MessageDigest.isEqual(incoming.copyOfRange(6, RECORD_BYTES), local)' "$BT_COMMIT"
+grep -Fq 'DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED' "$BT_RFCOMM"
+if grep -REn '(TestPacketCodec|sendDebugText\(|listenUsingInsecureRfcomm|createInsecureRfcomm|onAuthenticatedRemoteApproval\(|SharedPreferences|DataStore|openFileOutput\()' \
+ "$BT_RFCOMM" "$BT_TLS_PROBE" "$BT_TLS_ENGINE" "$BT_TLS_INPUT" "$BT_CONTROL" "$BT_COMMIT"; then
+  echo "FAIL: M3n-B2 control channel included text, storage or insecure Bluetooth" >&2
+  exit 1
+fi
+if find "$MAIN" \( -name 'DebugTlsControlTransport.kt' -o -name 'DebugBluetoothCommitmentFrame.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: encrypted debug Bluetooth control entered release source" >&2
+  exit 1
+fi
+echo "PASS: M3n-B2 encrypted QR proof, peer exporter comparison and commitment agreement debug-only; no user packets or production capabilities"
