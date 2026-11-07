@@ -71,8 +71,11 @@ internal object PrivacyPreviewContent {
                 "Android may continue device discoverability for its approved " +
                 "duration after a socket closes. All these tools are absent " +
                 "from release builds. " +
-                "This preview does not request microphone, contacts or " +
-                "location permissions."
+                "The release app does not request microphone, contacts or " +
+                "device location permission. Debug Wi-Fi Direct tests may " +
+                "request nearby Wi-Fi permission on Android 13+ or location " +
+                "permission on older Android versions; no coordinates are " +
+                "read. Location Mode may be required for nearby discovery."
         ),
         Section(
             "Local-only sandbox versus real test text",
@@ -94,7 +97,9 @@ internal object PrivacyPreviewContent {
             "What is not available",
             "There are no Eden Comms accounts, saved conversations, remembered " +
                 "peer connections, encrypted on-device chat history, disappearing " +
-                "timers, Bluetooth/Wi-Fi Direct transport or voice calls. " +
+                "timers or voice calls. Bluetooth and Wi-Fi Direct have " +
+                "debug-only radio/link diagnostics, not a reviewed " +
+                "user messaging transport. " +
                 "Production secure messaging remains disabled pending independent " +
                 "protocol review and real two-phone tests. Clearing this phone " +
                 "cannot remotely delete another person's messages."
