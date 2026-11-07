@@ -35,7 +35,8 @@ class WifiDirectPreflightBoundary(unittest.TestCase):
         # M3p introduces debug-only permission prompts but still no P2P calls.
         for word in ("NEARBY_WIFI_DEVICES", "ACCESS_FINE_LOCATION", "ACCESS_WIFI_STATE"):
             self.assertIn('android:name="android.permission.' + word + '"', manifest)
-        self.assertNotIn('android:name="android.permission.CHANGE_WIFI_STATE"', manifest)
+        self.assertIn('android:name="android.permission.CHANGE_WIFI_STATE"', manifest)
+        self.assertIn('android:name="android.permission.CHANGE_NETWORK_STATE"', manifest)
         self.assertIn('android:maxSdkVersion="32"', manifest)
 if __name__ == "__main__":
     unittest.main()

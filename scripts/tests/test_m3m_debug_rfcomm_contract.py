@@ -94,7 +94,9 @@ class DebugRfcommContractTest(unittest.TestCase):
             "android.permission.BLUETOOTH_ADVERTISE",
             "android.permission.ACCESS_WIFI_STATE",
             "android.permission.NEARBY_WIFI_DEVICES",
-            "android.permission.ACCESS_FINE_LOCATION"
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.CHANGE_WIFI_STATE",
+            "android.permission.CHANGE_NETWORK_STATE"
         ])
         self.assertEqual(self.manifest.find("application/activity").get(
             NAMESPACE + "exported"), "false")
