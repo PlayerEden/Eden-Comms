@@ -45,7 +45,7 @@ class ManualEmulatorHarnessContract(unittest.TestCase):
     def test_safe_routes_only_and_physical_device_guard(self):
         s = SCRIPT.read_text()
         for good in ("ro.kernel.qemu", "Exactly one emulator",
-                     "tap(\"Text layout sandbox\")", "keyboard_visible()",
+                     "tap(\"Text layout sandbox\", scroll=True)", "keyboard_visible()",
                      "png_evidence(png)", "uiautomator", "screencap"):
             self.assertIn(good, s)
         for bad in ('tap("Show a code")', 'tap("Scan a code")',
