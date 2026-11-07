@@ -407,4 +407,43 @@ if find "$MAIN" \( -name 'DebugTlsControlTransport.kt' -o -name 'DebugBluetoothC
   echo "FAIL: encrypted debug Bluetooth control entered release source" >&2
   exit 1
 fi
-echo "PASS: M3n-B2 encrypted QR proof, peer exporter comparison and commitment agreement debug-only; no user packets or production capabilities"
+# M3n-C1: real two-person consent on the verified M3n-B2 channel only.
+# One explicit tap EACH (APPROVE or DECLINE), followed by two encrypted
+# FINAL CONFIRM records. No Bluetooth text/voice or production trust.
+BT_CONSENT_DECISION="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothConsentDecision.kt"
+BT_CONSENT_FRAME="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothConsentFrame.kt"
+BT_CONSENT_EXCHANGE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothConsentExchange.kt"
+for FILE in "$BT_CONSENT_DECISION" "$BT_CONSENT_FRAME" "$BT_CONSENT_EXCHANGE"; do
+  test -f "$FILE"
+done
+grep -Fq 'DebugBluetoothConsentExchange.run(' "$BT_TLS_PROBE"
+grep -Fq 'DebugBluetoothCommitmentFrame.exchange(' "$BT_TLS_PROBE"
+grep -Fq 'onApprovalRequired = { onConsentRequired(consent) }' "$BT_TLS_PROBE"
+grep -Fq 'DebugApprovalGate()' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'DebugBluetoothConsentFrame.Type.APPROVE' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'DebugBluetoothConsentFrame.Type.DECLINE' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'DebugBluetoothConsentFrame.Type.CONFIRM' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'gate.mayWriteConfirmation()' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'DebugApprovalGate.State.CONFIRMED' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'transport.advance(' "$BT_CONSENT_EXCHANGE"
+grep -Fq 'APPROVAL(DebugBluetoothConsentFrame.RECORD_BYTES)' "$BT_CONTROL"
+grep -Fq 'CONFIRM(DebugBluetoothConsentFrame.RECORD_BYTES)' "$BT_CONTROL"
+grep -Fq 'decisionLatch.await(maxWaitMs, TimeUnit.MILLISECONDS)' "$BT_CONSENT_DECISION"
+grep -Fq 'oldConsent?.close()' "$BT_RFCOMM"
+grep -Fq 'fun approve(): Boolean' "$BT_RFCOMM"
+grep -Fq 'fun decline(): Boolean' "$BT_RFCOMM"
+grep -Fq 'approvalPending &&' "$BT_DEBUG"
+grep -Fq 'APPROVE THIS TEST SESSION' "$BT_DEBUG"
+grep -Fq 'DECLINE AND CLOSE SESSION' "$BT_DEBUG"
+grep -Fq 'DebugRfcommAttemptGate.End.CONSENT_CONFIRMED' "$BT_RFCOMM"
+grep -Fq 'DebugRfcommAttemptGate.End.CONSENT_DECLINED' "$BT_RFCOMM"
+if grep -REn '(TestPacketCodec|sendDebugText\(|listenUsingInsecureRfcomm|createInsecureRfcomm|ProductionSessionAuthorization|SharedPreferences|DataStore|openFileOutput\(|AudioRecord|MediaRecorder|onAuthenticatedRemoteApproval\()' \
+ "$BT_RFCOMM" "$BT_TLS_PROBE" "$BT_CONTROL" "$BT_CONSENT_FRAME" "$BT_CONSENT_EXCHANGE" "$BT_CONSENT_DECISION"; then
+  echo "FAIL: M3n-C1 debug approval exposed app messages, audio, persistence or release trust" >&2
+  exit 1
+fi
+if find "$MAIN" \( -name 'DebugBluetoothConsentDecision.kt' -o -name 'DebugBluetoothConsentFrame.kt' -o -name 'DebugBluetoothConsentExchange.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: debug-only Bluetooth user approval entered release sources" >&2
+  exit 1
+fi
+echo "PASS: M3n-C1 encrypted bilateral APPROVE/DECLINE + two final CONFIRM frames; no messages, voice, persistence or production connection"
