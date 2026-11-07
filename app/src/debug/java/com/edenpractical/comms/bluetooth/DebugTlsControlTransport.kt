@@ -54,7 +54,7 @@ internal class DebugTlsControlTransport(
                 ) throw SSLException("Unexpected Bluetooth TLS control record")
                 clear.flip()
                 clear.get(b, off, len)
-                clear.clear()
+                clear.array().fill(0)
                 return len
             } finally {
                 encoded.fill(0)
@@ -85,7 +85,7 @@ internal class DebugTlsControlTransport(
                 wireOutput.flush()
             } finally {
                 record.fill(0)
-                encrypted.clear()
+                encrypted.array().fill(0)
             }
         }
 
