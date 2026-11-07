@@ -107,11 +107,16 @@ private fun EdenCommsApp() {
     }
     // Only stage names cross the page boundary; never preserve chat or QR data.
     var pairingStage by remember { mutableStateOf("checking") }
+    // Only a non-sensitive boolean is saved. Never restore QR codes, a link,
+    // approvals, chat text, draft, or the socket after Android recreation.
+    var pairingWasInProgress by rememberSaveable { mutableStateOf(false) }
+    val interruptedOnRecreation = remember { pairingWasInProgress }
     var confirmLeavePairing by remember { mutableStateOf(false) }
     val back: () -> Unit = {
         if (page == "pairing-test" && PairingSessionUi.needsLeaveWarning(pairingStage)) {
             confirmLeavePairing = true
         } else {
+            if (page == "pairing-test") pairingWasInProgress = false
             history = NavigationHistory.pop(history)
         }
     }
@@ -174,6 +179,7 @@ private fun EdenCommsApp() {
                 confirmButton = {
                     TextButton(onClick = {
                         confirmLeavePairing = false
+                        pairingWasInProgress = false
                         // Disposing the session screen invokes its existing
                         // attempt-fenced socket and temporary-text cleanup.
                         history = NavigationHistory.pop(history)
@@ -195,6 +201,9 @@ private fun EdenCommsApp() {
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    // On edge-to-edge Android, shrink the route for the IME
+                    // instead of leaving the message field behind the keyboard.
+                    .imePadding()
             ) {
                 TopBar(
                     page = page, onBack = back,
@@ -230,9 +239,14 @@ private fun EdenCommsApp() {
                             // the legacy screen incorrectly said pairing was "coming soon".
                             "wifi" -> NearbyScreen(onLocalWifi = { navigate("pairing-test") })
                             "pairing-test" -> LocalPairingTestScreen(
-                                onStageChanged = { pairingStage = it },
+                                interruptedBeforeRecreation = interruptedOnRecreation,
+                                onStageChanged = {
+                                    pairingStage = it
+                                    pairingWasInProgress = PairingSessionUi.needsLeaveWarning(it)
+                                },
                                 onBackToPrevious = {
                                     // Only offered from an already-ended result.
+                                    pairingWasInProgress = false
                                     history = NavigationHistory.pop(history)
                                 }
                             )
