@@ -48,13 +48,20 @@ internal object BluetoothQrPairingCodec {
 
         /** Canonical presenter/joiner QR transcript; NOT proof or authorization. */
         fun binding(nowSeconds: Long): SessionProofBinding {
-            require(!cleared && nowSeconds <= expiresAtSeconds) { "Fresh QR preparation required" }
+            requireFreshPrepared(nowSeconds)
             return SessionProofBinding(hostPin, joinPin, hostNonce, joinNonce)
         }
 
         fun peerFingerprint(nowSeconds: Long): ByteArray {
-            require(!cleared && nowSeconds <= expiresAtSeconds) { "QR preparation expired" }
+            requireFreshPrepared(nowSeconds)
             return (if (hostRole) joinPin else hostPin).copyOf()
+        }
+
+        private fun requireFreshPrepared(nowSeconds: Long) {
+            require(!cleared &&
+                nowSeconds in
+                    (expiresAtSeconds - MAX_AGE_SECONDS - MAX_FUTURE_SKEW_SECONDS)..expiresAtSeconds
+            ) { "Bluetooth QR preparation expired or clock invalid" }
         }
 
         fun clear() {
