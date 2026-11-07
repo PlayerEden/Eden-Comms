@@ -87,7 +87,10 @@ class BluetoothCandidateSelectionBoundaryTest(unittest.TestCase):
         permissions = [e.get(NS + "name") for e in root.findall("uses-permission")]
         self.assertEqual(permissions, ["android.permission.BLUETOOTH_SCAN",
                                        "android.permission.BLUETOOTH_CONNECT",
-                                       "android.permission.BLUETOOTH_ADVERTISE"])
+                                       "android.permission.BLUETOOTH_ADVERTISE",
+                                       "android.permission.ACCESS_WIFI_STATE",
+                                       "android.permission.NEARBY_WIFI_DEVICES",
+                                       "android.permission.ACCESS_FINE_LOCATION"])
         self.assertEqual(root.find("application/activity").get(NS + "exported"), "false")
         self.assertIn("android.permission.BLUETOOTH_CONNECT", self.manifest)
         self.assertIn("android.permission.BLUETOOTH_ADVERTISE", self.manifest)
