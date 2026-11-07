@@ -60,7 +60,7 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
             "closeQuietly(oldSocket)",
             "closeQuietly(oldServer)",
             "if (!gate.stop(token, why) &&",
-            "NO app messages",
+            "No app messages.",
         ):
             self.assertIn(marker, self.controller, marker)
         for insecure in ("sendDebugText(", "TestPacketCodec", "DataOutputStream",
