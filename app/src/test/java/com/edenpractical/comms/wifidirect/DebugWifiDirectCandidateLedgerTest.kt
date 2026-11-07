@@ -57,6 +57,29 @@ class DebugWifiDirectCandidateLedgerTest {
         assertEquals(0, ledger.rows(old).size)
     }
 
+    @Test fun oneShotTargetTransferErasesLedgerBeforePlatformUse() {
+        val ledger = DebugWifiDirectCandidateLedger<String>()
+        val token = requireNotNull(ledger.begin())
+        assertTrue(ledger.observe(token, listOf("nearby-a", "nearby-b")))
+        assertFalse(ledger.consumeForOneShotLink(token) { throw AssertionError("Not selected") })
+        assertTrue(ledger.choose(token, 2))
+        var seen = ""
+        assertTrue(ledger.consumeForOneShotLink(token) { handle ->
+            // The sink receives only the selected opaque handle after erasure.
+            assertTrue(ledger.rows(token).isEmpty())
+            assertNull(ledger.selectedOrdinal(token))
+            seen = handle
+        })
+        assertEquals("nearby-b", seen)
+        assertFalse(ledger.consumeForOneShotLink(token) { throw AssertionError("Reused") })
+        assertFalse(ledger.choose(token, 2))
+        val next = requireNotNull(ledger.begin())
+        assertFalse(ledger.consumeForOneShotLink(token) { throw AssertionError("Stale") })
+        assertTrue(ledger.observe(next, listOf("new")))
+        assertTrue(ledger.choose(next, 1))
+        assertTrue(ledger.consumeForOneShotLink(next) { assertEquals("new", it) })
+    }
+
     @Test fun clearingAndRestartingNeverPreserveOldCandidateHandles() {
         val ledger = DebugWifiDirectCandidateLedger<String>()
         val first = requireNotNull(ledger.begin())

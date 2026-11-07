@@ -68,6 +68,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private var candidateNotice by mutableStateOf(
         "Candidates appear only while this explicit search is running."
     )
+    private var targetController: DebugWifiDirectTargetLinkController? = null
+    private var targetNotice by mutableStateOf(
+        "No unverified Wi-Fi Direct link test has been started."
+    )
 
     private var phase by mutableStateOf(DebugWifiDirectDiscoveryGate.Phase.IDLE)
     private var eventCount by mutableIntStateOf(0)
@@ -260,6 +264,44 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Two distinct human actions required: first selecting a numbered
+     * UNVERIFIED candidate, then explicitly requesting a radio link.
+     * The M3r ledger erases all candidate handles BEFORE the one-time
+     * device object is passed into the separate M3s-C1 Android controller.
+     */
+    private fun requestUnverifiedLink() {
+        val active = token ?: return
+        val selectedToken = candidateToken ?: return
+        if (targetController != null || !foreground || !registered || !prerequisites() ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !gate.active(active) ||
+            gate.snapshot().phase != DebugWifiDirectDiscoveryGate.Phase.SCANNING ||
+            candidateLedger.selectedOrdinal(selectedToken) == null
+        ) return
+        candidateLedger.consumeForOneShotLink(selectedToken) { selectedDevice ->
+            finishAttempt(
+                active, DebugWifiDirectDiscoveryGate.End.STOP_BUTTON,
+                "Discovery stopped for one explicitly requested UNVERIFIED link test."
+            )
+            val controller = DebugWifiDirectTargetLinkController(
+                context = this,
+                readyAndForeground = {
+                    foreground && registered && prerequisites()
+                },
+                onReport = { message -> targetNotice = message },
+                onFinished = {
+                    targetController = null
+                    targetNotice += " You can start a fresh discovery attempt."
+                }
+            )
+            targetController = controller
+            if (!controller.startSelected(selectedDevice)) {
+                targetController = null
+                targetNotice = "Link test could not start; nothing was connected."
+            }
+        }
+    }
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (!foreground) return
@@ -309,7 +351,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     }
 
     private fun startUserSearch() {
-        if (!foreground || !registered || token != null) return
+        if (!foreground || !registered || token != null || targetController != null) return
         if (gate.snapshot().phase == DebugWifiDirectDiscoveryGate.Phase.STOPPED) {
             gate.reset()
         }
@@ -438,9 +480,35 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        Text("OPTIONAL DEVELOPMENT LINK • A selected nearby radio could " +
+                            "be the wrong phone. QR preparation does NOT bind this " +
+                            "candidate to an Eden Comms identity. Android may show " +
+                            "a system Wi-Fi Direct invitation. No messages are sent.")
+                        Button(
+                            onClick = { requestUnverifiedLink() },
+                            enabled = foreground && token != null &&
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                phase == DebugWifiDirectDiscoveryGate.Phase.SCANNING &&
+                                candidateToken?.let {
+                                    candidateLedger.selectedOrdinal(it)
+                                } != null &&
+                                targetController == null,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("REQUEST 18-SECOND UNVERIFIED LINK TEST") }
+                        Text(targetNotice)
+                        OutlinedButton(
+                            onClick = {
+                                targetController?.stop(
+                                    DebugWifiDirectTargetLinkGate.End.USER_STOP
+                                )
+                            },
+                            enabled = targetController != null,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("STOP LINK AND REQUEST GROUP REMOVAL") }
                         Button(
                             onClick = { startUserSearch() },
-                            enabled = foreground && registered && token == null,
+                            enabled = foreground && registered && token == null &&
+                                targetController == null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("START 30-SECOND SEARCH") }
                         OutlinedButton(
@@ -450,8 +518,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         ) { Text("STOP SEARCH") }
                         Text("Android's peer objects stay in memory for this search only. " +
                             "Device names and addresses are never displayed or saved. " +
-                            "No group, connection, messages or audio can be created. " +
-                            "Leaving this screen discards every candidate.")
+                            "The anonymous preview itself cannot create a group; a separate " +
+                            "confirmed debug link test may form an unverified Android group. " +
+                            "No user text, audio, or authenticated identity is available. " +
+                            "Leaving this screen stops the experiment.")
                     }
                 }
             }
@@ -481,6 +551,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
 
     override fun onStop() {
         foreground = false
+        targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)
         token?.let {
             finishAttempt(it, DebugWifiDirectDiscoveryGate.End.BACKGROUND,
                 "Left screen; the foreground-only search was stopped.")

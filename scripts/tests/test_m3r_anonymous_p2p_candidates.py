@@ -62,10 +62,16 @@ class M3rAnonymousCandidates(unittest.TestCase):
                        "gate.snapshot().phase == DebugWifiDirectDiscoveryGate.Phase.SCANNING",
                        "!foreground || !prerequisites()",
                        "LOCAL PREVIEW SELECTED", "for (candidate in candidateRows)",
-                       "No group, connection, messages or audio"):
+                       "No user text, audio, or authenticated identity"):
             self.assertIn(marker, self.ui, marker)
         self.assertNotIn("selectedHandle(", self.ledger)
         self.assertNotIn("selectedDevice(", self.ledger)
+        # M3s-C1: explicitly selected debug link is one-use only. A one-shot
+        # callback receives an opaque Android handle AFTER ledger erasure.
+        self.assertIn("fun consumeForOneShotLink(current: Token", self.ledger)
+        self.assertIn("clear()\n        sink(handle)", self.ledger)
+        self.assertIn("requestUnverifiedLink()", self.ui)
+        self.assertIn("targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)", self.ui)
         self.assertIn("No new permissions", (ROOT / "docs/M3R_ANONYMOUS_P2P_CANDIDATES.md").read_text())
 
     def test_no_release_exposure_or_new_permission(self):
