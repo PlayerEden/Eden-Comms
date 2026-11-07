@@ -52,10 +52,13 @@ network sockets, TLS, pairing, text or voice.
 ## Risks and release gates
 
 A neighboring Android device might not be an Eden Comms phone. Anonymous
-ordinal labels cannot establish which human/device is intended. There is
-currently no way to prove a candidate belongs to an in-person user; **do
-not wire this selection to a P2P connection without a separate design,
-human verification flow and negative hardware testing.**
+ordinal labels cannot establish which human/device is intended. M3s-C1
+now exposes a **separate, explicitly human-confirmed, debug-only, time-limited
+UNVERIFIED platform link request** after candidate selection. This is
+not a verified in-person target, QR identity match or authorized app session.
+No app text, voice, group persistence or production trust is enabled.
+Real-device negative tests and independent cryptographic verification remain
+required before any sensitive communication can proceed.
 
 Actual API/OEM behavior, callback ordering and 30-second discovery remain
 unverified without hardware. The UI is not suitable for sensitive or

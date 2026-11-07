@@ -55,6 +55,21 @@ internal class DebugWifiDirectCandidateLedger<T : Any> {
     fun selectedOrdinal(current: Token): Int? =
         if (token === current) selected else null
 
+    /**
+     * Transfer exactly ONE selected Android object to the reviewed M3s-C1
+     * debug-only radio adapter. A caller cannot enumerate raw peer handles,
+     * and the ledger forgets all handles BEFORE invoking the one-shot sink.
+     * This does not confer identity, TLS trust or message authorization.
+     */
+    fun consumeForOneShotLink(current: Token, sink: (T) -> Unit): Boolean {
+        if (token !== current || selected == null) return false
+        val chosenIndex = selected!! - 1
+        val handle = handles.getOrNull(chosenIndex) ?: return false
+        clear()
+        sink(handle)
+        return true
+    }
+
     /** Must execute on every Stop/background/error/timeout. */
     fun clear() {
         handles.clear()
