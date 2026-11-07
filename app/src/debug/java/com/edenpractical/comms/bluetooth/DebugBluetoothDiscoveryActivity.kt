@@ -79,6 +79,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var pendingLink = PendingLink.NONE
     private var discoverabilityPromptOpen = false
     private var connectPermissionPromptOpen = false
+    private var approvalPending by mutableStateOf(false)
     private var linkPhase by mutableStateOf(DebugRfcommAttemptGate.Phase.IDLE)
     private var linkStatus by mutableStateOf(
         "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
@@ -91,6 +92,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             onState = { phase, description ->
                 linkPhase = phase
                 linkStatus = description
+            },
+            onApprovalReady = { available ->
+                approvalPending = available
             }
         )
     }
@@ -367,6 +371,37 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("JOIN STAGED UNVERIFIED SIGNAL") }
                         Text(linkStatus, style = MaterialTheme.typography.bodyLarge)
+                        if (approvalPending &&
+                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
+                        ) {
+                            Text(
+                                "Both phones completed the encrypted QR + TLS " +
+                                    "identity checks. APPROVE only if you are " +
+                                    "physically with the person you intended. " +
+                                    "This is a diagnostic, not permission to chat."
+                            )
+                            Button(
+                                onClick = {
+                                    if (linkController.approve()) {
+                                        approvalPending = false
+                                        linkStatus = "You approved this one test link. " +
+                                            "Awaiting the other person's approval " +
+                                            "and two encrypted final confirmations."
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("APPROVE THIS TEST SESSION") }
+                            OutlinedButton(
+                                onClick = {
+                                    if (linkController.decline()) {
+                                        approvalPending = false
+                                        linkStatus = "You declined this test. " +
+                                            "Ending this Bluetooth session."
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("DECLINE AND CLOSE SESSION") }
+                        }
                         OutlinedButton(
                             onClick = { linkController.disconnect() },
                             enabled = linkPhase in setOf(
@@ -376,10 +411,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
                         Text(
-                            "A successful pinned TLS + QR nonce/channel agreement is " +
-                                "only a development diagnostic. Two-person approval and " +
-                                "final confirmations are NOT done. No app text or voice " +
-                                "is sent or accepted. " +
+                            "A successful pinned TLS + QR nonce/channel agreement " +
+                                "is followed by explicit approval from EACH person " +
+                                "and two encrypted final confirmations. The test " +
+                                "then ends; NO app text or voice is sent or accepted. " +
                                 "A host may become discoverable beyond this screen under Android control."
                         )
                     }
@@ -400,6 +435,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         stopHardware()
         clearCandidateMemory()
         linkController.background()
+        approvalPending = false
         handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE
