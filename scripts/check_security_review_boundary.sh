@@ -355,7 +355,7 @@ BT_TLS_ENGINE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsEngi
 BT_TLS_PROBE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommTlsProbe.kt"
 BT_TLS_INPUT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothTlsProbeInput.kt"
 for FILE in "$BT_TLS_ENGINE" "$BT_TLS_PROBE" "$BT_TLS_INPUT"; do test -f "$FILE"; done
-grep -Fq 'DebugRfcommTlsProbe.run(created, request)' "$BT_RFCOMM"
+grep -Fq 'DebugRfcommTlsProbe.run(created, request) { decision ->' "$BT_RFCOMM"
 grep -Fq 'DebugTlsEngineHandshake.negotiate(' "$BT_TLS_PROBE"
 grep -Fq 'PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)' "$BT_TLS_PROBE"
 grep -Fq 'SSLEngines.isSupportedEngine(engine)' "$BT_TLS_PROBE"
@@ -377,8 +377,8 @@ if find "$MAIN" \( -name 'DebugRfcommTlsProbe.kt' -o -name 'DebugTlsEngineHandsh
   exit 1
 fi
 # M3n-B2: encrypted fixed-width, phase-ordered QR proof, exporter agreement,
-# and final transcript comparison ONLY; RFCOMM closes immediately afterwards.
-# No application messages or consent packets until M3n-C and security review.
+# and final transcript comparison precede M3n-C1 consent; all RFCOMM sockets
+# still close, including after a successful approval diagnostic.
 BT_CONTROL="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsControlTransport.kt"
 BT_COMMIT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothCommitmentFrame.kt"
 test -f "$BT_CONTROL" && test -f "$BT_COMMIT"
@@ -397,7 +397,7 @@ grep -Fq 'QR_PROOF(PROOF_BYTES)' "$BT_CONTROL"
 grep -Fq 'EXPORTER(DebugExporterBindingFrame.RECORD_BYTES)' "$BT_CONTROL"
 grep -Fq 'COMMITMENT(COMMIT_BYTES)' "$BT_CONTROL"
 grep -Fq 'MessageDigest.isEqual(incoming.copyOfRange(6, RECORD_BYTES), local)' "$BT_COMMIT"
-grep -Fq 'DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED' "$BT_RFCOMM"
+grep -Fq 'DebugRfcommAttemptGate.End.CONSENT_CONFIRMED' "$BT_RFCOMM"
 if grep -REn '(TestPacketCodec|sendDebugText\(|listenUsingInsecureRfcomm|createInsecureRfcomm|onAuthenticatedRemoteApproval\(|SharedPreferences|DataStore|openFileOutput\()' \
  "$BT_RFCOMM" "$BT_TLS_PROBE" "$BT_TLS_ENGINE" "$BT_TLS_INPUT" "$BT_CONTROL" "$BT_COMMIT"; then
   echo "FAIL: M3n-B2 control channel included text, storage or insecure Bluetooth" >&2
