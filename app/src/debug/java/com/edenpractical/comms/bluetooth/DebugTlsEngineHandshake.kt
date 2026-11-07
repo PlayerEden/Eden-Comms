@@ -126,16 +126,6 @@ internal object DebugTlsEngineHandshake {
                         SSLEngineResult.HandshakeStatus.FINISHED
                     ) finished = true
                 }
-                SSLEngineResult.HandshakeStatus.NEED_UNWRAP_AGAIN -> {
-                    app.clear()
-                    val result = engine.unwrap(EMPTY.duplicate(), app)
-                    if (result.status != SSLEngineResult.Status.OK ||
-                        result.bytesProduced() != 0
-                    ) throw SSLException("TLS handshake reprocess rejected")
-                    if (result.handshakeStatus ==
-                        SSLEngineResult.HandshakeStatus.FINISHED
-                    ) finished = true
-                }
                 SSLEngineResult.HandshakeStatus.FINISHED -> {
                     finished = true
                 }
