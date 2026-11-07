@@ -25,6 +25,27 @@ is a reproducible visual smoke test; it cannot validate secure communications.
   parsing, blank PNG rejection and safe-route source contract during normal
   PR CI without starting an emulator.
 
+## M4-UI07a preflight reliability update
+
+Source review identified a false-negative before the first emulator run: the
+actual pairing screen deliberately hides **Show a code** and **Scan a code**
+without a usable Wi-Fi transport. Some Android emulator configurations may
+show **No usable Wi-Fi connection found on this phone** instead. The harness
+now accepts and records **either** state as correct idle pairing, across
+normal and compact layouts; it never taps the role buttons or simulates a
+network. No Wi-Fi is added or emulated for the test.
+
+If a later navigation, keyboard or screenshot assertion fails, the workflow
+can now upload earlier safe screenshots and a sanitized `summary.json`
+with `result=FAILED`, only the exception class, the completed scene list,
+emulator API and source SHA. Arbitrary error messages, UI hierarchy dumps, IPs,
+identity material and QR data are not added to artifacts. Real assertions for
+missing pages, nonblank PNGs and visible input methods remain required.
+
+**First manual emulator execution and screenshot acceptance are still
+outstanding.** A source-only PR passing does not establish a working emulator
+test, nor secure communications.
+
 ## How to use
 After green PR and fresh main CI, open GitHub -> Actions ->
 M4-UI07 manual emulator visual QA -> Run workflow, selecting main. This is
