@@ -236,7 +236,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         finishAttempt(active, DebugWifiDirectDiscoveryGate.End.EVENT_LIMIT,
                             "Event safety limit reached; search stopped.")
                     }
-                    // Do not read peer-list extras or call requestPeers().
+                    // Do not read peer-list extras or perform device-list lookups.
                 }
             }
         }
