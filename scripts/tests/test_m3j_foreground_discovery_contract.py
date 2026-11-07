@@ -67,12 +67,13 @@ class M3jDiscoveryBoundaryTest(unittest.TestCase):
         picker = self.screen.split("private fun NearbyScreen(", 1)[1].split(
             "private fun PushToTalkScreen()", 1
         )[0]
-        self.assertIn('SectionLabel("HOW FUTURE DISCOVERY WILL WORK")', picker)
+        self.assertIn('title = "Other connection methods"', picker)
+        self.assertIn("FieldDisclosureCard(", picker)
         for field in ("currentStatus", "optInStep", "permissionStep",
                       "foregroundStep", "trustStep", "privacyStep"):
             self.assertIn("NearbyDiscoveryPolicy." + field, picker)
         self.assertIn("Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED", self.copy)
-        future = picker.split('SectionLabel("FUTURE METHODS • NOT AVAILABLE")', 1)[1]
+        future = picker.split('title = "Other connection methods"', 1)[1]
         self.assertNotIn("Button(", future)
         self.assertNotIn("onClick", future)
         self.assertIn("NearbyMethodCatalog.canEnterDebugLan(debuggable)", picker)

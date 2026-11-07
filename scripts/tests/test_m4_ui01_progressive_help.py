@@ -75,7 +75,7 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
 
     def test_privacy_accuracy_and_release_flags(self):
         self.assertIn("Debug Wi-Fi Direct tests may", self.privacy)
-        self.assertIn("location permission on older Android versions", self.privacy)
+        self.assertIn("permission on older Android versions", self.privacy)
         self.assertIn("no coordinates are", self.privacy)
         self.assertIn("debug-only radio/link diagnostics", self.privacy)
         self.assertIn("Production secure messaging remains disabled", self.privacy)

@@ -110,7 +110,8 @@ class DebugBluetoothInquiryContractTest(unittest.TestCase):
         self.assertIn('title = "Bluetooth discovery test"', self.app)
         self.assertIn("ApplicationInfo.FLAG_DEBUGGABLE != 0", self.app)
         self.assertIn("Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED", self.policy)
-        self.assertIn("Not scanning or connecting", self.app)
+        self.assertIn("Bluetooth and Wi-Fi Direct — planned, not available for normal use.", self.app)
+        self.assertIn("Discovery alone never proves a phone is trusted or permits messaging.", self.app)
         # Debug-only scanner must not exist in the release source set.
         self.assertFalse((MAIN / "java/com/edenpractical/comms/bluetooth/DebugBluetoothDiscoveryActivity.kt").exists())
 

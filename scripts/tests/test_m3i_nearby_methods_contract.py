@@ -19,7 +19,7 @@ class NearbyMethodSurfaceContractTest(unittest.TestCase):
     def test_one_tap_home_connect_and_separate_discoverable_method_chooser(self):
         self.assertIn('onConnect = { navigate("pairing-test") }', self.main)
         self.assertIn('onMethods = { navigate("connect") }', self.main)
-        self.assertIn('Text("Connection methods and availability")', self.main)
+        self.assertIn('Text("Other connection options")', self.main)
         self.assertIn('"connect" -> NearbyScreen(onLocalWifi = { navigate("pairing-test") })',
                       self.main)
         self.assertIn('"wifi" -> NearbyScreen(onLocalWifi = { navigate("pairing-test") })',
@@ -38,11 +38,12 @@ class NearbyMethodSurfaceContractTest(unittest.TestCase):
         self.assertIn("NearbyMethodCatalog.Selection.LaunchDebugLanQr", picker)
         self.assertIn("NearbyMethodCatalog.canEnterDebugLan(debuggable)", picker)
         self.assertIn("enabled = NearbyMethodCatalog.canEnterDebugLan(debuggable)", picker)
-        future = picker.split('SectionLabel("FUTURE METHODS • NOT AVAILABLE")', 1)[1]
+        future = picker.split('title = "Other connection methods"', 1)[1]
+        self.assertIn("FieldDisclosureCard(", picker)
         self.assertNotIn("onClick", future)
         self.assertNotIn("Button(", future)
-        self.assertIn("PLANNED • Not scanning or connecting", future)
-        self.assertIn("Merely finding a", future)
+        self.assertIn("Bluetooth and Wi-Fi Direct — planned, not available for normal use.", future)
+        self.assertIn("Discovery alone never proves a phone is trusted or permits messaging.", future)
         self.assertIn("unreviewed", picker.lower())
         self.assertIn("No account, internet service or manual IP entry", picker)
         self.assertNotIn("LocalPairingQrCodec", picker)
