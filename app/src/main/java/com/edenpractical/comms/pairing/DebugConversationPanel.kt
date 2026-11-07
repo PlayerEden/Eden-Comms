@@ -244,25 +244,6 @@ internal fun DebugConversationPanel(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) { Text("Jump to latest") }
             }
-            Text(
-                DebugConversationUiCopy.counts(transcript.writtenHere, transcript.receivedHere),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-            )
-            Text(
-                "Not a delivery or read receipt. A write here does not prove the " +
-                    "other phone received or read it.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            FieldHelp(
-                question = "What does written to test link mean?",
-                answer = "The test link reported that this phone wrote the " +
-                    "message to its local encrypted connection. This is NOT " +
-                    "proof that the other phone received, displayed or read it. " +
-                    "Only a Received on this phone entry confirms local reception."
-            )
             OutlinedTextField(
                 value = draft,
                 onValueChange = { value ->
@@ -286,6 +267,25 @@ internal fun DebugConversationPanel(
             ) {
                 Text("SEND TEST MESSAGE", fontWeight = FontWeight.Bold)
             }
+            Text(
+                DebugConversationUiCopy.counts(transcript.writtenHere, transcript.receivedHere),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            )
+            Text(
+                "Not a delivery or read receipt. A write here does not prove the " +
+                    "other phone received or read it.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            FieldHelp(
+                question = "What does written to test link mean?",
+                answer = "The test link reported that this phone wrote the " +
+                    "message to its local encrypted connection. This is NOT " +
+                    "proof that the other phone received, displayed or read it. " +
+                    "Only a Received on this phone entry confirms local reception."
+            )
         }
         Text(
             "Session-only: leaving this screen or disconnecting clears the app's " +

@@ -57,6 +57,7 @@ import kotlinx.coroutines.withContext
  */
 @Composable
 internal fun LocalPairingTestScreen(
+    interruptedBeforeRecreation: Boolean,
     onStageChanged: (String) -> Unit,
     onBackToPrevious: () -> Unit
 ) {
@@ -77,6 +78,9 @@ internal fun LocalPairingTestScreen(
     var wifi by remember { mutableStateOf<WifiLanEndpoint.Link?>(null) }
     var stage by remember { mutableStateOf("checking") }
     var status by remember { mutableStateOf("Checking this phone…") }
+    // This only explains a restored navigation route. No previous socket,
+    // peer, QR or text is restored to the new Activity instance.
+    var showRecreationNotice by remember { mutableStateOf(interruptedBeforeRecreation) }
     var details by remember { mutableStateOf("") }
     var showDetails by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf(false) }
@@ -168,6 +172,7 @@ internal fun LocalPairingTestScreen(
     }
 
     fun reset() {
+        showRecreationNotice = false
         stopTest()
         clearTemporaryPairing()
         details = ""
@@ -202,6 +207,7 @@ internal fun LocalPairingTestScreen(
     }
 
     fun startRole(role: String) {
+        showRecreationNotice = false
         // The buttons are disabled while loading; continuation after explicit
         // identity consent also needs to enter this flow before loading clears.
         pendingRole = role
@@ -588,6 +594,16 @@ internal fun LocalPairingTestScreen(
             when (stage) {
                 "checking" -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
                 "choose" -> {
+                    if (showRecreationNotice) {
+                        Text(
+                            "Android recreated this screen. Any previous QR pairing or " +
+                                "test conversation on this phone has ended. Nothing was " +
+                                "reconnected or restored; start both phones again with " +
+                                "fresh QR codes.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     Text(
                         "One phone shows a code. The other scans it.",
                         style = MaterialTheme.typography.bodySmall
