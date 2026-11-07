@@ -26,16 +26,15 @@ class DebugWifiDirectPreflightPolicyTest {
     }
 
     @Test fun capabilityIsNotAuthenticatedPeerOrPermissionToDiscover() {
-        val policy = DebugWifiDirectPreflightPolicy
-        assertEquals(policy.Support.NOT_ADVERTISED,
-            policy.assess(policy.Observation(36, false, true)).support)
-        assertEquals(policy.Support.MANAGER_MISSING,
-            policy.assess(policy.Observation(36, true, false)).support)
-        val capable = policy.assess(policy.Observation(36, true, true))
-        assertEquals(policy.Support.POTENTIALLY_SUPPORTED, capable.support)
+        assertEquals(DebugWifiDirectPreflightPolicy.Support.NOT_ADVERTISED,
+            DebugWifiDirectPreflightPolicy.assess(DebugWifiDirectPreflightPolicy.Observation(36, false, true)).support)
+        assertEquals(DebugWifiDirectPreflightPolicy.Support.MANAGER_MISSING,
+            DebugWifiDirectPreflightPolicy.assess(DebugWifiDirectPreflightPolicy.Observation(36, true, false)).support)
+        val capable = DebugWifiDirectPreflightPolicy.assess(DebugWifiDirectPreflightPolicy.Observation(36, true, true))
+        assertEquals(DebugWifiDirectPreflightPolicy.Support.POTENTIALLY_SUPPORTED, capable.support)
         assertTrue(capable.description.contains("does not prove"))
         assertFalse(capable.discoveryAllowed)
-        assertFalse(policy.assess(policy.Observation(26, false, false)).discoveryAllowed)
+        assertFalse(DebugWifiDirectPreflightPolicy.assess(DebugWifiDirectPreflightPolicy.Observation(26, false, false)).discoveryAllowed)
     }
 
     @Test(expected = IllegalArgumentException::class)
