@@ -175,12 +175,20 @@ internal class DebugBluetoothQrCoordinator {
     fun newTlsProbeInput(hostRole: Boolean): DebugBluetoothTlsProbeInput? {
         if (!readyForDebugLink(hostRole)) return null
         val own = identity ?: return null
-        val pin = prepared?.peerFingerprint(System.currentTimeMillis() / 1000)
-            ?: return null
+        val now = System.currentTimeMillis() / 1000
+        val current = prepared ?: return null
+        val pin = current.peerFingerprint(now)
+        val binding = current.binding(now)
         return try {
-            DebugBluetoothTlsProbeInput(own, pin, hostRole)
+            DebugBluetoothTlsProbeInput(
+                own, pin, hostRole, binding, current.expiresAtSeconds
+            )
         } finally {
             pin.fill(0)
+            binding.hostPin.fill(0)
+            binding.joinPin.fill(0)
+            binding.hostNonce.fill(0)
+            binding.joinNonce.fill(0)
         }
     }
 
