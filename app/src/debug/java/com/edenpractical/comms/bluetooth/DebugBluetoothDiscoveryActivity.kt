@@ -322,7 +322,18 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "RFCOMM test link. Android may retain its own Bluetooth state; " +
                                 "Eden Comms does not save discovery results."
                         )
-                        DebugBluetoothQrPanel(qrCoordinator)
+                        if (linkPhase in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            )
+                        ) {
+                            Text(
+                                "QR preparation is frozen while this unverified " +
+                                    "Bluetooth test link is active. Disconnect before changing codes."
+                            )
+                        } else {
+                            DebugBluetoothQrPanel(qrCoordinator)
+                        }
                         Text(
                             "BLUETOOTH LINK — DEVELOPMENT ONLY",
                             style = MaterialTheme.typography.titleMedium
