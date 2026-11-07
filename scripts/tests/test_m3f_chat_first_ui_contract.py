@@ -43,7 +43,13 @@ class ChatFirstUiContractTests(unittest.TestCase):
         self.assertIn("DebugTextDraftPolicy.accepts(value)", self.panel)
         self.assertIn("DebugTextDraftPolicy.maySend(draft)", self.panel)
         self.assertIn("Not a delivery or read receipt", self.panel)
-        self.assertIn("Other phone • Received here", self.panel)
+        # M4-UI04 separates the readable participant and observation;
+        # neither ever claims a remotely delivered/read message.
+        copy = (ROOT / "app/src/main/java/com/edenpractical/comms/pairing/DebugConversationUiCopy.kt").read_text()
+        self.assertIn('"Other phone"', copy)
+        self.assertIn('"Received on this phone"', copy)
+        self.assertIn('"Written to test link"', copy)
+        self.assertIn("DebugConversationUiCopy.observation(entry.direction)", self.panel)
         self.assertNotIn("rememberSaveable", self.panel)
         self.assertNotIn("SharedPreferences", self.panel)
         self.assertNotIn("LanDemoSession", self.panel)
