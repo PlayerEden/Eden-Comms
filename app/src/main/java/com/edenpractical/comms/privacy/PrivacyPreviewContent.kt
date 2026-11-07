@@ -61,7 +61,7 @@ internal object PrivacyPreviewContent {
                 "exchange can prepare public device certificate pins/nonces in " +
                 "RAM; the scanned Bluetooth signal is NOT authenticated by these codes. " +
                 "A separate explicit host/join " +
-                "test can briefly open a Bluetooth socket, but NO app messages " +
+                "test can briefly open a Bluetooth socket and perform a "pinned TLS 1.3 handshake-only diagnostic, but NO app messages "" +
                 "or audio cross it, and peer identity is not authenticated. " +
                 "Android may continue device discoverability for its approved " +
                 "duration after a socket closes. All these tools are absent " +
