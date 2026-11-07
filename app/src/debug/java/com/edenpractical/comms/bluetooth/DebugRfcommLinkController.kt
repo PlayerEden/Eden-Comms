@@ -12,11 +12,12 @@ import java.util.UUID
 /**
  * Actual secure-Bluetooth-RFCOMM socket experiment in src/debug ONLY.
  *
- * M3n-B1: after a fresh two-QR exchange, a real pinned mutual TLS 1.3
- * SSLEngine HANDSHAKE ONLY runs over this RFCOMM socket, checking peer key
- * possession, exact certificate pin and exporter availability. No QR nonce
- * binding, bilateral approvals, application packets, chat, voice or
- * persisted data. No plaintext or insecure RFCOMM fallback.
+ * M3n-B2: this RFCOMM socket runs a pinned mutual TLS 1.3 engine,
+ * four encrypted fresh QR proof records, two encrypted exporter comparisons,
+ * and two role-ordered encrypted transcript commitments. These are strictly
+ * fixed protocol control records, NOT messages. No bilateral human approval,
+ * text, voice, saved peers or production connection. Closes on any outcome.
+ * No plaintext or insecure RFCOMM fallback.
  *
  * Socket accept/connect always run off the UI thread. Closing the socket/server
  * aborts pending blocking operations. Each callback is fenced by a token so
@@ -179,7 +180,7 @@ internal class DebugRfcommLinkController(
             // Worker thread: the TLS handshake only. No channel authorizes
             // chat/voice, and the socket is closed after this probe returns.
             DebugRfcommTlsProbe.run(created, request)
-            stop(token, DebugRfcommAttemptGate.End.TLS_PROBE_PASSED)
+            stop(token, DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED)
         } catch (_: Exception) {
             stop(token, DebugRfcommAttemptGate.End.FAILED)
         }
@@ -266,9 +267,9 @@ internal class DebugRfcommLinkController(
                 DebugRfcommAttemptGate.End.EXPIRED -> "Debug link reached its 45-second limit and closed."
                 DebugRfcommAttemptGate.End.FAILED ->
                     "Bluetooth link/TLS probe failed or peer pin mismatched. No messages sent."
-                DebugRfcommAttemptGate.End.TLS_PROBE_PASSED ->
-                    "Pinned TLS 1.3 certificate verified and local exporter available. " +
-                        "QR nonce/channel agreement and human approvals NOT tested. " +
+                DebugRfcommAttemptGate.End.QR_CHANNEL_AGREEMENT_PASSED ->
+                    "Debug TLS 1.3 QR nonce, challenge, exporter and transcript " +
+                        "agreement completed. Human approvals NOT performed. " +
                         "Diagnostic socket closed; no messages sent."
             }
             onState(DebugRfcommAttemptGate.Phase.STOPPED, reason)
