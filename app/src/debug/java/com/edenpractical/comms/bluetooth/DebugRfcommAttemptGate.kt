@@ -8,7 +8,7 @@ package com.edenpractical.comms.bluetooth
 internal class DebugRfcommAttemptGate {
     enum class Role { HOST, JOIN }
     enum class Phase { IDLE, CONNECTING, LINK_OPEN, STOPPED }
-    enum class End { USER, BACKGROUND, PERMISSION_LOST, TIMEOUT, FAILED, EXPIRED }
+    enum class End { USER, BACKGROUND, PERMISSION_LOST, TIMEOUT, FAILED, EXPIRED, TLS_PROBE_PASSED }
     class Token internal constructor(val generation: Long, val role: Role)
     data class Snapshot(val phase: Phase, val role: Role?, val reason: End?)
 
