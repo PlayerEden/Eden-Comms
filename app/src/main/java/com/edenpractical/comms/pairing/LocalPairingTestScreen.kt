@@ -81,6 +81,7 @@ internal fun LocalPairingTestScreen() {
     var showIdentityConsent by remember { mutableStateOf(false) }
     var showPairingHelp by remember { mutableStateOf(false) }
     var showBuildEvidence by remember { mutableStateOf(false) }
+    var showResultDetails by remember { mutableStateOf(false) }
     var showUpgradeConfirmation by remember { mutableStateOf(false) }
     var pendingRole by remember { mutableStateOf<String?>(null) }
     var hostInvite by remember { mutableStateOf<LocalPairingQrCodec.HostInvite?>(null) }
@@ -166,6 +167,7 @@ internal fun LocalPairingTestScreen() {
         showTestTools = false
         showPairingHelp = false
         showBuildEvidence = false
+        showResultDetails = false
         cameraError = false
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
@@ -536,10 +538,36 @@ internal fun LocalPairingTestScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         FieldFrame(accent = true) {
-            PairingTestUiCopy.progress(stage)?.let { progress ->
-                Text(progress, style = MaterialTheme.typography.labelSmall,
+            val guidance = NearbyConnectionCues.forStage(
+                stage = stage,
+                localApprovalObserved = qaLocalApprovalWritten ||
+                    approvalStage == DebugApprovalGate.State.LOCAL_ONLY,
+                peerApprovalObserved = qaPeerApprovalObserved ||
+                    approvalStage == DebugApprovalGate.State.PEER_ONLY,
+                localConfirmationObserved = qaLocalConfirmationWritten,
+                peerConfirmationObserved = qaPeerConfirmationObserved
+            )
+            if (guidance != null) {
+                Text(
+                    guidance.phase,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary)
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (stage != "demo") {
+                    Text(guidance.heading,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold)
+                    Text(guidance.next,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                PairingTestUiCopy.progress(stage)?.let { progress ->
+                    Text(progress, style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary)
+                }
             }
             Text(status, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
@@ -624,8 +652,6 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("?  Why scan two codes?") }
                 }
                 "showHost" -> {
-                    Text("1 of 2 • Let the other person scan this code.",
-                        style = MaterialTheme.typography.bodySmall)
                     LocalPairingQrDisplay(qrText)
                     Button(
                         onClick = {
@@ -639,8 +665,6 @@ internal fun LocalPairingTestScreen() {
                     TextButton(onClick = { reset() }) { Text("Cancel") }
                 }
                 "scanHost", "scanReply" -> {
-                    Text("Point your camera at the code on the other phone.",
-                        style = MaterialTheme.typography.bodySmall)
                     key(scanRevision) {
                         LocalPairingQrScanner(
                             onPayload = { payload ->
@@ -705,8 +729,6 @@ internal fun LocalPairingTestScreen() {
                     TextButton(onClick = { reset() }) { Text("Cancel") }
                 }
                 "showReply" -> {
-                    Text("2 of 2 • Show this code to the first phone.",
-                        style = MaterialTheme.typography.bodySmall)
                     LocalPairingQrDisplay(qrText)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp),
@@ -719,8 +741,6 @@ internal fun LocalPairingTestScreen() {
                 }
                 "connecting" -> {
                     CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                    Text("Keep both phones open while we check the connection.",
-                        style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { reset() }) { Text("Cancel test") }
                 }
                 "approval" -> {
@@ -970,21 +990,9 @@ internal fun LocalPairingTestScreen() {
                     ) { Text("End chat and disconnect") }
                 }
                 "result" -> {
-                    Text(PairingTestUiCopy.resultHeading(transcript.reachedReady, qaTlsReady),
-                        fontWeight = FontWeight.SemiBold)
-                    Text(PairingTestUiCopy.resultSummary(
-                        transcript.reachedReady,
-                        transcript.writtenToTls, transcript.receivedHere, qaTlsReady
-                    ),
-                        style = MaterialTheme.typography.bodySmall)
-                    if (details.isNotEmpty()) {
-                        Text(details, style = MaterialTheme.typography.bodyMedium)
-                    }
                     Text(
-                        "The session closed and this app dropped visible test chat content. " +
-                            "This does not guarantee erasure from Android memory, keyboards " +
-                            "or the other phone. Production messaging and voice remain disabled.",
-                        style = MaterialTheme.typography.bodySmall
+                        PairingTestUiCopy.resultHeading(transcript.reachedReady, qaTlsReady),
+                        fontWeight = FontWeight.SemiBold
                     )
                     val recovery = NearbyRecoveryGuide.forResult(
                         qaFinish, qaFailureCode, qaEndCode, wifi != null
@@ -994,17 +1002,18 @@ internal fun LocalPairingTestScreen() {
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Text(recovery.detail, style = MaterialTheme.typography.bodySmall)
                     Text(
                         "Next: ${recovery.nextStep}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "This connection test has ended. Visible text is cleared " +
+                            "as best effort, not guaranteed erasure. Production " +
+                            "messaging and voice remain disabled.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (recovery.wifiCheckHelpful) {
-                        Text(
-                            NearbyRecoveryGuide.wifiStatus(wifi != null),
-                            style = MaterialTheme.typography.bodySmall
-                        )
                         OutlinedButton(
                             onClick = { openWifiSettings() },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -1017,6 +1026,38 @@ internal fun LocalPairingTestScreen() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         ) { Text("Check this phone's Wi-Fi again") }
                     }
+                    Button(
+                        onClick = { reset() },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    ) { Text("Start over with fresh QR codes") }
+                    OutlinedButton(
+                        onClick = { showResultDetails = !showResultDetails },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) {
+                        Text(if (showResultDetails)
+                            "− Hide test details" else "+ View test details and QA report")
+                    }
+                    if (showResultDetails) {
+                        Text(
+                            PairingTestUiCopy.resultSummary(
+                                transcript.reachedReady, transcript.writtenToTls,
+                                transcript.receivedHere, qaTlsReady
+                            ),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            recovery.detail,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (details.isNotEmpty()) {
+                            Text(details, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(
+                            "Technical details are local observations, not proof of " +
+                                "secure messaging or a delivery/read receipt.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     OutlinedButton(
                         onClick = {
                             // Explicit tap only. Public APK build metadata is
@@ -1066,10 +1107,7 @@ internal fun LocalPairingTestScreen() {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Button(
-                        onClick = { reset() },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                    ) { Text("Start over with fresh QR codes") }
+                    }
                 }
                 "identityError" -> {
                     Text("Open Device identity in Developer Tools for diagnostics.",
