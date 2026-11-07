@@ -224,6 +224,27 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                                     DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("OPEN 30-SECOND DISCOVERY TEST") }
+                        Button(
+                            onClick = {
+                                if (foreground && !requestOutstanding &&
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                    report?.state ==
+                                        DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED
+                                ) {
+                                    startActivity(
+                                        Intent(this@DebugWifiDirectPreflightActivity,
+                                            DebugWifiDirectGroupHostActivity::class.java)
+                                    )
+                                }
+                            },
+                            enabled = foreground && !requestOutstanding &&
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                report?.state ==
+                                    DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("OPEN 20-SECOND LOCAL GROUP HOST TEST") }
+                        Text("Temporary group-host test requires Android 10 or newer. " +
+                            "It does not connect to any selected nearby device.")
                         if (observation?.wifiEnabled != true) {
                             OutlinedButton(
                                 onClick = { openSettings(Settings.ACTION_WIFI_SETTINGS) },

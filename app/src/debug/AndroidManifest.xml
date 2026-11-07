@@ -32,5 +32,9 @@
             android:name=".wifidirect.DebugWifiDirectDiscoveryActivity"
             android:exported="false"
             android:label="Wi-Fi Direct discovery development test"/>
+        <activity
+            android:name=".wifidirect.DebugWifiDirectGroupHostActivity"
+            android:exported="false"
+            android:label="Wi-Fi Direct local group development test"/>
     </application>
 </manifest>
