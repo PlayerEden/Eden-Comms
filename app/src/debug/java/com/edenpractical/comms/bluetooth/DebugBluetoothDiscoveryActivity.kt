@@ -59,6 +59,7 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
  * approval or encrypted app session exist over Bluetooth. No physical QA.
  */
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
+    private val qrCoordinator = DebugBluetoothQrCoordinator()
     private val discoveryState = NearbyDiscoverySession()
     private val candidateLedger = DebugBluetoothCandidateLedger<BluetoothDevice>()
     private var candidateToken: DebugBluetoothCandidateLedger.Token? = null
@@ -123,6 +124,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         discoverabilityPromptOpen = false
         val mayStart = foreground && pendingLink == PendingLink.HOST &&
             hasConnectPermission() && hasAdvertisePermission() &&
+            qrCoordinator.readyForDebugLink(hostRole = true) &&
             result.resultCode > 0
         pendingLink = PendingLink.NONE
         if (mayStart) startHostLink()
@@ -234,6 +236,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             finish()
             return
         }
+        qrCoordinator.loadExistingIdentity()
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -319,6 +322,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "RFCOMM test link. Android may retain its own Bluetooth state; " +
                                 "Eden Comms does not save discovery results."
                         )
+                        DebugBluetoothQrPanel(qrCoordinator)
                         Text(
                             "BLUETOOTH LINK — DEVELOPMENT ONLY",
                             style = MaterialTheme.typography.titleMedium
@@ -331,6 +335,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         Button(
                             onClick = { beginHostLink() },
                             enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
+                                qrCoordinator.stage == DebugBluetoothQrCoordinator.Stage.HOST_PREPARED &&
                                 linkPhase !in setOf(
                                     DebugRfcommAttemptGate.Phase.CONNECTING,
                                     DebugRfcommAttemptGate.Phase.LINK_OPEN
@@ -341,6 +346,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             onClick = { beginJoinLink() },
                             enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
                                 selectedOrdinal != null &&
+                                qrCoordinator.stage == DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED &&
                                 linkPhase !in setOf(
                                     DebugRfcommAttemptGate.Phase.CONNECTING,
                                     DebugRfcommAttemptGate.Phase.LINK_OPEN
@@ -380,7 +386,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         clearCandidateMemory()
         linkController.background()
         handler.removeCallbacks(linkPermissionMonitor)
-        if (!discoverabilityPromptOpen) pendingLink = PendingLink.NONE
+        if (!discoverabilityPromptOpen) {
+            pendingLink = PendingLink.NONE
+            qrCoordinator.clear()
+        }
         attempt = null
         busy = false
         status = "Search and local signal choices cleared when this screen was left."
@@ -391,6 +400,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         stopHardware()
         clearCandidateMemory()
         linkController.background()
+        qrCoordinator.clear()
         handler.removeCallbacks(linkPermissionMonitor)
         super.onDestroy()
     }
@@ -420,6 +430,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 DebugRfcommAttemptGate.Phase.LINK_OPEN
             ) || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
         ) return
+        if (!qrCoordinator.readyForDebugLink(hostRole = true)) {
+            linkStatus = "Complete fresh reciprocal Bluetooth QR preparation first."
+            return
+        }
         clearCandidateMemory()
         pendingLink = PendingLink.HOST
         linkStatus = "Bluetooth connect and discoverable permissions are required."
@@ -440,6 +454,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 DebugRfcommAttemptGate.Phase.LINK_OPEN
             ) || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
         ) return
+        if (!qrCoordinator.readyForDebugLink(hostRole = false)) {
+            linkStatus = "Complete fresh reciprocal Bluetooth QR preparation first."
+            return
+        }
         pendingLink = PendingLink.JOIN
         linkStatus = "Bluetooth connection permission required for an unverified socket link."
         if (hasConnectPermission()) {
@@ -474,7 +492,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
 
     @Suppress("MissingPermission")
     private fun startHostLink() {
-        if (!foreground || !hasConnectPermission()) return
+        if (!foreground || !hasConnectPermission() ||
+            !qrCoordinator.readyForDebugLink(hostRole = true)) return
         val hostAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
         if (hostAdapter == null || !hostAdapter.isEnabled) {
             linkStatus = "Bluetooth radio unavailable or disabled. No host started."
@@ -489,7 +508,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
 
     @Suppress("MissingPermission")
     private fun startJoinLink() {
-        if (!foreground || !hasConnectPermission()) return
+        if (!foreground || !hasConnectPermission() ||
+            !qrCoordinator.readyForDebugLink(hostRole = false)) return
         val target = candidateLedger.selectedHandle() ?: return
         val joinAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
         if (joinAdapter == null || !joinAdapter.isEnabled) {
