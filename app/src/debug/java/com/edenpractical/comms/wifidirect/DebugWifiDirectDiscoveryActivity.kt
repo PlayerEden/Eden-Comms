@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.WifiP2pManager
+import android.net.wifi.p2p.WifiP2pDevice
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -58,6 +59,15 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private var discoveryRequested = false
     private var timeoutTask: Runnable? = null
     private var monitorTask: Runnable? = null
+    private val candidateLedger = DebugWifiDirectCandidateLedger<WifiP2pDevice>()
+    private var candidateToken: DebugWifiDirectCandidateLedger.Token? = null
+    private var candidateReader: DebugWifiDirectCandidateReader? = null
+    private var candidateRows by mutableStateOf<List<DebugWifiDirectCandidateLedger.Row>>(
+        emptyList()
+    )
+    private var candidateNotice by mutableStateOf(
+        "Candidates appear only while this explicit search is running."
+    )
 
     private var phase by mutableStateOf(DebugWifiDirectDiscoveryGate.Phase.IDLE)
     private var eventCount by mutableIntStateOf(0)
@@ -103,6 +113,12 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         gate.stop(current, reason)
         updateView()
         token = null // Reject all stale Android callbacks before touching radio.
+        candidateReader?.close()
+        candidateReader = null
+        candidateToken = null
+        candidateLedger.clear()
+        candidateRows = emptyList()
+        candidateNotice = "All temporary device candidates discarded."
         timeoutTask?.let(handler::removeCallbacks)
         monitorTask?.let(handler::removeCallbacks)
         timeoutTask = null
@@ -181,6 +197,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     if (gate.discoveryAccepted(active)) {
                         updateView()
                         explanation = "Android accepted discovery. This does NOT prove a peer exists."
+                        requestCandidateSnapshot(active)
                     }
                 }
                 override fun onFailure(reason: Int) {
@@ -192,6 +209,54 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         } catch (_: RuntimeException) {
             finishAttempt(active, DebugWifiDirectDiscoveryGate.End.PLATFORM_FAILURE,
                 "Android Wi-Fi Direct discovery unavailable; test closed.")
+        }
+    }
+
+    /**
+     * M3r: a peer-list read is permitted ONLY after the active, user-started
+     * search reached SCANNING and all Android prerequisites still hold.
+     * The Android device objects never leave private transient memory.
+     */
+    private fun requestCandidateSnapshot(active: DebugWifiDirectDiscoveryGate.Token) {
+        if (token !== active || !foreground || !prerequisites() ||
+            gate.snapshot().phase != DebugWifiDirectDiscoveryGate.Phase.SCANNING
+        ) return
+        val currentReader = candidateReader ?: return
+        val currentToken = candidateToken ?: return
+        val activeManager = manager ?: return
+        val activeChannel = channel ?: return
+        currentReader.request(
+            manager = activeManager,
+            channel = activeChannel,
+            authorized = {
+                token === active && foreground && prerequisites() &&
+                    gate.active(active) &&
+                    gate.snapshot().phase == DebugWifiDirectDiscoveryGate.Phase.SCANNING &&
+                    candidateReader === currentReader &&
+                    candidateToken === currentToken
+            },
+            onSnapshot = { snapshot ->
+                if (candidateLedger.observe(currentToken, snapshot)) {
+                    candidateRows = candidateLedger.rows(currentToken)
+                    candidateNotice = "These are nearby Wi-Fi Direct devices, NOT verified " +
+                        "Eden Comms contacts. Pick one only for a local preview."
+                } else {
+                    candidateRows = candidateLedger.rows(currentToken)
+                }
+            }
+        )
+    }
+
+    private fun selectCandidate(ordinal: Int) {
+        val active = token ?: return
+        val currentToken = candidateToken ?: return
+        if (!foreground || !prerequisites() || !gate.active(active) ||
+            gate.snapshot().phase != DebugWifiDirectDiscoveryGate.Phase.SCANNING
+        ) return
+        if (candidateLedger.choose(currentToken, ordinal)) {
+            candidateRows = candidateLedger.rows(currentToken)
+            candidateNotice = "Unverified device $ordinal selected for this on-screen " +
+                "preview only. No connection or verification is available."
         }
     }
 
@@ -232,6 +297,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                             "Permission or radio readiness lost; search stopped.")
                     } else if (gate.peerListChanged(active)) {
                         updateView() // Number of change EVENTS, never peer count.
+                        requestCandidateSnapshot(active)
                     } else if (!gate.active(active)) {
                         finishAttempt(active, DebugWifiDirectDiscoveryGate.End.EVENT_LIMIT,
                             "Event safety limit reached; search stopped.")
@@ -254,6 +320,16 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         }
         val active = gate.begin(foreground, prerequisites()) ?: return
         token = active
+        candidateLedger.clear()
+        candidateToken = candidateLedger.begin()
+        candidateReader = DebugWifiDirectCandidateReader()
+        candidateRows = emptyList()
+        candidateNotice = "Waiting for an Android peer-list snapshot; nothing is trusted."
+        if (candidateToken == null) {
+            finishAttempt(active, DebugWifiDirectDiscoveryGate.End.PLATFORM_FAILURE,
+                "Could not allocate a fresh candidate session; no scan started.")
+            return
+        }
         radioState = null
         updateView()
         explanation = "Checking Android Wi-Fi Direct radio state; no search yet."
@@ -346,6 +422,22 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         })
                         Text("Discovery status: $phase")
                         Text("Anonymous peer-list change events: $eventCount (NOT devices)")
+                        Text(candidateNotice)
+                        Text("Temporary unverified devices: ${candidateRows.size} (max 8)")
+                        for (candidate in candidateRows) {
+                            OutlinedButton(
+                                onClick = { selectCandidate(candidate.ordinal) },
+                                enabled = token != null && foreground &&
+                                    phase == DebugWifiDirectDiscoveryGate.Phase.SCANNING,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) {
+                                Text(
+                                    candidate.label +
+                                        if (candidate.selected) " • LOCAL PREVIEW SELECTED"
+                                        else " • SELECT FOR PREVIEW"
+                                )
+                            }
+                        }
                         Button(
                             onClick = { startUserSearch() },
                             enabled = foreground && registered && token == null,
@@ -356,9 +448,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                             enabled = token != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP SEARCH") }
-                        Text("No peer names, addresses or identifiers are read or saved. " +
-                            "No group can form, no messages or audio can be sent. " +
-                            "Leaving this screen stops the test.")
+                        Text("Android's peer objects stay in memory for this search only. " +
+                            "Device names and addresses are never displayed or saved. " +
+                            "No group, connection, messages or audio can be created. " +
+                            "Leaving this screen discards every candidate.")
                     }
                 }
             }

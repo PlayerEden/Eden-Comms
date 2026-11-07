@@ -37,6 +37,7 @@
 - **Bluetooth completion gate:** two phones with Wi-Fi/cellular disabled can find and select each other, verify peer, exchange text and disconnect; permission deny/revoke, radio-off, timeout, OS lifecycle and unreliable radio failures are tested; no plaintext or unapproved messages.
 
 ### Phase C — Wi-Fi Direct
+- **M3r. Anonymous candidate staging (debug-only, no connection):** Current foreground-only discovery may read a bounded `WifiP2pDeviceList` snapshot via a single restricted adapter, retain eight opaque candidates only during the same 30-second scan and show anonymous ordinal preview selection. No device name/address display, no persistence, no group/socket/trust/messaging, no new permissions. Two-phone hardware and independent security review remain unperformed.
 - **M3q. Debug P2P scan — implemented in debug source, not hardware-verified:** user-tapped 30-second Android `discoverPeers` only after M3p readiness and platform radio enabled; STOP, background, permission/radio loss, timeout and channel errors close. Shows only anonymous peer-list **change event count** (not identifiable peers). No group creation, selected device, messaging or production rights.
 
 - **C1.** Device support and Android 13+ `NEARBY_WIFI_DEVICES` consent flow; legacy location requirements handled explicitly by Android version, with honest explanations and no location analytics.
