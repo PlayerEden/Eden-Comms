@@ -42,7 +42,8 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
 
     def test_real_rfccomm_worker_runs_pinned_tls_before_closing_and_never_messages(self):
         for marker in (
-            "socket.inputStream, socket.outputStream",
+            "val wireIn = socket.inputStream",
+            "val wireOut = socket.outputStream",
             "DebugTlsEngineHandshake.negotiate(",
             "PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)",
             "SSLEngines.isSupportedEngine(engine)",
