@@ -30,11 +30,15 @@ GENERATED_MERGED_ONLY_PERMISSIONS = frozenset({
 })
 # Android 12+ experimental Classic inquiry and one-time secure RFCOMM link
 # (CONNECT and explicit discoverability ADVERTISE) exist in debug ONLY.
+# M3p adds only debug Wi-Fi state and version-scoped Wi-Fi Direct permission.
 # Production main manifest remains at the original LAN+QR permissions.
 DEBUG_ONLY_PERMISSIONS = frozenset({
     "android.permission.BLUETOOTH_SCAN",
     "android.permission.BLUETOOTH_CONNECT",
     "android.permission.BLUETOOTH_ADVERTISE",
+    "android.permission.ACCESS_WIFI_STATE",
+    "android.permission.NEARBY_WIFI_DEVICES",
+    "android.permission.ACCESS_FINE_LOCATION",
 })
 EXPECTED_APK_PERMISSIONS = (
     ALLOWED_PERMISSIONS | DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS
@@ -170,7 +174,7 @@ def build_report(repo, apk):
     if declared != ALLOWED_PERMISSIONS:
         problems.append("Release/main manifest permissions differ from approved set")
     if debug_declared != DEBUG_ONLY_PERMISSIONS or debug_exported:
-        problems.append("Debug-only Bluetooth scan manifest differs from approved set")
+        problems.append("Debug-only Bluetooth/Wi-Fi Direct manifest differs from approved set")
     if binary != EXPECTED_APK_PERMISSIONS:
         problems.append("Packaged debug APK permissions differ from approved merged set")
     if binary - declared != (DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS):

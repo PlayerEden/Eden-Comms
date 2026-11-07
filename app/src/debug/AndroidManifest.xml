@@ -2,13 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- M3m debug-only Classic inquiry + secure RFCOMM socket experiment.
          Android 12+ Nearby devices permissions are requested on user actions.
-         Nothing here is merged into release; no location, mic or persistence. -->
+         Release gets none of these permissions; legacy location is capped at API 32.
+         No microphone, peer persistence or coordinates. -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
     <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
+    <!-- M3p debug Wi-Fi Direct readiness: no P2P discovery/connection/position reads. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="32"/>
+    <uses-feature android:name="android.hardware.wifi.direct" android:required="false"/>
     <application>
         <activity
             android:name=".bluetooth.DebugBluetoothDiscoveryActivity"
