@@ -1,20 +1,25 @@
 package com.edenpractical.comms.bluetooth
 
 import com.edenpractical.comms.security.LocalTlsIdentity
+import com.edenpractical.comms.security.SessionProofBinding
 import java.security.MessageDigest
 
 /**
- * Transient, per-user-tap input for an experimental TLS 1.3 RFCOMM handshake.
- * Contains an Android Keystore private-key HANDLE (never exported) and a
- * defensively copied expected full public certificate pin from the in-person
- * QR. The QR is not a proof until the actual peer signs the TLS handshake.
+ * Snapshot of the two in-person QR public certificate pins and ephemeral
+ * nonces for ONE DEBUG Bluetooth TLS attempt. Does not retain private-key
+ * material (the local Keystore owns signing); not a trusted peer record.
  */
 internal class DebugBluetoothTlsProbeInput(
     val localIdentity: LocalTlsIdentity,
     expectedPeerPin: ByteArray,
-    val hostRole: Boolean
+    val hostRole: Boolean,
+    binding: SessionProofBinding,
+    val expiresAtSeconds: Long
 ) : AutoCloseable {
     private val peerPin = expectedPeerPin.copyOf()
+    private val pinsAndNonces = SessionProofBinding(
+        binding.hostPin, binding.joinPin, binding.hostNonce, binding.joinNonce
+    )
     @Volatile private var closed = false
 
     init {
@@ -24,17 +29,43 @@ internal class DebugBluetoothTlsProbeInput(
         require(!MessageDigest.isEqual(peerPin, localIdentity.publicFingerprint())) {
             "Cannot authenticate this phone as its own peer"
         }
+        require(MessageDigest.isEqual(
+            peerPin, if (hostRole) pinsAndNonces.joinPin else pinsAndNonces.hostPin
+        ) && MessageDigest.isEqual(
+            localIdentity.publicFingerprint(),
+            if (hostRole) pinsAndNonces.hostPin else pinsAndNonces.joinPin
+        )) { "Local identity or expected peer does not match the QR role" }
     }
 
     @Synchronized
     fun pinCopy(): ByteArray {
-        check(!closed) { "Bluetooth TLS attempt expired" }
+        requireLive()
         return peerPin.copyOf()
+    }
+
+    @Synchronized
+    fun freshBinding(): SessionProofBinding {
+        requireLive()
+        return SessionProofBinding(
+            pinsAndNonces.hostPin, pinsAndNonces.joinPin,
+            pinsAndNonces.hostNonce, pinsAndNonces.joinNonce
+        )
     }
 
     @Synchronized
     override fun close() {
         peerPin.fill(0)
+        pinsAndNonces.hostPin.fill(0)
+        pinsAndNonces.joinPin.fill(0)
+        pinsAndNonces.hostNonce.fill(0)
+        pinsAndNonces.joinNonce.fill(0)
         closed = true
+    }
+
+    private fun requireLive() {
+        val now = System.currentTimeMillis() / 1000
+        check(!closed && now in (expiresAtSeconds - 345L)..expiresAtSeconds) {
+            "This Bluetooth QR pairing attempt expired or was cleared"
+        }
     }
 }
