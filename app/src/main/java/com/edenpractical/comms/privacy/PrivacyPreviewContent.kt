@@ -57,7 +57,10 @@ internal object PrivacyPreviewContent {
                 "counts unverified radio observations and temporarily keeps " +
                 "up to 12 opaque discovered-device objects in memory for " +
                 "numbered, unverified local selection. It reads no device names " +
-                "or addresses and saves no peer history. A separate explicit host/join " +
+                "or addresses and saves no peer history. A separate user-guided two-QR " +
+                "exchange can prepare public device certificate pins/nonces in " +
+                "RAM; the scanned Bluetooth signal is NOT authenticated by these codes. " +
+                "A separate explicit host/join " +
                 "test can briefly open a Bluetooth socket, but NO app messages " +
                 "or audio cross it, and peer identity is not authenticated. " +
                 "Android may continue device discoverability for its approved " +
