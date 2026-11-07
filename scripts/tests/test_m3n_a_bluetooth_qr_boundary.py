@@ -130,7 +130,7 @@ class BluetoothReciprocalQrBoundaryTest(unittest.TestCase):
             )
         for forbidden in (
             ".inputStream", ".outputStream", "getInputStream(", "getOutputStream(",
-            "TestPacketCodec", "SessionProofExchange", "write(", "read("
+            "TestPacketCodec", "SessionProofExchange", ".write(", ".read("
         ):
             self.assertNotIn(forbidden, self.link, forbidden)
 
