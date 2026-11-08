@@ -13,8 +13,9 @@ import java.net.Socket
  * This is debug-only and UNAUTHENTICATED. It never writes or reads one byte
  * of application data, never creates a TLS engine, and never authorizes a
  * peer, message, PTT or trusted connection. The host listens ONLY on the
- * temporary group's own OS-reported IPv4 owner address; join connects ONLY
- * to that OS-reported address. Neither address is displayed, logged, saved,
+ * temporary group's selected OS P2P interface IPv4 address; join binds
+ * its socket to that same OS-selected local interface IPv4 before dialing
+ * the OS-reported group-owner address. Neither address is logged or saved,
  * included in a QR, or accepted from text input.
  *
  * There can be at most one listener/connection per instance. Cancel closes
@@ -61,12 +62,30 @@ internal class DebugWifiDirectTcpProbe(
      */
     fun start(
         role: Role,
-        groupOwnerAddress: InetAddress,
+        groupOwnerAddress: InetAddress?,
         onCompleted: (Boolean) -> Unit,
         forJvmLoopback: Boolean = false,
-        onListening: () -> Unit = {}
+        onListening: () -> Unit = {},
+        localP2pAddress: InetAddress? = null
     ): Boolean {
-        if (!testAddressAllowed(groupOwnerAddress, forJvmLoopback)) return false
+        val local = if (forJvmLoopback) groupOwnerAddress else localP2pAddress
+        if (local == null || !testAddressAllowed(local, forJvmLoopback)) return false
+        if (role == Role.JOIN) {
+            if (groupOwnerAddress == null ||
+                !testAddressAllowed(groupOwnerAddress, forJvmLoopback) ||
+                local == groupOwnerAddress
+            ) {
+                // JVM fixture uses loopback for BOTH ends of the socket.
+                if (!forJvmLoopback || groupOwnerAddress != local) return false
+            }
+        } else if (groupOwnerAddress != null &&
+            !groupOwnerAddress.isAnyLocalAddress &&
+            groupOwnerAddress != local
+        ) {
+            // Android may anonymize the host address; a concrete,
+            // different value is never silently accepted.
+            return false
+        }
         synchronized(lock) {
             if (started || stopped) return false
             started = true
@@ -86,7 +105,7 @@ internal class DebugWifiDirectTcpProbe(
                         }
                         // Must not listen on Wi-Fi, cellular or every interface.
                         listener.reuseAddress = false
-                        listener.bind(InetSocketAddress(groupOwnerAddress, port), 1)
+                        listener.bind(InetSocketAddress(local, port), 1)
                         listener.soTimeout = ACCEPT_TIMEOUT_MS
                         if (synchronized(lock) { !stopped }) onListening()
                         val connected = listener.accept()
@@ -108,11 +127,16 @@ internal class DebugWifiDirectTcpProbe(
                                 return@Thread
                             }
                         }
+                        // An explicit local bind prevents OS default routing
+                        // onto a different Wi-Fi/cellular interface.
+                        outbound.bind(InetSocketAddress(local, 0))
                         outbound.connect(
                             InetSocketAddress(groupOwnerAddress, port),
                             CONNECT_TIMEOUT_MS
                         )
-                        success = synchronized(lock) { !stopped }
+                        success = synchronized(lock) {
+                            !stopped && outbound.localAddress == local
+                        }
                     }
                 }
             } catch (_: IOException) {
