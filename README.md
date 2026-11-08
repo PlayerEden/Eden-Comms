@@ -8,6 +8,8 @@
 
 - **M5-B — bounded TCP retry deadline:** The debug LAN joiner no longer starts a full-length blocking TCP connection attempt at the end of its two-minute pairing retry window, and explicitly rejects zero (unbounded) socket timeouts. [M5-B audit and verification](docs/M5_B_LAN_RETRY_DEADLINE.md). Real two-phone reliability still requires physical QA.
 
+- **M5-C — debug teardown race hardening:** A final synchronized socket-write guard blocks ordinary debug packets when disconnect or decline starts, while retaining graceful CLOSE/DECLINE and forced-close behavior. Suppresses misleading late activity/link-failure reports during local cancellation. [M5-C source audit](docs/M5_C_TEARDOWN_WRITE_GATE.md).
+
 ## Product goal
 
 A simple, accessible way for two people nearby to **Connect → Communicate → Disconnect**, with no accounts, app-operated servers, analytics or advertising. Planned connectivity: local Wi-Fi, Bluetooth, Wi-Fi Direct. Text first; optional push-to-talk after verified two-phone messaging works.
