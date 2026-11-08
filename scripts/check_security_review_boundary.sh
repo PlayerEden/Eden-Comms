@@ -719,6 +719,43 @@ if find "$MAIN" -name 'DebugWifiDirectFutureTlsSocketLab.kt' -print -quit | grep
   exit 1
 fi
 
+# F3-B2: fresh-QR nonce and full transcript agreement runs as encrypted
+# test-control data ON THE SAME mutually pinned JVM-only TLS socket. There is
+# no reviewed radio, user-approval, text or voice session yet.
+P2P_PROOF_LAB="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectFutureQrProofSocketLab.kt"
+P2P_PROOF_FRAME="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectFutureQrCommitment.kt"
+P2P_PROOF_CONTEXT="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectFutureQrTlsExpectation.kt"
+test -f "$P2P_PROOF_LAB" && test -f "$P2P_PROOF_FRAME"
+grep -Fq 'address.isLoopbackAddress && address.address.size == 4' "$P2P_PROOF_LAB"
+grep -Fq 'SessionProofExchange.runHost(' "$P2P_PROOF_LAB"
+grep -Fq 'SessionProofExchange.runJoin(' "$P2P_PROOF_LAB"
+grep -Fq 'DebugWifiDirectFutureQrCommitment.exchange(' "$P2P_PROOF_LAB"
+grep -Fq 'PinnedTlsPeer.requirePinnedTls13(socket.session, pin)' "$P2P_PROOF_LAB"
+grep -Fq 'copyQrProofBindingForLab()' "$P2P_PROOF_CONTEXT"
+grep -Fq 'DataInputStream(input).readFully(frame)' "$P2P_PROOF_FRAME"
+grep -Fq 'sha.update(fullQrTranscript)' "$P2P_PROOF_FRAME"
+for live in "$P2P_HOST" "$P2P_JOIN" "$P2P_TCP" \
+  'app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectQrCoordinator.kt'; do
+  if grep -Fq 'DebugWifiDirectFutureQrProofSocketLab' "$live" ||
+     grep -Fq 'DebugWifiDirectFutureQrCommitment' "$live"; then
+    echo "FAIL: F3-B2 unreviewed QR proof connected to live P2P radio" >&2
+    exit 1
+  fi
+done
+for forbidden in 'sendDebugText(' 'sendPacket(' 'AudioRecord' 'SharedPreferences' \
+  'openFileOutput(' 'Log.' 'println(' 'DebugBluetoothTextLedger' \
+  'DebugBluetoothTextFrameCodec'; do
+  if grep -Fq "$forbidden" "$P2P_PROOF_LAB" ||
+     grep -Fq "$forbidden" "$P2P_PROOF_FRAME"; then
+    echo "FAIL: F3-B2 test-control proof gained messaging, storage or voice" >&2
+    exit 1
+  fi
+done
+if find "$MAIN" -name 'DebugWifiDirectFutureQrProofSocketLab.kt' -print -quit | grep -q .; then
+  echo "FAIL: F3-B2 future QR proof lab moved into release source" >&2
+  exit 1
+fi
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"

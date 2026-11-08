@@ -2,6 +2,7 @@ package com.edenpractical.comms.wifidirect
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import com.edenpractical.comms.security.SessionProofBinding
 
 /**
  * F3-B1: future-only QR-to-TLS EXPECTATION for source/JVM verification.
@@ -20,17 +21,31 @@ import java.security.MessageDigest
 internal class DebugWifiDirectFutureQrTlsExpectation private constructor(
     val role: Role,
     peerPin: ByteArray,
-    transcriptDigest: ByteArray
+    transcriptDigest: ByteArray,
+    hostPin: ByteArray,
+    joinPin: ByteArray,
+    hostNonce: ByteArray,
+    joinNonce: ByteArray
 ) : AutoCloseable {
     enum class Role { HOST, JOIN }
 
     private val pin = peerPin.copyOf()
     private val transcript = transcriptDigest.copyOf()
+    private val hostQrPin = hostPin.copyOf()
+    private val joinQrPin = joinPin.copyOf()
+    private val hostQrNonce = hostNonce.copyOf()
+    private val joinQrNonce = joinNonce.copyOf()
     private var closed = false
 
     init {
         require(pin.size == 32 && pin.any { it != 0.toByte() })
-        require(transcript.size == 32)
+        require(transcript.size == 32 && transcript.any { it != 0.toByte() })
+        require(hostQrPin.size == 32 && joinQrPin.size == 32 &&
+            hostQrNonce.size == 16 && joinQrNonce.size == 16)
+        require(!MessageDigest.isEqual(hostQrPin, joinQrPin) &&
+            !MessageDigest.isEqual(hostQrNonce, joinQrNonce))
+        val expected = if (role == Role.HOST) joinQrPin else hostQrPin
+        require(MessageDigest.isEqual(pin, expected))
     }
 
     @Synchronized
@@ -45,11 +60,26 @@ internal class DebugWifiDirectFutureQrTlsExpectation private constructor(
         return transcript.copyOf()
     }
 
+    /**
+     * F3-B2 only: independent copy of the exact ordered QR pins/nonces
+     * for one encrypted SessionProofExchange on the SAME pinned TLS socket.
+     * A binding is not human approval; the lab must wipe its copies.
+     */
+    @Synchronized
+    fun copyQrProofBindingForLab(): SessionProofBinding {
+        check(!closed) { "Closed Wi-Fi Direct QR expectation cannot be reused" }
+        return SessionProofBinding(hostQrPin, joinQrPin, hostQrNonce, joinQrNonce)
+    }
+
     @Synchronized
     override fun close() {
         if (!closed) {
             pin.fill(0)
             transcript.fill(0)
+            hostQrPin.fill(0)
+            joinQrPin.fill(0)
+            hostQrNonce.fill(0)
+            joinQrNonce.fill(0)
             closed = true
         }
     }
@@ -84,7 +114,8 @@ internal class DebugWifiDirectFutureQrTlsExpectation private constructor(
                 expected.clear()
             }
             return DebugWifiDirectFutureQrTlsExpectation(
-                Role.HOST, reply.pin, digest(host, reply, ack)
+                Role.HOST, reply.pin, digest(host, reply, ack),
+                host.pin, reply.pin, host.nonce, reply.nonce
             )
         }
 
@@ -104,7 +135,8 @@ internal class DebugWifiDirectFutureQrTlsExpectation private constructor(
             )
             parsed.clear()
             return DebugWifiDirectFutureQrTlsExpectation(
-                Role.JOIN, host.pin, digest(host, reply, ack)
+                Role.JOIN, host.pin, digest(host, reply, ack),
+                host.pin, reply.pin, host.nonce, reply.nonce
             )
         }
 
