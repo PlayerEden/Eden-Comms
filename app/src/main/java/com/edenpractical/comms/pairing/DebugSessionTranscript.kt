@@ -89,4 +89,26 @@ internal object DebugSessionEventAdmission {
         current(callbackAttempt, activeAttempt) &&
             visibleStage == "demo" &&
             transcript.state == DebugSessionTranscript.State.ACTIVE
+
+    /**
+     * Only the still-visible active attempt can finish this screen. A late
+     * ENDED/FAILED callback must never overwrite a completed result, a local
+     * decline, or a newer QR attempt's status and QA observations.
+     *
+     * This is UI admission only; it grants no link, identity or send authority.
+     */
+    fun canAcceptTerminal(
+        callbackAttempt: Int,
+        activeAttempt: Int,
+        visibleStage: String,
+        transcript: DebugSessionTranscript
+    ): Boolean {
+        if (!current(callbackAttempt, activeAttempt)) return false
+        return when (visibleStage) {
+            "connecting", "showReply", "approval" ->
+                transcript.state == DebugSessionTranscript.State.WAITING
+            "demo" -> transcript.state == DebugSessionTranscript.State.ACTIVE
+            else -> false
+        }
+    }
 }
