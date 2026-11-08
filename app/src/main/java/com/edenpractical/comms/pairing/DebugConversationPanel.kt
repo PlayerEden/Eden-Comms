@@ -103,7 +103,7 @@ internal fun DebugConversationPanel(
         }
         Text(
             "Unreviewed test only. Do not send sensitive information. " +
-                "Voice is disabled.",
+                "Optional short voice bursts use the same approved Wi-Fi test link.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
