@@ -21,7 +21,7 @@ class M4Ui04ConversationContract(unittest.TestCase):
             "entry.text", "transcript.visible.forEach",
             "writtenHere", "Arrangement.End", "Arrangement.Start",
             "material", "DEV TEST", "Not a delivery or read receipt",
-            "Do not send sensitive information", "Voice is disabled",
+            "Do not send sensitive information", "Optional short voice bursts use the same approved Wi-Fi test link",
             "Session-only", "Your keyboard or screenshots",
         ):
             if fragment != "material":
