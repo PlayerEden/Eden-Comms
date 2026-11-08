@@ -123,7 +123,7 @@ class DebugRfcommContractTest(unittest.TestCase):
             self.assertIn(item, self.gate, item)
         self.assertIn("if (active !== token) return",
                       self.controller)
-        self.assertIn("if (active != null || gate.snapshot().phase !=",
+        self.assertIn("if (active != null || lastStoppedToken !== token ||",
                       self.controller)
         self.assertNotIn("autoReconnect", self.controller)
         self.assertNotIn("reconnect(", self.controller)
