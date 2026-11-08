@@ -365,9 +365,16 @@ class DebugPairedTlsEngineInteropTest {
                 foreground = true,
                 connectPermission = true
             )
+            // Correlation-only fixture: these bytes do NOT assert that the
+            // synthetic JVM peers completed real Bluetooth QR/consent.
+            val reviewContext = DebugBluetoothFutureSessionContext(
+                hostRole = true,
+                expectedPeerPin = joinIdentity.pin,
+                transcriptCommitment = ByteArray(32) { 0x45 }
+            )
             try {
-                assertTrue(owner.begin(42, 100, observations, cleanup))
-                assertTrue(owner.observe(42, 104, true, true))
+                assertTrue(owner.begin(42, 100, observations, cleanup, reviewContext))
+                assertTrue(owner.observe(42, 104, true, true, reviewContext))
                 val data = sent.prepareText("One encrypted text before expiry")
                 try {
                     h.transmit(data)
@@ -384,7 +391,7 @@ class DebugPairedTlsEngineInteropTest {
                     decoded.fill(0)
                 }
                 assertEquals(1, sent.outstanding())
-                assertTrue(!owner.observe(42, 105, true, true))
+                assertTrue(!owner.observe(42, 105, true, true, reviewContext))
                 assertEquals(0, sent.outstanding())
                 assertThrows(javax.net.ssl.SSLException::class.java) {
                     h.transmit(DebugBluetoothTextFrameCodec.acknowledgment(1))
@@ -395,6 +402,7 @@ class DebugPairedTlsEngineInteropTest {
                 assertTrue(!owner.stop(42))
             } finally {
                 owner.close()
+                reviewContext.close()
             }
         } finally {
             pipe.close()
