@@ -319,6 +319,91 @@ class DebugPairedTlsEngineInteropTest {
         }
     }
 
+    /**
+     * F2-H: a synthetic future owner actually closes its owned encrypted
+     * JVM lab streams and message state on deadline. It grants no radio/chat
+     * authority and supplies no cryptographic evidence for human consent.
+     */
+    @Test
+    fun futureSessionOwnerExpiresAndClosesPairedTlsLabResources() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2h-future-owner-only").apply { isDaemon = true }
+        }
+        try {
+            val hostHandshake = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                PinnedTlsPeer.requirePinnedTls13(host.session, joinIdentity.pin)
+            })
+            val joinHandshake = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                PinnedTlsPeer.requirePinnedTls13(join.session, hostIdentity.pin)
+            })
+            await(hostHandshake)
+            await(joinHandshake)
+            val h = DebugBluetoothFutureTlsTextLab(host, pipe.hostInput, pipe.hostOutput)
+            val j = DebugBluetoothFutureTlsTextLab(join, pipe.joinInput, pipe.joinOutput)
+            val sent = DebugBluetoothTextLedger()
+            val received = DebugBluetoothTextLedger()
+            val owner = DebugBluetoothFutureOwnedSession(
+                DebugBluetoothContinuationBudget(maxLifetimeMs = 5)
+            )
+            val cleanup = Closeable {
+                h.clear()
+                j.clear()
+                sent.close()
+                received.close()
+                pipe.close()
+            }
+            val observations = DebugBluetoothContinuationBudget.Observations(
+                peerPinChecked = true,
+                qrChallengeChecked = true,
+                exporterChecked = true,
+                bilateralApprovals = true,
+                bilateralConfirmations = true,
+                foreground = true,
+                connectPermission = true
+            )
+            try {
+                assertTrue(owner.begin(42, 100, observations, cleanup))
+                assertTrue(owner.observe(42, 104, true, true))
+                val data = sent.prepareText("One encrypted text before expiry")
+                try {
+                    h.transmit(data)
+                } finally {
+                    data.fill(0)
+                }
+                val decoded = j.receive()
+                try {
+                    assertEquals(
+                        "One encrypted text before expiry",
+                        received.acceptText(decoded).text
+                    )
+                } finally {
+                    decoded.fill(0)
+                }
+                assertEquals(1, sent.outstanding())
+                assertTrue(!owner.observe(42, 105, true, true))
+                assertEquals(0, sent.outstanding())
+                assertThrows(javax.net.ssl.SSLException::class.java) {
+                    h.transmit(DebugBluetoothTextFrameCodec.acknowledgment(1))
+                }
+                assertThrows(java.io.IOException::class.java) {
+                    pipe.hostOutput.write(1)
+                }
+                assertTrue(!owner.stop(42))
+            } finally {
+                owner.close()
+            }
+        } finally {
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
     @Test
     fun wrongOutOfBandPeerPinCannotCompleteMutualTlsHandshake() {
         val incorrect = hostIdentity.pin.copyOf().also { it[0] = (it[0].toInt() xor 0x01).toByte() }

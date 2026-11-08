@@ -63,7 +63,9 @@ class F2CProviderBoundaryTest(unittest.TestCase):
             "Phase.TERMINATED",
             "!observations.allObserved()",
             "elapsedMs > Long.MAX_VALUE - maxLifetimeMs",
-            "elapsedMs < startedMs || elapsedMs >= deadlineMs",
+            "elapsedMs < startedMs || elapsedMs < lastObservedMs",
+            "elapsedMs >= deadlineMs",
+            "lastObservedMs = elapsedMs",
             "!foreground || !connectPermission",
             "attemptId != generation",
         ):

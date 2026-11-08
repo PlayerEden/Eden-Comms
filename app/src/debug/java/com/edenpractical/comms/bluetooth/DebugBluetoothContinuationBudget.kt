@@ -34,6 +34,7 @@ internal class DebugBluetoothContinuationBudget(
     private var phase = Phase.NOT_STARTED
     private var attemptId: Long? = null
     private var startedMs = -1L
+    private var lastObservedMs = -1L
     private var deadlineMs = -1L
 
     @Synchronized
@@ -48,6 +49,7 @@ internal class DebugBluetoothContinuationBudget(
         ) return false
         attemptId = generation
         startedMs = elapsedMs
+        lastObservedMs = elapsedMs
         deadlineMs = elapsedMs + maxLifetimeMs
         phase = Phase.OBSERVING
         return true
@@ -66,12 +68,13 @@ internal class DebugBluetoothContinuationBudget(
         connectPermission: Boolean
     ): Boolean {
         if (phase != Phase.OBSERVING || attemptId != generation) return false
-        if (elapsedMs < startedMs || elapsedMs >= deadlineMs ||
-            !foreground || !connectPermission
+        if (elapsedMs < startedMs || elapsedMs < lastObservedMs ||
+            elapsedMs >= deadlineMs || !foreground || !connectPermission
         ) {
             phase = Phase.TERMINATED
             return false
         }
+        lastObservedMs = elapsedMs
         return true
     }
 
