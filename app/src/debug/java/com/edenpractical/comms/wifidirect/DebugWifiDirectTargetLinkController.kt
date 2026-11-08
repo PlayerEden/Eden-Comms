@@ -12,7 +12,9 @@ import android.os.Looper
 
 /**
  * M3s-C1 DEBUG-ONLY targeted Android radio negotiation. It deliberately knows
- * nothing about QR identities, TLS, user messages, IP addresses or voice.
+ * nothing about QR identities, TLS, user messages or voice. F3-A adds one
+ * opt-in TCP handshake-only test to Android's OS-reported group owner address.
+ * An address or successful TCP handshake is not peer identity or consent.
  *
  * The selected opaque Android device is used just once to produce an in-RAM
  * nonpersistent P2P config. A group formed flag is NOT a verified peer.
@@ -213,7 +215,8 @@ internal class DebugWifiDirectTargetLinkController(
                 }
                 if (gate.observedGroup(token, info.groupFormed)) {
                     onReport("Android reports a Wi-Fi Direct group FORMED. " +
-                        "Device identity remains UNVERIFIED. No sockets or messages.")
+                        "Device identity remains UNVERIFIED. No sockets or messages " +
+                        "were created by group formation; optional TCP test is separate.")
                 } else if (gate.snapshot().phase ==
                     DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED &&
                     !info.groupFormed
