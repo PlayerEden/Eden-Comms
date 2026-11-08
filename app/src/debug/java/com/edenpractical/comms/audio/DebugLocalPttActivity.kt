@@ -39,6 +39,7 @@ internal class DebugLocalPttActivity : Activity() {
     @Volatile private var activeRecorder: AudioRecord? = null
     @Volatile private var activeTrack: AudioTrack? = null
     private var recordingThread: Thread? = null
+    private var playbackThread: Thread? = null
     private var audioClip: ByteArray? = null
 
     private lateinit var status: TextView
@@ -139,7 +140,7 @@ internal class DebugLocalPttActivity : Activity() {
 
     private fun startRecording() {
         if (!debugBuild || !foreground || capturing.get() || playing.get() ||
-            recordingThread?.isAlive == true
+            recordingThread?.isAlive == true || playbackThread?.isAlive == true
         ) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
@@ -201,10 +202,13 @@ internal class DebugLocalPttActivity : Activity() {
                 val n = created.read(
                     buffer, written,
                     minOf(4_096, buffer.size - written),
-                    AudioRecord.READ_BLOCKING
+                    AudioRecord.READ_NON_BLOCKING
                 )
-                if (n <= 0) break
-                written += n
+                when {
+                    n < 0 -> throw IllegalStateException("Microphone read failed")
+                    n == 0 -> Thread.sleep(DebugLocalPttPlaybackBudget.RETRY_PAUSE_MILLIS)
+                    else -> written += n
+                }
             }
         } catch (_: Exception) {
             hadError = true
@@ -222,12 +226,13 @@ internal class DebugLocalPttActivity : Activity() {
                 written >= DebugLocalPttPolicy.MIN_PCM_BYTES
             ) buffer.copyOf(written - written % 2) else null
             buffer.fill(0)
+            val worker = Thread.currentThread()
             runOnUiThread {
+                if (recordingThread === worker) recordingThread = null
                 if (DebugLocalPttPolicy.acceptWorkerResult(
                         token, currentGeneration.get(), foreground
                     )
                 ) {
-                    recordingThread = null
                     audioClip?.fill(0)
                     audioClip = clip
                     status.text = when {
@@ -235,10 +240,10 @@ internal class DebugLocalPttActivity : Activity() {
                         clip == null -> "No usable recording. Hold Record a little longer."
                         else -> "Recording ready. Tap Play to hear it on this phone."
                     }
-                    refresh()
                 } else {
                     clip?.fill(0)
                 }
+                if (foreground && ::status.isInitialized) refresh()
             }
         }
     }
@@ -257,17 +262,18 @@ internal class DebugLocalPttActivity : Activity() {
         if (!DebugLocalPttPolicy.mayPlay(
                 debugBuild, foreground, capturing.get(), playing.get(), original.size
             )) return
-        if (recordingThread?.isAlive == true) return
-        // One-phone protocol framing rehearsal: no socket, peer or network adapter.
+        // An old output worker must finish teardown before another one can start.
+        if (recordingThread?.isAlive == true || playbackThread?.isAlive == true) return
         val packets = DebugLocalPttFrames.fromClip(original) ?: return
         val token = currentGeneration.incrementAndGet()
         playing.set(true)
         status.text = "Playing ordered 20 ms audio frames on THIS phone only…"
         refresh()
-        thread(name = "eden-debug-local-audio-play", isDaemon = true) {
+        playbackThread = thread(name = "eden-debug-local-audio-play", isDaemon = true) {
             var track: AudioTrack? = null
             var failed = false
             var complete = false
+            val budget = DebugLocalPttPlaybackBudget(SystemClock.elapsedRealtime())
             try {
                 val minimum = AudioTrack.getMinBufferSize(
                     DebugLocalPttPolicy.SAMPLE_RATE_HZ,
@@ -294,22 +300,26 @@ internal class DebugLocalPttActivity : Activity() {
                     created.play()
                 }
                 var sentSamples = 0
-                while (playing.get() && foreground && token == currentGeneration.get()) {
+                // Non-blocking native writes let STOP/background promptly invalidate
+                // the attempt even when the output route is stalled.
+                while (stillPlaying(token, budget)) {
                     val frame = packets.poll() ?: break
                     val pcm = frame.pcm
                     try {
                         var offset = 0
-                        while (offset < pcm.size && playing.get() && foreground &&
-                            token == currentGeneration.get()
-                        ) {
-                            val written = created.write(
+                        while (offset < pcm.size && stillPlaying(token, budget)) {
+                            val n = created.write(
                                 pcm, offset, pcm.size - offset,
-                                AudioTrack.WRITE_BLOCKING
+                                AudioTrack.WRITE_NON_BLOCKING
                             )
-                            if (written <= 0 || written % 2 != 0) {
-                                throw IllegalStateException("Incomplete PCM frame")
+                            if (n < 0 || n % 2 != 0) {
+                                throw IllegalStateException("Invalid audio output write")
                             }
-                            offset += written
+                            if (n == 0) {
+                                Thread.sleep(DebugLocalPttPlaybackBudget.RETRY_PAUSE_MILLIS)
+                            } else {
+                                offset += n
+                            }
                         }
                         if (offset != pcm.size) break
                         sentSamples += pcm.size / 2
@@ -317,24 +327,19 @@ internal class DebugLocalPttActivity : Activity() {
                         pcm.fill(0)
                     }
                 }
-                if (packets.queuedCount == 0 && playing.get() && foreground &&
-                    token == currentGeneration.get()
-                ) {
-                    val deadline = SystemClock.elapsedRealtime() + 7_000L
-                    while (playing.get() && foreground &&
-                        token == currentGeneration.get() &&
-                        created.playbackHeadPosition < sentSamples &&
-                        SystemClock.elapsedRealtime() < deadline
+                if (packets.queuedCount == 0 && stillPlaying(token, budget)) {
+                    while (created.playbackHeadPosition < sentSamples &&
+                        stillPlaying(token, budget)
                     ) {
-                        Thread.sleep(25)
+                        Thread.sleep(DebugLocalPttPlaybackBudget.RETRY_PAUSE_MILLIS)
                     }
-                    complete = playing.get() && foreground &&
-                        token == currentGeneration.get() &&
-                        created.playbackHeadPosition >= sentSamples
+                    complete = created.playbackHeadPosition >= sentSamples &&
+                        stillPlaying(token, budget)
                 }
             } catch (_: Exception) {
-                if (playing.get()) failed = true
+                if (playing.get() && token == currentGeneration.get()) failed = true
             } finally {
+                budget.close()
                 packets.close()
                 synchronized(audioGuard) {
                     if (activeTrack === track) activeTrack = null
@@ -342,7 +347,9 @@ internal class DebugLocalPttActivity : Activity() {
                     try { track?.release() } catch (_: Exception) {}
                 }
                 if (token == currentGeneration.get()) playing.set(false)
+                val worker = Thread.currentThread()
                 runOnUiThread {
+                    if (playbackThread === worker) playbackThread = null
                     if (DebugLocalPttPolicy.acceptWorkerResult(
                             token, currentGeneration.get(), foreground
                         )
@@ -350,17 +357,25 @@ internal class DebugLocalPttActivity : Activity() {
                         status.text = when {
                             failed -> "Couldn't play sound on this phone."
                             complete -> "Local frame playback finished. Nothing transmitted."
-                            else -> "Local frame playback stopped or timed out. Nothing transmitted."
+                            else -> "Playback stopped or output timed out. Nothing transmitted."
                         }
-                        refresh()
                     }
+                    if (foreground && ::status.isInitialized) refresh()
                 }
             }
         }
     }
 
+    private fun stillPlaying(
+        token: Int, budget: DebugLocalPttPlaybackBudget
+    ): Boolean = playing.get() && foreground &&
+        token == currentGeneration.get() &&
+        budget.mayContinue(SystemClock.elapsedRealtime())
+
     private fun stopPlayback() {
         if (!playing.getAndSet(false)) return
+        // Cancel any pending worker status; "Stopped" must not turn into "Finished".
+        currentGeneration.incrementAndGet()
         synchronized(audioGuard) {
             try { activeTrack?.stop() } catch (_: Exception) {}
         }
@@ -396,14 +411,16 @@ internal class DebugLocalPttActivity : Activity() {
     private fun refresh() {
         if (!::hold.isInitialized) return
         start.isEnabled = foreground && !capturing.get() && !playing.get() &&
-            recordingThread?.isAlive != true
+            recordingThread?.isAlive != true && playbackThread?.isAlive != true
         stop.isEnabled = foreground && capturing.get()
-        hold.isEnabled = foreground && !playing.get()
+        hold.isEnabled = foreground && !playing.get() &&
+            playbackThread?.isAlive != true
         playback.isEnabled = foreground && !capturing.get() && !playing.get() &&
-            recordingThread?.isAlive != true && audioClip != null
+            recordingThread?.isAlive != true && playbackThread?.isAlive != true &&
+            audioClip != null
         stopPlayback.isEnabled = foreground && playing.get()
         discard.isEnabled = foreground && !capturing.get() &&
-            !playing.get() && audioClip != null
+            !playing.get() && playbackThread?.isAlive != true && audioClip != null
     }
 
     @Suppress("DEPRECATION")
