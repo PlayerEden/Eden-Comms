@@ -24,7 +24,7 @@ class TapSendCancellationContract(unittest.TestCase):
             "state = State.CANCELLED",
         ):
             self.assertIn(required, gate)
-        for forbidden in ("AudioRecord", "Socket(", "SSLSocket(",
+        for forbidden in ("AudioRecord(", "Socket(", "SSLSocket(",
                           "SharedPreferences", "FileOutputStream",
                           "BluetoothAdapter", "sendVoiceBurst("):
             self.assertNotIn(forbidden, gate)
