@@ -63,34 +63,53 @@ NOT a reviewed secure messenger. Use only harmless sample text.
    (including time spent approving). It also closes if the other phone
    stops responding; you do not have to wait the full 30 minutes.
 
-## New two-phone voice burst (Preview newer than 200002)
+## New two-phone *live* push-to-talk (F4-F source checkpoint)
 
-After both phones complete QR, TLS and individual approvals, open the
-**WALKIE-TALKIE • DEVELOPMENT TEST** area below nearby chat.
+This Preview includes **F4-D live 20 ms audio streaming**, **F4-E
+receiving/transmitting indicators**, and **F4-F per-session transmit-floor
+coordination**. These are experimental tests, not a reviewed secure
+walkie-talkie. Use only harmless spoken samples and the **same new APK on
+both phones**.
 
-1. On A, **HOLD TO TALK** and say a harmless phrase; **RELEASE TO STOP**.
-   Grant microphone permission if asked, then hold again. The microphone
-   automatically stops after three seconds. In F4-D, audio frames are now
-   sent **while held** rather than all at the end.
-2. On B, listen for speaker playback **before A releases**; then try B → A.
-   If holding is difficult, use **USE TAP CONTROLS INSTEAD** for the older
-   START TALKING / SEND VOICE BURST record-then-send method.
-   A cancelled live press stops FUTURE audio; any already sent frames cannot
-   be unsent. Simultaneous presses still lack a reviewed radio-floor protocol.
-3. If you release immediately or the mic fails to initialize, the app now
-   says **No usable microphone audio**; the button should not stay stuck
-   on **Finishing**. A receiving phone reports when local speaker playback
-   actually starts, not just when encrypted bytes arrive. **Hide conversation**
-   mutes this phone's microphone and speaker locally, not the peer's sender.
-4. Keep the audio trivial: this feature is unreviewed and not suitable for
-   private speech or emergencies. It records a short burst THEN sends it;
-   it is not yet true live push-to-talk.
-5. Repeat after both sides agree, try permission denial, then disconnect or
-   background while recording. The microphone/playback should stop.
-6. Record whether the sound really played and what you heard. A written-to-TLS
-   status alone is NOT proof that the other person received or heard it.
+1. Complete the fresh reciprocal QR exchange on the same local Wi-Fi.
+   Both people must approve and complete the final confirmation before
+   voice can be used. This is not a cloud or mobile-data connection.
+2. Phone A presses and **holds HOLD TO TALK**, says a short test phrase
+   and releases. The microphone must not start until its side has the
+   channel. When the joining phone requests the channel, it may briefly
+   show **WAITING FOR RADIO CHANNEL • MIC OFF**. The presenter/host
+   arbitrates simultaneous requests. Audio is transmitted **while held**,
+   not all at the end, with a 3-second maximum per press.
+3. Phone B should hear the phrase **before A releases**. Listen for real
+   audible speech; an app status indicating the speaker started is not
+   proof sound was heard. Repeat B → A.
+4. Press both Talk buttons nearly simultaneously. Only one side should
+   obtain the channel; the other should remain silent and retry after
+   the first transmission finishes. Also try the joining phone pressing
+   very briefly and releasing **while waiting for a grant**. Its
+   microphone should never start. A missing/stuck grant may end the
+   connection intentionally rather than reassigning it unsafely.
+5. For accessibility, choose **USE TAP CONTROLS INSTEAD**. The two-tap
+   **START TALKING / SEND VOICE BURST** mode still records first, then
+   sends its short audio. It must request exactly the same radio floor
+   before starting. If it is waiting, tapping cancels the request.
+6. Repeat after denying microphone permission; short accidental taps;
+   the three-second automatic cutoff; **Hide conversation**; using the
+   Home/power button; ending the chat; and turning Wi-Fi off. Verify no
+   unintended microphone activity, audio continuing in the background,
+   stuck transmit state or old session restored without fresh QR.
+   A cancelled *active* live transmission cannot retract samples that
+   already reached the other phone.
+7. Check that typed test text, application acknowledgements and the
+   normal session timeout still behave sensibly during and after voice.
+   Avoid sharing audio, identity codes, IP addresses or raw debug logs.
 
-For exact coverage, see [F4 hands-on tests](F4_LIVE_LAN_VOICE_BURST_TEST_2026_11_08.md).
+**Important:** F4-F passed source/build checks, but simultaneous presses,
+latency, speaker audibility, Bluetooth/Wi-Fi Direct communication and
+cross-device compatibility are **not physically verified yet**. The Preview
+is not suitable for real private, safety-critical or emergency radio use.
+For detailed QA and failure reports, see
+[F4-F two-phone handoff](F4_F_REAL_LAN_FLOOR_HANDSHAKE_2026_11_08.md).
 
 ## What to report (do not post private material)
 
@@ -106,9 +125,10 @@ For exact coverage, see [F4 hands-on tests](F4_LIVE_LAN_VOICE_BURST_TEST_2026_11
 Do not paste peer QRs, private keys, actual message content, IPs, raw
 certificates or personally identifying device details into an issue.
 
-**Still experimental:** LAN physical QA and independent security review
-are open; actual Bluetooth and Wi-Fi Direct messaging, **continuous** push-to-talk,
-public release and production credentials remain unfinished.
+**Still experimental:** LAN voice and collision behavior need actual two-phone
+QA and an independent security review; actual Bluetooth and Wi-Fi Direct messaging,
+long-running/background radio use, public release and production credentials
+remain unfinished.
 
 See the canonical [two-phone field test issue #26](https://github.com/PlayerEden/Eden-Comms/issues/26)
 and [debug LAN usability notes](F0_LAN_CHAT_TEST_USABILITY_2026_11_08.md).
