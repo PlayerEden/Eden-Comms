@@ -654,13 +654,14 @@ for forbidden in 'import android.bluetooth.' 'import javax.net.ssl.' \
   fi
 done
 
-# F3-A Wi-Fi Direct TCP reachability: Android group owner address only,
+# F3-A/B3 Wi-Fi Direct TCP reachability: bind to Android P2P group interface,
 # one bounded TCP handshake, zero application bytes and no trust grant.
 P2P_TCP="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTcpProbe.kt"
 P2P_HOST="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectGroupHostActivity.kt"
 P2P_JOIN="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTargetLinkController.kt"
 test -f "$P2P_TCP"
-grep -Fq 'listener.bind(InetSocketAddress(groupOwnerAddress, port), 1)' "$P2P_TCP"
+grep -Fq 'listener.bind(InetSocketAddress(local, port), 1)' "$P2P_TCP"
+grep -Fq 'outbound.bind(InetSocketAddress(local, 0))' "$P2P_TCP"
 grep -Fq 'listener.soTimeout = ACCEPT_TIMEOUT_MS' "$P2P_TCP"
 grep -Fq 'outbound.connect(' "$P2P_TCP"
 grep -Fq 'testAddressAllowed(' "$P2P_TCP"
@@ -681,6 +682,30 @@ for forbidden in '.getInputStream(' '.getOutputStream(' '.inputStream' \
 done
 if find "$MAIN" -name 'DebugWifiDirectTcpProbe.kt' -print -quit | grep -q .; then
   echo "FAIL: F3-A unauthenticated TCP probe moved into release source" >&2
+  exit 1
+fi
+
+# F3-B3-A: reject Wi-Fi/cellular/default-route or guessed P2P interfaces.
+P2P_INTERFACE="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectP2pInterface.kt"
+P2P_INTERFACE_TEST="app/src/test/java/com/edenpractical/comms/wifidirect/DebugWifiDirectP2pInterfaceTest.kt"
+test -f "$P2P_INTERFACE" && test -f "$P2P_INTERFACE_TEST"
+grep -Fq 'NetworkInterface.getByName(osGroupInterfaceName)' "$P2P_INTERFACE"
+grep -Fq 'return viable.singleOrNull()?.address' "$P2P_INTERFACE"
+grep -Fq 'owner != local &&' "$P2P_INTERFACE"
+grep -Fq 'sameNetwork(local, owner, item.prefixLength)' "$P2P_INTERFACE"
+grep -Fq 'group.getInterface()' "$P2P_HOST"
+grep -Fq 'group.getInterface()' "$P2P_JOIN"
+grep -Fq 'm.requestGroupInfo(c)' "$P2P_HOST"
+grep -Fq 'm.requestGroupInfo(c)' "$P2P_JOIN"
+grep -Fq 'localP2pAddress = local' "$P2P_HOST"
+grep -Fq 'localP2pAddress = local' "$P2P_JOIN"
+grep -Fq 'if (forJvmLoopback && groupOwnerAddress?.isLoopbackAddress != true)' "$P2P_TCP"
+if grep -Fq 'NetworkInterface.getNetworkInterfaces()' "$P2P_INTERFACE"; then
+  echo "FAIL: F3-B3-A P2P probe scans unspecified interfaces as route fallback" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugWifiDirectP2pInterface.kt' -print -quit | grep -q .; then
+  echo "FAIL: F3-B3-A P2P interface diagnostic moved to release source" >&2
   exit 1
 fi
 
