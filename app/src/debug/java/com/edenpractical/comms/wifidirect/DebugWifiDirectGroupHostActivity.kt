@@ -383,7 +383,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                         // Resolve ONLY the exact P2P interface supplied by this
                         // group. Never guess a default wlan/cellular address.
                         val local = DebugWifiDirectP2pInterface.resolve(
-                            group.getInterface(), isHost = true, info.groupOwnerAddress
+                            group.getInterface(), isHost = true,
+                            groupOwnerAddress = info.groupOwnerAddress
                         )
                         if (local == null) {
                             tcpNotice = "Android's P2P interface address is unavailable " +
