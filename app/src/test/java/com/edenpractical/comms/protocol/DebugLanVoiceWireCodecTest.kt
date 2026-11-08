@@ -88,6 +88,39 @@ class DebugLanVoiceWireCodecTest {
         assertThrows(IOException::class.java) { incoming.accept(wire.start(12)) }
     }
 
+    @Test fun actualEncryptedSessionPacketIOStillRoundTripsVoiceAndControls() {
+        val pcm = ByteArray(wire.PCM_BYTES) { (it % 101).toByte() }
+        val local = TestPacketCodec.debugVoice(wire.data(37, 0, pcm))
+        val sent = java.io.ByteArrayOutputStream()
+        TestPacketCodec.write(sent, local)
+        val received = TestPacketCodec.read(
+            java.io.ByteArrayInputStream(sent.toByteArray())
+        )
+        assertEquals(TestPacketCodec.Type.DEBUG_VOICE_PCM, received.type)
+        assertEquals(37L, received.voice!!.turn)
+        assertEquals(0, received.voice!!.sequence)
+        assertArrayEquals(pcm, received.voice!!.pcm)
+        received.voice!!.clear()
+        local.voice!!.clear()
+        pcm.fill(0)
+
+        val readyBytes = java.io.ByteArrayOutputStream()
+        TestPacketCodec.write(readyBytes, TestPacketCodec.ready())
+        assertEquals(TestPacketCodec.ready(), TestPacketCodec.read(
+            java.io.ByteArrayInputStream(readyBytes.toByteArray())))
+    }
+
+    @Test fun malformedVoiceReadFailsClosedThroughRealPacketIO() {
+        val corrupt = wire.encode(wire.start(12))
+        corrupt[4] = 99.toByte()
+        val framed = FrameCodec.encode(corrupt)
+        assertThrows(IOException::class.java) {
+            TestPacketCodec.read(java.io.ByteArrayInputStream(framed))
+        }
+        framed.fill(0)
+        corrupt.fill(0)
+    }
+
     @Test fun rejectsUnknownVersionKindAndControlFlags() {
         val b = wire.encode(wire.start(1))
         for ((index, value) in listOf(4 to 2, 5 to 99, 6 to 1, 7 to 1,
