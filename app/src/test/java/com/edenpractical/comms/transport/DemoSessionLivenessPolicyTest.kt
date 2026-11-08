@@ -24,6 +24,18 @@ class DemoSessionLivenessPolicyTest {
         }
     }
 
+    @Test fun continuousConfirmedChatCanRunBeyondOldTenMinuteLimit() {
+        val start = 100_000L
+        val twentyMinutes = start + 20L * 60_000L
+        assertEquals(30L, policy.MAX_SESSION_MINUTES)
+        assertNull(policy.endReason(twentyMinutes, start, twentyMinutes))
+        // Fail closed at the exact new limit, even with a fresh heartbeat.
+        val limit = start + 30L * 60_000L
+        assertNull(policy.endReason(limit - 1L, start, limit - 1L))
+        assertEquals(DemoSessionLivenessPolicy.EndReason.SESSION_LIMIT,
+            policy.endReason(limit, start, limit))
+    }
+
     @Test fun absoluteSessionLimitWinsEvenWithRecentHeartbeat() {
         val started = 1_000L
         val end = started + policy.MAX_SESSION_MS
