@@ -20,7 +20,7 @@ class F4D2LocalAudioFrames(unittest.TestCase):
         self.assertIn("pending.removeFirst().pcm.fill(0)", frames)
         self.assertIn("DebugLocalPttFrames.fromClip(original)", activity)
         self.assertIn("AudioTrack.MODE_STREAM", activity)
-        self.assertIn("AudioTrack.WRITE_BLOCKING", activity)
+        self.assertIn("AudioTrack.WRITE_NON_BLOCKING", activity)
         self.assertIn("packets.close()", activity)
         self.assertIn("pcm.fill(0)", activity)
         self.assertIn("currentGeneration.get()", activity)
