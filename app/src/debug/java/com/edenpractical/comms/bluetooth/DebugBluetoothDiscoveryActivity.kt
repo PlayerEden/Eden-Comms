@@ -72,6 +72,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     @Volatile private var foreground = false
     private var busy by mutableStateOf(false)
     private var observations by mutableIntStateOf(0)
+    private var showRawScanner by mutableStateOf(false)
     private var status by mutableStateOf("Search is off. No Bluetooth device is trusted.")
     private val handler = Handler(Looper.getMainLooper())
 
@@ -92,6 +93,12 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             onState = { phase, description ->
                 linkPhase = phase
                 linkStatus = description
+                if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {
+                    // No reusable QR or anonymous radio candidate on retry:
+                    // restart the actual two-phone flow with fresh codes.
+                    qrCoordinator.clear()
+                    clearCandidateMemory()
+                }
             },
             onApprovalReady = { available ->
                 approvalPending = available
@@ -254,21 +261,126 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     ) {
                         Text("Bluetooth discovery — DEVELOPMENT TEST",
                             style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Search for nearby Bluetooth Classic radio activity. " +
-                                "This is NOT Eden Comms peer discovery, pairing, " +
-                                "encryption or message delivery."
+                        val guide = DebugBluetoothJourneyCue.current(
+                            qrCoordinator.stage, linkPhase,
+                            selectedOrdinal != null, busy, approvalPending
                         )
                         Text(
-                            "Only Android 12+ is included in this experiment. " +
-                                "You explicitly approve Nearby devices access. " +
-                                "Nothing is scanned in the background."
+                            guide.phase,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            "Radio observations: $observations (unverified events). " +
-                                "Up to 12 unnamed signal handles are held temporarily " +
-                                "in memory; no names, addresses or history are saved."
+                            guide.instruction,
+                            style = MaterialTheme.typography.titleMedium
                         )
+                        Text(guide.next, style = MaterialTheme.typography.bodyMedium)
+                        // QR comes FIRST; raw radio search is relevant to the
+                        // JOIN role only after two fresh codes are exchanged.
+                        if (linkPhase in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            )
+                        ) {
+                            Text(
+                                "QR preparation is frozen while this unverified " +
+                                    "Bluetooth test link is active. Disconnect before changing codes."
+                            )
+                        } else {
+                            DebugBluetoothQrPanel(qrCoordinator)
+                        }
+                        // Primary host action follows QR preparation; no
+                        // disabled radio buttons on the initial screen.
+                        if (qrCoordinator.stage ==
+                            DebugBluetoothQrCoordinator.Stage.HOST_PREPARED &&
+                            linkPhase !in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            )) {
+                        Button(
+                            onClick = { beginHostLink() },
+                            enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
+                                qrCoordinator.stage == DebugBluetoothQrCoordinator.Stage.HOST_PREPARED &&
+                                linkPhase !in setOf(
+                                    DebugRfcommAttemptGate.Phase.CONNECTING,
+                                    DebugRfcommAttemptGate.Phase.LINK_OPEN
+                                ) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("HOST ONE-TIME BLUETOOTH TEST LINK") }
+                        }
+
+                        // Critical link status, consent and disconnect belong
+                        // directly under the guide, not at the end of a long
+                        // list of raw discovery diagnostics.
+                        if (linkPhase != DebugRfcommAttemptGate.Phase.IDLE) {
+                        Text(linkStatus, style = MaterialTheme.typography.bodyLarge)
+                        if (approvalPending &&
+                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
+                        ) {
+                            Text(
+                                "Both phones completed the encrypted QR + TLS " +
+                                    "identity checks. APPROVE only if you are " +
+                                    "physically with the person you intended. " +
+                                    "This is a diagnostic, not permission to chat."
+                            )
+                            Button(
+                                onClick = {
+                                    if (linkController.approve()) {
+                                        approvalPending = false
+                                        linkStatus = "You approved this one test link. " +
+                                            "Awaiting the other person's approval " +
+                                            "and two encrypted final confirmations."
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("APPROVE THIS TEST SESSION") }
+                            OutlinedButton(
+                                onClick = {
+                                    if (linkController.decline()) {
+                                        approvalPending = false
+                                        linkStatus = "You declined this test. " +
+                                            "Ending this Bluetooth session."
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("DECLINE AND CLOSE SESSION") }
+                        }
+                        OutlinedButton(
+                            onClick = { linkController.disconnect() },
+                            enabled = linkPhase in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            ),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
+                        }
+                        Text(
+                            "Bluetooth Classic • two phones • experimental link only. " +
+                                "QR plus both approvals are required. " +
+                                "Bluetooth TEXT and voice are NOT available yet.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        val showRadioSearch =
+                            qrCoordinator.stage == DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED ||
+                                busy || candidateRows.isNotEmpty() || selectedOrdinal != null ||
+                                showRawScanner
+                        if (qrCoordinator.stage !=
+                            DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED &&
+                            linkPhase == DebugRfcommAttemptGate.Phase.IDLE &&
+                            !busy && candidateRows.isEmpty() && selectedOrdinal == null) {
+                            OutlinedButton(
+                                onClick = { showRawScanner = !showRawScanner },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            ) {
+                                Text(if (showRawScanner) "HIDE RAW RADIO DIAGNOSTICS"
+                                     else "ADVANCED • RAW RADIO SCAN")
+                            }
+                        }
+                        if (showRadioSearch) {
+                            Text(
+                                "Radio observations: $observations (unverified events). " +
+                                    "Up to 12 unnamed signals are kept temporarily, never as trusted peers."
+                            )
                         Text(status, style = MaterialTheme.typography.bodyLarge)
                         Button(
                             onClick = { beginInquiry() },
@@ -316,49 +428,13 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                             ) { Text("FORGET SELECTED SIGNAL") }
                         }
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Bluetooth results can include unrelated devices. " +
-                                "Finding one proves nothing about its identity. " +
-                                "Do not share sensitive data or rely on this test " +
-                                "for communication."
-                        )
-                        Text(
-                            "Close or background this screen to end the scan and any " +
-                                "RFCOMM test link. Android may retain its own Bluetooth state; " +
-                                "Eden Comms does not save discovery results."
-                        )
-                        if (linkPhase in setOf(
+                        if (qrCoordinator.stage ==
+                            DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED &&
+                            selectedOrdinal != null &&
+                            linkPhase !in setOf(
                                 DebugRfcommAttemptGate.Phase.CONNECTING,
                                 DebugRfcommAttemptGate.Phase.LINK_OPEN
-                            )
-                        ) {
-                            Text(
-                                "QR preparation is frozen while this unverified " +
-                                    "Bluetooth test link is active. Disconnect before changing codes."
-                            )
-                        } else {
-                            DebugBluetoothQrPanel(qrCoordinator)
-                        }
-                        Text(
-                            "BLUETOOTH LINK — DEVELOPMENT ONLY",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            "Host on one phone, then scan and stage its signal on the other. " +
-                                "The host asks Android to make it discoverable for up to 120 seconds. " +
-                                "Android controls that visibility even after this app disconnects."
-                        )
-                        Button(
-                            onClick = { beginHostLink() },
-                            enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
-                                qrCoordinator.stage == DebugBluetoothQrCoordinator.Stage.HOST_PREPARED &&
-                                linkPhase !in setOf(
-                                    DebugRfcommAttemptGate.Phase.CONNECTING,
-                                    DebugRfcommAttemptGate.Phase.LINK_OPEN
-                                ) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("HOST ONE-TIME BLUETOOTH TEST LINK") }
+                            )) {
                         Button(
                             onClick = { beginJoinLink() },
                             enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
@@ -370,46 +446,33 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 ) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("JOIN STAGED UNVERIFIED SIGNAL") }
-                        Text(linkStatus, style = MaterialTheme.typography.bodyLarge)
-                        if (approvalPending &&
-                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
-                        ) {
-                            Text(
-                                "Both phones completed the encrypted QR + TLS " +
-                                    "identity checks. APPROVE only if you are " +
-                                    "physically with the person you intended. " +
-                                    "This is a diagnostic, not permission to chat."
-                            )
-                            Button(
-                                onClick = {
-                                    if (linkController.approve()) {
-                                        approvalPending = false
-                                        linkStatus = "You approved this one test link. " +
-                                            "Awaiting the other person's approval " +
-                                            "and two encrypted final confirmations."
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                            ) { Text("APPROVE THIS TEST SESSION") }
-                            OutlinedButton(
-                                onClick = {
-                                    if (linkController.decline()) {
-                                        approvalPending = false
-                                        linkStatus = "You declined this test. " +
-                                            "Ending this Bluetooth session."
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                            ) { Text("DECLINE AND CLOSE SESSION") }
                         }
-                        OutlinedButton(
-                            onClick = { linkController.disconnect() },
-                            enabled = linkPhase in setOf(
-                                DebugRfcommAttemptGate.Phase.CONNECTING,
-                                DebugRfcommAttemptGate.Phase.LINK_OPEN
-                            ),
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
+                        } // JOIN-only radio search; otherwise keep QR flow uncluttered.
+                        // Optional technical explanation: no need to parse
+                        // laboratory terminology in order to host or join.
+                        if (showRawScanner) {
+                            Text(
+                                "Bluetooth results can include unrelated devices. " +
+                                    "Finding one proves nothing about its identity. " +
+                                    "Do not share sensitive data or rely on this test " +
+                                    "for communication."
+                            )
+                            Text(
+                                "Close or background this screen to end the scan and any " +
+                                    "RFCOMM test link. Android may retain its own Bluetooth state; " +
+                                    "Eden Comms does not save discovery results."
+                            )
+                            Text(
+                                "BLUETOOTH LINK — DEVELOPMENT ONLY",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Host on one phone, then scan and stage its signal on the other. " +
+                                    "The host asks Android to make it discoverable for up to 120 seconds. " +
+                                    "Android controls that visibility even after this app disconnects."
+                            )
+                        }
+                        if (showRawScanner) {
                         Text(
                             "A successful pinned TLS + QR nonce/channel agreement " +
                                 "is followed by explicit approval from EACH person " +
@@ -417,6 +480,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "then ends; NO app text or voice is sent or accepted. " +
                                 "A host may become discoverable beyond this screen under Android control."
                         )
+                        }
                     }
                 }
             }
