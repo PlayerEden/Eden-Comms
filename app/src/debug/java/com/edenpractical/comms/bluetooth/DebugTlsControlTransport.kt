@@ -58,7 +58,12 @@ internal class DebugTlsControlTransport(
                 val encoded = DebugTlsEngineHandshake.readRecord(wireInput)
                 try {
                     DebugTlsRecordBoundary.requireSingleCiphertext(encoded)
-                    val clear = ByteBuffer.allocate(phase.bytes)
+                    // SSLEngine requires space for its advertised maximum
+                    // application fragment before unwrap, even if this TLS
+                    // record ultimately produces zero app bytes. The F2-C
+                    // provider gate has already bounded this allocation.
+                    // Only EXACTLY phase.bytes may ever reach the caller.
+                    val clear = ByteBuffer.allocate(engine.session.applicationBufferSize)
                     try {
                         val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
                         if (result.bytesProduced() == 0) {
