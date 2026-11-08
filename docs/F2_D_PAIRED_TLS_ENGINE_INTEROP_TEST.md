@@ -48,35 +48,48 @@ the adapter. All key files, sockets/pipes, executor threads and test-only
 working material are cleaned up after tests. Java's memory model does
 not guarantee removing every historical copy of a key.
 
-## First CI feedback and bounded debug-only adapter refinement
+## CI-discovered provider buffer bug and bounded debug-only refinement
 
-The first paired test run (CI run `42450874742`) successfully completed
-both actual TLS 1.3 handshakes and reciprocal certificate pin checks, but
-failed on the **first received encrypted protocol control** at the JVM
-provider. This exposes a provider compatibility issue that isolated
-record-envelope tests did not exercise. The CI output reported an
-`SSLException` at the first `DebugTlsControlTransport.input.read`;
-it did not print the precise underlying reason. TLS 1.3 post-handshake
-no-application-data records (such as NewSessionTicket) are a plausible
-explanation, not yet a confirmed diagnosis.
+The first two paired tests (runs `42450874742` and `42451110802`)
+completed both real TLS 1.3 handshakes and opposite certificate pin
+checks but failed on the first received control. They exposed a real
+gap in isolated source/bounds tests. The diagnostic run `42451270030`
+confirmed `DebugTlsProviderReadiness.requireExactControlResult`
+rejected the first record because the engine produced **zero
+application bytes** yet did not return the expected OK result.
 
-The follow-up patch modifies **only the debug transport**: before each
-mandatory fixed-width control, it may discard **at most two** complete TLS
-1.3 encrypted records that the live `SSLEngine` has already processed
-successfully and authenticated while producing **zero application bytes**.
-These are never delivered as control data. Each such record must meet
-the existing single-ciphertext envelope, exact `SSLEngineResult`
-consumption, `Status.OK`, `NOT_HANDSHAKING`, live inbound/outbound and
-buffer bounds. Any record yielding nonzero but incorrect application
-bytes is rejected immediately; a third no-plaintext record also fails
-closed. All ciphertext and scratch buffers are wiped through existing
-`finally` paths. No retransmission, plaintext recovery or fallback.
-This is an interoperability experiment, **not authorization for chat**.
+Adding safe status/count diagnostics in run `42451405986` identified
+the concrete JVM provider result: `BUFFER_OVERFLOW`,
+`NOT_HANDSHAKING`, zero bytes consumed from a 1,033-byte encrypted
+TLS record, and zero produced. The debug control adapter had allocated
+`ByteBuffer.allocate(phase.bytes)` (134/38/39 bytes) instead of the
+provider-advertised `engine.session.applicationBufferSize`. According
+to the JSSE API, an engine can require a full advertised application
+buffer to unwrap a TLS record **even when that record ultimately yields
+no plaintext**.
 
-**Follow-up test evidence is required:** the actual paired TLS engines
-must be run again under CI, with separate post-merge confirmation; a
-regression guard asserts the maximum skip count and no nonzero data
-can be ignored. Android TLS/Conscrypt compatibility remains unknown.
+F2-D now allocates the TLS scratch buffer using the **bounded
+provider-specified application capacity**; the pre-existing F2-C gate
+rejects anything outside 1–32,768 bytes. Decrypted application data
+is still delivered only if its length matches the exact protocol
+control length, and the entire scratch buffer is cleared in a
+`finally` block, including overflow/exception paths.
+
+A related **debug-only** compatibility guard can consume **at most
+two** complete encrypted TLS 1.3 records that `SSLEngine.unwrap`
+authenticates and reports as `Status.OK`, `NOT_HANDSHAKING`, full
+ciphertext consumed and **zero application bytes**. For example, TLS 1.3
+NewSessionTicket may arrive after the initial handshake. Such records
+are never delivered as control data, and a third zero-plaintext
+record fails closed. Any nonzero, non-exact control frame, incomplete
+TLS record, partial consumption, abnormal provider state or
+half-closed engine is rejected. No plaintext bypass or fallback.
+
+**Follow-up verification is mandatory:** test the real JVM engines
+again, verify the original failure is fixed without adding a new
+failure, then require green PR and merged-main CI. This work is not
+proof of Android Conscrypt or physical Bluetooth compatibility,
+nor authorization to retain a session or send messages.
 
 ## Important limitations
 
