@@ -71,14 +71,14 @@ internal object TestPacketCodec {
      */
     fun debugText(messageId: Long, content: String): Packet {
         val packet = Packet(Type.DEBUG_TEXT, messageId = messageId, text = content)
-        encode(packet) // Validate before queuing; fail closed on bad Unicode/size.
+        encode(packet).fill(0) // Validate and erase transient encoded copy.
         return packet
     }
 
     /** Peer app parsed this debug TEXT frame; not a human-read receipt. */
     fun debugAck(messageId: Long): Packet {
         val packet = Packet(Type.DEBUG_ACK, messageId = messageId)
-        encode(packet)
+        encode(packet).fill(0) // Wipe transient validation copy.
         return packet
     }
 
@@ -90,7 +90,7 @@ internal object TestPacketCodec {
             DebugLanVoiceWireCodec.Kind.END -> Type.DEBUG_VOICE_END
         }
         val packet = Packet(type, voice = frame)
-        encode(packet)
+        encode(packet).fill(0) // Wipe transient validation copy.
         return packet
     }
 
@@ -222,10 +222,29 @@ internal object TestPacketCodec {
     }
 
     fun write(out: OutputStream, packet: Packet) {
-        out.write(FrameCodec.encode(encode(packet)))
-        out.flush()
+        // FrameCodec and TLS create temporary plaintext copies. Wipe the
+        // copies this layer owns after the synchronous write, even on error.
+        // Best-effort JVM cleanup, NOT guaranteed OS/heap memory erasure.
+        val payload = encode(packet)
+        try {
+            val framed = FrameCodec.encode(payload)
+            try {
+                out.write(framed)
+                out.flush()
+            } finally {
+                framed.fill(0)
+            }
+        } finally {
+            payload.fill(0)
+        }
     }
 
-    fun read(input: InputStream): Packet = decode(FrameCodec.readFrom(input))
+    fun read(input: InputStream): Packet {
+        // Decoder retains its own validated fields/PCM copy. The untrusted
+        // raw frame's plaintext must be wiped on success AND decode failure.
+        val payload = FrameCodec.readFrom(input)
+        try { return decode(payload) }
+        finally { payload.fill(0) }
+    }
 }
 internal class TestPacketException : IOException("Invalid development test packet")
