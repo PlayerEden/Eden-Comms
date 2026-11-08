@@ -78,6 +78,7 @@ internal fun LocalPairingTestScreen(
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
     val voiceAudio = remember(context) { DebugLanVoiceAudio(context.applicationContext) }
+    val voiceSessionOwner = remember { DebugSessionAudioOwner() }
     var talking by remember { mutableStateOf(false) }
     // F4-E: only validated START/END frames from this active TLS reader
     // change the remote-radio indicator, never a local timer or permission.
@@ -456,6 +457,9 @@ internal fun LocalPairingTestScreen(
         liveVoiceHandle = null
         tapSendGate?.cancel()
         tapSendGate = null
+        // Voluntarily stopping revokes the old closure hook BEFORE closing
+        // the socket. A delayed old callback cannot affect a new session.
+        voiceSessionOwner.revoke()
         probe?.close()
         probe = null
         voiceAudio.cancelAll()
@@ -930,6 +934,16 @@ internal fun LocalPairingTestScreen(
                         }
                 }
             }
+            // The networking close path stops local hardware directly,
+            // instead of waiting for an ENDED event to reach the UI queue.
+            // The ownership check prevents an old TLS attempt from muting
+            // audio from a newer, independently approved attempt.
+            connection.setLocalAudioStopOnClose {
+                voiceSessionOwner.stopIfCurrent(connection) {
+                    voiceAudio.cancelAll()
+                }
+            }
+            voiceSessionOwner.activate(connection)
             probe = connection
             // Keep reply QR visible while the other phone scans it.
             stage = if (asPresenter) "connecting" else "showReply"
@@ -1023,6 +1037,7 @@ internal fun LocalPairingTestScreen(
             attemptVersion += 1
             tapSendGate?.cancel()
             tapSendGate = null
+            voiceSessionOwner.revoke()
             latestProbe?.close()
             voiceAudio.cancelAll()
             clearTemporaryPairing()
