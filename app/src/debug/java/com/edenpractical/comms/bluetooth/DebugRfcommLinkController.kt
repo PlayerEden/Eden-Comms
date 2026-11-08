@@ -28,7 +28,8 @@ internal class DebugRfcommLinkController(
     private val isForeground: () -> Boolean,
     private val hasConnectPermission: () -> Boolean,
     private val onState: (DebugRfcommAttemptGate.Phase, String) -> Unit,
-    private val onApprovalReady: (Boolean) -> Unit
+    private val onApprovalReady: (Boolean) -> Unit,
+    private val onVerificationStage: (DebugBluetoothVerifiedStage?) -> Unit = {}
 ) {
     companion object {
         // Fixed DEMO SDP UUID, not a secret or a peer identity.
@@ -48,6 +49,9 @@ internal class DebugRfcommLinkController(
     private var deadline: Runnable? = null
     // UI closure callbacks must belong to the most recently stopped attempt.
     private var lastStoppedToken: DebugRfcommAttemptGate.Token? = null
+    // Only the last fixed, non-sensitive proof label; no pins, QR, IDs or body.
+    // Set by the current worker AFTER each actual cryptographic check.
+    private var lastVerifiedStage: DebugBluetoothVerifiedStage? = null
 
     fun phase(): DebugRfcommAttemptGate.Phase = gate.snapshot().phase
 
@@ -122,10 +126,12 @@ internal class DebugRfcommLinkController(
             }
             token = gate.begin(role, isForeground(), hasConnectPermission()) ?: return null
             active = token
+            lastVerifiedStage = null
             armTimer(token,
                 if (role == DebugRfcommAttemptGate.Role.HOST) HOST_WAIT_MS else JOIN_TIMEOUT_MS,
                 DebugRfcommAttemptGate.End.TIMEOUT)
         }
+        onVerificationStage(null)
         announce(token,
             if (role == DebugRfcommAttemptGate.Role.HOST) "Waiting for one Bluetooth RFCOMM link. No messages."
             else "Opening an unverified RFCOMM link. This can cause an Android pairing prompt."
@@ -186,7 +192,10 @@ internal class DebugRfcommLinkController(
             // Worker thread. After fully agreeing on the pinned session,
             // solicit one explicit per-person decision, then exchange
             // encrypted approvals and final confirmations. Never enable chat.
-            val completion = DebugRfcommTlsProbe.run(created, request) { decision ->
+            val completion = DebugRfcommTlsProbe.run(
+                created, request,
+                onVerifiedStage = { step -> verified(token, step) }
+            ) { decision ->
                 synchronized(lock) {
                     if (active !== token || !gate.isLive(token) ||
                         !isForeground() || !hasConnectPermission()
@@ -248,6 +257,26 @@ internal class DebugRfcommLinkController(
             stop(token, DebugRfcommAttemptGate.End.CONSENT_DECLINED)
         } catch (_: Exception) {
             stop(token, DebugRfcommAttemptGate.End.FAILED)
+        }
+    }
+
+    /** Only a live token can publish real, monotonically advanced proof labels. */
+    private fun verified(
+        token: DebugRfcommAttemptGate.Token,
+        step: DebugBluetoothVerifiedStage
+    ) {
+        synchronized(lock) {
+            if (active !== token || !gate.isLive(token) ||
+                !isForeground() || !hasConnectPermission() ||
+                (lastVerifiedStage?.step ?: 0) >= step.step
+            ) return
+            lastVerifiedStage = step
+        }
+        handler.post {
+            synchronized(lock) {
+                if (active !== token || !gate.isLive(token)) return@post
+                onVerificationStage(step)
+            }
         }
     }
 
@@ -314,6 +343,7 @@ internal class DebugRfcommLinkController(
         val oldServer: BluetoothServerSocket?
         val oldSocket: BluetoothSocket?
         val oldConsent: DebugBluetoothConsentDecision?
+        val lastProof: DebugBluetoothVerifiedStage?
         synchronized(lock) {
             if (active !== token) return
             // opened() itself may already have set STOPPED on a detected
@@ -328,6 +358,8 @@ internal class DebugRfcommLinkController(
             oldServer = server
             oldSocket = socket
             oldConsent = consent
+            lastProof = lastVerifiedStage
+            lastVerifiedStage = null
             server = null
             socket = null
             consent = null
@@ -346,6 +378,7 @@ internal class DebugRfcommLinkController(
                 ) return@post
             }
             onApprovalReady(false)
+            onVerificationStage(lastProof)
             val reason = when (why) {
                 DebugRfcommAttemptGate.End.USER -> "You disconnected the test link."
                 DebugRfcommAttemptGate.End.BACKGROUND -> "Link closed when the app left the screen."

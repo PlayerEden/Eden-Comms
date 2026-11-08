@@ -54,7 +54,9 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
         ):
             self.assertIn(marker, self.probe, marker)
         for marker in (
-            "DebugRfcommTlsProbe.run(created, request) { decision ->",
+            "val completion = DebugRfcommTlsProbe.run(",
+            "onVerifiedStage = { step -> verified(token, step) }",
+            ") { decision ->",
             "DebugRfcommCompletionPolicy.endAfterConsent(",
             "stop(token, DebugRfcommAttemptGate.End.FAILED)",
             "request.close()",

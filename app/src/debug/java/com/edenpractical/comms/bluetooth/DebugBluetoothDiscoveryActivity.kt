@@ -85,6 +85,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var linkStatus by mutableStateOf(
         "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
     )
+    // F2-K: only the last sanitised stage emitted by the real TLS worker.
+    // No peer IDs, certificate material, message content or history.
+    private var verifiedProof by mutableStateOf<DebugBluetoothVerifiedStage?>(null)
     private val linkController by lazy {
         DebugRfcommLinkController(
             handler = handler,
@@ -102,7 +105,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             },
             onApprovalReady = { available ->
                 approvalPending = available
-            }
+            },
+            onVerificationStage = { step -> verifiedProof = step }
         )
     }
 
@@ -314,6 +318,13 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         // list of raw discovery diagnostics.
                         if (linkPhase != DebugRfcommAttemptGate.Phase.IDLE) {
                         Text(linkStatus, style = MaterialTheme.typography.bodyLarge)
+                        verifiedProof?.let { step ->
+                            Text(
+                                step.display(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         if (approvalPending &&
                             linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
                         ) {

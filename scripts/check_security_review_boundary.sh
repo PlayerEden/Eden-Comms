@@ -372,7 +372,11 @@ BT_TLS_ENGINE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsEngi
 BT_TLS_PROBE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommTlsProbe.kt"
 BT_TLS_INPUT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothTlsProbeInput.kt"
 for FILE in "$BT_TLS_ENGINE" "$BT_TLS_PROBE" "$BT_TLS_INPUT"; do test -f "$FILE"; done
-grep -Fq 'DebugRfcommTlsProbe.run(created, request) { decision ->' "$BT_RFCOMM"
+# F2-K: the real TLS diagnostic call now has a read-only progress callback
+# while preserving the unchanged human approval callback (checked below).
+grep -Fq 'val completion = DebugRfcommTlsProbe.run(' "$BT_RFCOMM"
+grep -Fq 'onVerifiedStage = { step -> verified(token, step) }' "$BT_RFCOMM"
+grep -Fq ') { decision ->' "$BT_RFCOMM"
 grep -Fq 'DebugTlsEngineHandshake.negotiate(' "$BT_TLS_PROBE"
 grep -Fq 'PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)' "$BT_TLS_PROBE"
 grep -Fq 'SSLEngines.isSupportedEngine(engine)' "$BT_TLS_PROBE"
@@ -503,7 +507,17 @@ BT_RECEIPT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothP
 test -f "$BT_RECEIPT"
 grep -Fq 'return DebugBluetoothProbeCompletion.afterVerifiedDiagnostic(' "$BT_TLS_PROBE"
 grep -Fq 'val atEnd = request.freshBinding()' "$BT_TLS_PROBE"
-grep -Fq 'val completion = DebugRfcommTlsProbe.run(created, request) { decision ->' "$BT_RFCOMM"
+# F2-K permits read-only stage visibility only when the real worker still
+# has BOTH the actual current-token stage fence and original human-consent
+# callback. No runtime handoff, plaintext user message or socket retention.
+grep -Fq 'val completion = DebugRfcommTlsProbe.run(' "$BT_RFCOMM"
+grep -Fq 'created, request,' "$BT_RFCOMM"
+grep -Fq 'onVerifiedStage = { step -> verified(token, step) }' "$BT_RFCOMM"
+grep -Fq ') { decision ->' "$BT_RFCOMM"
+grep -Fq 'if (active !== token || !gate.isLive(token) ||' "$BT_RFCOMM"
+grep -Fq '(lastVerifiedStage?.step ?: 0) >= step.step' "$BT_RFCOMM"
+grep -Fq 'onConsentRequired(consent)' "$BT_TLS_PROBE"
+grep -Fq 'onVerifiedStage(DebugBluetoothVerifiedStage.HUMAN_CONFIRMATIONS)' "$BT_TLS_PROBE"
 grep -Fq 'active === token' "$BT_RFCOMM"
 grep -Fq 'gate.snapshot().phase == DebugRfcommAttemptGate.Phase.LINK_OPEN' "$BT_RFCOMM"
 grep -Fq 'completion.acknowledgeOnce(' "$BT_RFCOMM"
