@@ -65,7 +65,7 @@ class ChatFirstUiContractTests(unittest.TestCase):
                        'LanDemoSession.Phase.FAILED -> {',
                        'ending?.declineForTest()',
                        'ending?.endByUser()',
-                       'onDispose {'):
+                       'onDispose {\n            lifecycleOwner?.lifecycle?.removeObserver(observer)'):
             region = self.pairing.split(marker, 1)[1]
             if marker.startswith("LanDemoSession.Phase."):
                 # Check the entire terminal branch, not an arbitrary fixed
