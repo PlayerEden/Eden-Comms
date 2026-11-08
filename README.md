@@ -6,6 +6,8 @@
 
 - **M5-A automated reliability rehearsal:** Independent virtual two-peer cancellation/approval/late-callback tests, plain JVM loopback socket cleanup, and safe error-to-recovery classification. [M5-A QA and limits](docs/M5_A_TWO_PEER_RELIABILITY_REHEARSAL.md). This does not verify real Android/TLS phone-to-phone behavior.
 
+- **M5-B — bounded TCP retry deadline:** The debug LAN joiner no longer starts a full-length blocking TCP connection attempt at the end of its two-minute pairing retry window, and explicitly rejects zero (unbounded) socket timeouts. [M5-B audit and verification](docs/M5_B_LAN_RETRY_DEADLINE.md). Real two-phone reliability still requires physical QA.
+
 ## Product goal
 
 A simple, accessible way for two people nearby to **Connect → Communicate → Disconnect**, with no accounts, app-operated servers, analytics or advertising. Planned connectivity: local Wi-Fi, Bluetooth, Wi-Fi Direct. Text first; optional push-to-talk after verified two-phone messaging works.

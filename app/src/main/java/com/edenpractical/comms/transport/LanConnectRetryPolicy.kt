@@ -18,6 +18,18 @@ internal object LanConnectRetryPolicy {
         enabled && elapsedMs in 0 until MAX_WAIT_MS &&
             (error is ConnectException || error is SocketTimeoutException)
 
+    /**
+     * Bound the next blocking TCP connect by the *remaining* pre-TLS retry
+     * window. Java Socket.connect(timeout=0) waits indefinitely, so a
+     * returned zero is a STOP signal and must never reach Socket.connect.
+     *
+     * An invalid/elapsed budget fails closed; TLS/QR and user-approval logic
+     * are deliberately outside this TCP-only policy.
+     */
+    fun attemptTimeoutMs(elapsedMs: Long): Int =
+        if (elapsedMs !in 0 until MAX_WAIT_MS) 0
+        else minOf(CONNECT_TIMEOUT_MS.toLong(), MAX_WAIT_MS - elapsedMs).toInt()
+
     /** Never sleep past the remaining retry budget, including the last attempt. */
     fun delayBeforeRetryMs(elapsedMs: Long): Long =
         if (elapsedMs !in 0 until MAX_WAIT_MS) 0L
