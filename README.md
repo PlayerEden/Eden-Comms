@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F2-I identity-bound future Bluetooth handoff review:** future-only session ownership now requires matching host/join role, peer public certificate pin and transcript commitment on every same-attempt observation; mismatches close the test resource. The [independent Bluetooth session review packet](docs/F2_I_BLUETOOTH_SESSION_REVIEW_GATE.md) maps real live-probe source to the remaining expert/security and Android device gates. **Still no live Bluetooth chat.**
+
 - **F2-H bounded future Bluetooth resource owner:** one-shot debug-only Closeable ownership and exact timeout, disconnect, background, permission-loss and clock-rollback cleanup, with paired JVM TLS stream teardown tests. **Still no retained live RFCOMM socket or Bluetooth chat.** [F2-H engineering handoff](docs/F2_H_BOUNDED_FUTURE_SESSION_OWNERSHIP.md).
 
 - **F2-G encrypted Bluetooth TEXT/ACK lab:** two real JVM TLS 1.3 engines with distinct pinned test identities now exchange encrypted UTF-8 TEXT and peer ACK in both directions, with malformed ciphertext rejection. **Purely debug lab, no Android Bluetooth text yet.** [F2-G evidence and acceptance gates](docs/F2_G_PAIRED_TLS_ENCRYPTED_TEXT_ACK_LAB.md).
