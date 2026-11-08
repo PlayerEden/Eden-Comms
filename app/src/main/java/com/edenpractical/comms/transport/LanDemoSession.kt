@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLServerSocket
 import javax.net.ssl.SSLSocket
 
@@ -147,6 +148,25 @@ internal class LanDemoSession(
     private val ending = AtomicBoolean(false)
     private val terminal = AtomicBoolean(false)
     private val stopped = AtomicBoolean(false)
+    // The UI supplies a local-only immediate microphone/speaker stop hook.
+    // Atomic exchange prevents double invocation and handles close/install
+    // racing without delaying the existing terminal event observer.
+    private val localAudioStopOnClose = AtomicReference<(() -> Unit)?>(null)
+
+    fun setLocalAudioStopOnClose(callback: () -> Unit) {
+        check(localAudioStopOnClose.compareAndSet(null, callback)) {
+            "Local audio close hook can only be registered once"
+        }
+        if (stopped.get()) stopLocalAudioOnClosed()
+    }
+
+    private fun stopLocalAudioOnClosed() {
+        try {
+            localAudioStopOnClose.getAndSet(null)?.invoke()
+        } catch (_: Exception) {
+            // A broken speaker/mic must not prevent socket and key cleanup.
+        }
+    }
 
     @Volatile private var ready = false
     @Volatile private var lastReceivedMs = 0L
@@ -1209,5 +1229,9 @@ internal class LanDemoSession(
         floorWriter.shutdownNow()
         writer.shutdownNow()
         worker.shutdownNow()
+        // Unlike the UI's posted terminal event, this runs immediately on
+        // the closing thread. It never sends audio, restarts a session or
+        // grants radio-floor permission.
+        stopLocalAudioOnClosed()
     }
 }
