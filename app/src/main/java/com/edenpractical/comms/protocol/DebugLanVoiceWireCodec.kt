@@ -88,6 +88,7 @@ internal object DebugLanVoiceWireCodec {
 internal class DebugLanVoiceAssembler {
     private val data = ByteArray(DebugLanVoiceWireCodec.MAX_PCM_BYTES)
     private var activeTurn = 0L
+    private var completedTurn = 0L
     private var next = 0
     private var failed = false
 
@@ -98,7 +99,8 @@ internal class DebugLanVoiceAssembler {
         try {
             when (frame.kind) {
                 DebugLanVoiceWireCodec.Kind.START -> {
-                    if (activeTurn != 0L || next != 0 || frame.sequence != 0)
+                    if (activeTurn != 0L || next != 0 || frame.sequence != 0 ||
+                        frame.turn <= completedTurn)
                         throw TestPacketException()
                     activeTurn = frame.turn
                     return null
@@ -116,7 +118,8 @@ internal class DebugLanVoiceAssembler {
                         frame.sequence != next || next == 0
                     ) throw TestPacketException()
                     val clip = data.copyOf(next * DebugLanVoiceWireCodec.PCM_BYTES)
-                    clear()
+                    completedTurn = activeTurn
+                    resetCurrent()
                     return clip
                 }
             }
@@ -129,10 +132,15 @@ internal class DebugLanVoiceAssembler {
         }
     }
 
-    @Synchronized
-    fun clear() {
+    private fun resetCurrent() {
         data.fill(0)
         activeTurn = 0L
         next = 0
+    }
+
+    @Synchronized
+    fun clear() {
+        failed = true
+        resetCurrent()
     }
 }
