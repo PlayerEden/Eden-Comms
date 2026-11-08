@@ -92,7 +92,8 @@ class BluetoothCandidateSelectionBoundaryTest(unittest.TestCase):
                                        "android.permission.NEARBY_WIFI_DEVICES",
                                        "android.permission.ACCESS_FINE_LOCATION",
                                        "android.permission.CHANGE_WIFI_STATE",
-                                       "android.permission.CHANGE_NETWORK_STATE"])
+                                       "android.permission.CHANGE_NETWORK_STATE",
+                                       "android.permission.RECORD_AUDIO"])
         self.assertEqual(root.find("application/activity").get(NS + "exported"), "false")
         self.assertIn("android.permission.BLUETOOTH_CONNECT", self.manifest)
         self.assertIn("android.permission.BLUETOOTH_ADVERTISE", self.manifest)
