@@ -423,6 +423,13 @@ internal fun LocalPairingTestScreen(
                             )
                         }
                         LanDemoSession.Phase.ENDED -> {
+                            if (!DebugSessionEventAdmission.canAcceptTerminal(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) return@post
+                            // Apply the first valid terminal event only. Close
+                            // and advance the attempt before writing result
+                            // state so already-posted events cannot replay it.
+                            stopTest()
                             qaFinish = LocalQaReport.Finish.REMOTE_OR_LINK_STOPPED
                             qaEndCode = event.endCode
                             qaFailureCode = null
@@ -435,6 +442,10 @@ internal fun LocalPairingTestScreen(
                             stage = "result"
                         }
                         LanDemoSession.Phase.FAILED -> {
+                            if (!DebugSessionEventAdmission.canAcceptTerminal(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                )) return@post
+                            stopTest()
                             qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
                             qaFailureCode = event.failureCode
                             qaEndCode = null

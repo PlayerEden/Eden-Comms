@@ -10,6 +10,8 @@
 
 - **M5-C — debug teardown race hardening:** A final synchronized socket-write guard blocks ordinary debug packets when disconnect or decline starts, while retaining graceful CLOSE/DECLINE and forced-close behavior. Suppresses misleading late activity/link-failure reports during local cancellation. [M5-C source audit](docs/M5_C_TEARDOWN_WRITE_GATE.md).
 
+- **M5-D — terminal UI callback protection:** The debug pairing screen now accepts ENDED/FAILED only from the current live attempt and invalidates that attempt before displaying its result, preventing late terminal callbacks from rewriting a completed screen. [M5-D verification](docs/M5_D_TERMINAL_UI_ADMISSION.md).
+
 ## Product goal
 
 A simple, accessible way for two people nearby to **Connect → Communicate → Disconnect**, with no accounts, app-operated servers, analytics or advertising. Planned connectivity: local Wi-Fi, Bluetooth, Wi-Fi Direct. Text first; optional push-to-talk after verified two-phone messaging works.
