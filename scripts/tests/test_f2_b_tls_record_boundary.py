@@ -56,7 +56,8 @@ class F2BTlsRecordBoundary(unittest.TestCase):
             self.assertIn(part, self.probe)
         self.assertIn("expected == Phase.APPROVAL && next == Phase.CONFIRM",
                       self.controls)
-        self.assertIn("engine.session.protocol != \"TLSv1.3\"", self.controls)
+        self.assertIn("DebugTlsProviderReadiness.requireControlReady(engine)", self.controls)
+        self.assertIn("DebugTlsRecordBoundary.requireSingleCiphertext(encoded)", self.controls)
         for cap in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn(f"const val {cap} = false", self.release)
         for disallowed in ("TestPacketCodec", "sendDebugText(", "AudioRecord",

@@ -51,11 +51,10 @@ internal class DebugTlsControlTransport(
                 val clear = ByteBuffer.allocate(phase.bytes)
                 try {
                     val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
-                    if (result.status != SSLEngineResult.Status.OK ||
-                        result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
-                        result.bytesConsumed() != encoded.size ||
-                        result.bytesProduced() != phase.bytes
-                    ) throw SSLException("Unexpected Bluetooth TLS control record")
+                    DebugTlsProviderReadiness.requireExactControlResult(
+                        result, consumed = encoded.size, produced = phase.bytes
+                    )
+                    DebugTlsProviderReadiness.requireControlReady(engine)
                     clear.flip()
                     clear.get(b, off, len)
                     return len
@@ -80,11 +79,12 @@ internal class DebugTlsControlTransport(
             val encrypted = ByteBuffer.allocate(engine.session.packetBufferSize)
             try {
                 val result = engine.wrap(ByteBuffer.wrap(b, off, len), encrypted)
-                if (result.status != SSLEngineResult.Status.OK ||
-                    result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
-                    result.bytesConsumed() != len ||
-                    result.bytesProduced() !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET
-                ) throw SSLException("Unexpected TLS control encryption result")
+                if (result.bytesProduced() !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET)
+                    throw SSLException("Unexpected TLS control encryption length")
+                DebugTlsProviderReadiness.requireExactControlResult(
+                    result, consumed = len, produced = result.bytesProduced()
+                )
+                DebugTlsProviderReadiness.requireControlReady(engine)
                 encrypted.flip()
                 val record = ByteArray(encrypted.remaining())
                 try {
@@ -126,13 +126,9 @@ internal class DebugTlsControlTransport(
     fun clear() { closed = true }
 
     private fun requireReady(length: Int) {
-        if (closed || length != phase.bytes ||
-            engine.session.protocol != "TLSv1.3" ||
-            engine.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
-        ) throw SSLException("Bluetooth TLS control unavailable or wrong frame length")
-        val packetSize = engine.session.packetBufferSize
-        if (packetSize !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET)
-            throw SSLException("Unsupported Bluetooth TLS provider packet size")
+        if (closed || length != phase.bytes)
+            throw SSLException("Bluetooth TLS control unavailable or wrong frame length")
+        DebugTlsProviderReadiness.requireControlReady(engine)
     }
 
     private fun validateBounds(size: Int, offset: Int, length: Int) {

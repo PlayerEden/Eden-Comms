@@ -409,7 +409,22 @@ grep -Fq 'request.freshBinding()' "$BT_TLS_PROBE"
 grep -Fq 'DebugTlsEngineHandshake.readRecord(wireInput)' "$BT_CONTROL"
 grep -Fq 'engine.unwrap(ByteBuffer.wrap(encoded), clear)' "$BT_CONTROL"
 grep -Fq 'engine.wrap(ByteBuffer.wrap(b, off, len), encrypted)' "$BT_CONTROL"
-grep -Fq 'result.bytesProduced() != phase.bytes' "$BT_CONTROL"
+# F2-C moves byte-accounting and live-provider closure checks into a
+# dedicated debug-only fail-closed gate; do not silently drop those checks.
+BT_PROVIDER="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsProviderReadiness.kt"
+test -f "$BT_PROVIDER"
+grep -Fq 'DebugTlsProviderReadiness.requireExactControlResult(' "$BT_CONTROL"
+grep -Fq 'DebugTlsProviderReadiness.requireControlReady(engine)' "$BT_CONTROL"
+grep -Fq 'DebugTlsProviderReadiness.requireControlReady(engine)' "$BT_TLS_PROBE"
+grep -Fq 'result.bytesConsumed() != consumed' "$BT_PROVIDER"
+grep -Fq 'result.bytesProduced() != produced' "$BT_PROVIDER"
+grep -Fq 'engine.isInboundDone' "$BT_PROVIDER"
+grep -Fq 'engine.isOutboundDone' "$BT_PROVIDER"
+grep -Fq 'protocol != "TLSv1.3"' "$BT_PROVIDER"
+if grep -REn '(TestPacketCodec|sendDebugText\\(|ProductionSessionAuthorization|SharedPreferences|DataStore|openFileOutput\\()' "$BT_PROVIDER"; then
+  echo "FAIL: F2-C TLS provider gate gained messaging, release trust or storage" >&2
+  exit 1
+fi
 grep -Fq 'QR_PROOF(PROOF_BYTES)' "$BT_CONTROL"
 grep -Fq 'EXPORTER(DebugExporterBindingFrame.RECORD_BYTES)' "$BT_CONTROL"
 grep -Fq 'COMMITMENT(COMMIT_BYTES)' "$BT_CONTROL"

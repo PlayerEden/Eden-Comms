@@ -60,6 +60,9 @@ internal object DebugRfcommTlsProbe {
             val wireOut = socket.outputStream
             DebugTlsEngineHandshake.negotiate(engine, wireIn, wireOut)
             PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)
+            // F2-C: unsupported provider close/post-handshake state stops this
+            // diagnostic before any encrypted QR control is exchanged.
+            DebugTlsProviderReadiness.requireControlReady(engine)
 
             // The original QR is rechecked after blocking TLS negotiation.
             // The selected Bluetooth radio identifier is never used as trust.
