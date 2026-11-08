@@ -372,7 +372,11 @@ BT_TLS_ENGINE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugTlsEngi
 BT_TLS_PROBE="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommTlsProbe.kt"
 BT_TLS_INPUT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothTlsProbeInput.kt"
 for FILE in "$BT_TLS_ENGINE" "$BT_TLS_PROBE" "$BT_TLS_INPUT"; do test -f "$FILE"; done
-grep -Fq 'DebugRfcommTlsProbe.run(created, request) { decision ->' "$BT_RFCOMM"
+# F2-K: the real TLS diagnostic call now has a read-only progress callback
+# while preserving the unchanged human approval callback (checked below).
+grep -Fq 'val completion = DebugRfcommTlsProbe.run(' "$BT_RFCOMM"
+grep -Fq 'onVerifiedStage = { step -> verified(token, step) }' "$BT_RFCOMM"
+grep -Fq ') { decision ->' "$BT_RFCOMM"
 grep -Fq 'DebugTlsEngineHandshake.negotiate(' "$BT_TLS_PROBE"
 grep -Fq 'PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)' "$BT_TLS_PROBE"
 grep -Fq 'SSLEngines.isSupportedEngine(engine)' "$BT_TLS_PROBE"
