@@ -1,0 +1,59 @@
+# Eden Comms — full-function development test roadmap
+
+**Updated November 7, 2026. Source of truth:** `main` plus small reviewed PRs. [Original core feature plan](CORE_FEATURE_COMPLETION_PLAN_2026_11_06.md) remains the long-term specification; this is its prioritized execution schedule, not a replacement for earlier safety decisions.
+
+## Goal, scope, and three distinct finish lines
+
+**Goal:** When the owner is ready to test, every promised *first-version* communication interaction should have a real source implementation and an honest, reachable debug-build UI. No fabricated radios, confirmations, delivery receipts or mock voice. The build must fail closed for unsupported links. We are building **on paper and in CI now**; real Android and independent protocol validation remain separate and mandatory.
+
+1. **Implemented:** code + user path exists, with cleanup on error/background and explicit consent.
+2. **CI verified:** JVM/protocol/property tests, Python/source/permission review, Android debug APK and fresh merged-main CI; no phone claims.
+3. **Device/security accepted:** owner two-phone positive and negative tests **plus** independent assessment where trust/crypto/data are involved. Only then consider non-debug features or publishing.
+
+**First-version scope:** two people, no account or Internet, LAN + Bluetooth Classic + Wi-Fi Direct text, optional foreground push-to-talk after an authenticated connection, explicit disconnect, session-only by default, and separately opt-in privacy features. No group chat, mesh, voice calls in background, cloud sync, attachments, public contacts directory, or automatic trust from a detected radio.
+
+## Functional work packages, in order
+
+| Step | Deliverable & real user action | Prior art/current state | Code + CI definition of done | Hardware/review gate (not yet performed) |
+|---|---|---|---|---|
+| **F0** | **One dependable basic session:** Show QR → Scan QR both ways → approve → text → disconnect/restart. Explicit text-status wording. | LAN pinned TLS 1.3 + proof + mutual approvals/confirmations and typed debug text; M5-A–E safe teardown/retry, not device tested | Verify end-to-end source state, finite timeouts, no plaintext fallback. Keep ephemeral messages and code/permission audit. | Two different phones, same Wi-Fi without Internet, wrong/old QR, refusal, interruption, two-way send, update continuity. |
+| **F1 — NOW** | **Peer-app ACK for LAN debug text:** Distinguish queued, written to TLS, and an ACK actually returned by peer's app. Never claim read. | ECTX ACK wire *shape* exists but is currently deliberately rejected. | Review fixed 17-byte zero-payload ACK protocol; accept it **only** on the authenticated, mutually confirmed live debug TLS session; reader ACKs only validated new text; sender tracks bounded outstanding IDs; duplicate/unknown/replay/early ACK handled fail-closed. UI shows honest per-message receipt, never plaintext or storage. Tests for races/size/cancel and CI. | Real phone receipt ordering/latency/interruption, external protocol assessment before production. |
+| **F2** | **Bluetooth one-to-one text:** Discover/choose → show reciprocal QR → verify pinned peer → approve on each phone → short typed chat → disconnect. | Debug discovery, bounded RFCOMM socket, QR, mutually pinned TLS engine, QR/exporter/commitment, two-person consent. Diagnostic currently *always closes* afterward. | Before actual chat, review RFCOMM TLS record adapter, authenticated continuation and consent trace; introduce bounded post-consent session lifetime, reliable frame reads/writes and text/ACK with no insecure fallback. Separate reviewed PRs for protocol validation, retention of live session, then debug chat UI. | **Blocking:** independent review of record parser/session and real Android provider interoperability; physical test of radio, OS permission, false-target rejection and interruptions before claiming text works. |
+| **F3** | **Wi-Fi Direct one-to-one text without router:** identify target, form short-lived group, verify QR peer, mutually approve, chat, disconnect and remove group. | Debug discovery, anonymous candidate selection, explicit link request/group hosting, separate QR preparation. **Not cryptographically linked.** | Bind selected P2P link and actual socket peer to QR-pinned TLS public identity; connect real group host/client; reuse reviewed session, approval, text/ACK; explicit group cleanup and failure states. No trust based only on a group/device name. | **Blocking:** platform/OEM two-phone P2P interoperability and independent target/identity protocol review. |
+| **F4** | **Voice/PTT:** Hold to speak (plus accessible toggle), release stops; peer hears only in approved foreground session; visible transmitting/receiving state. | D1 real local mic → local speaker debug test (5s PCM), not remote. | Audio framing and bounded jitter/queues, mic permission at use, only encrypted authenticated session, stop on background/call/disconnect, no audio file or hidden capture. LAN first, Wi-Fi Direct second; Bluetooth optional after throughput test. | Real devices: output route, latency, duplex, loss, Bluetooth throughput if attempted; independent protocol/privacy review before enabling remote voice. |
+| **F5** | **Privacy features as separate choices:** session-only default, optional 1h/24h/7/14/30d encrypted local history, best-effort disappearing timer, independently optional 1–30d remembered verified public identity. | Debug in-RAM text, Hide/Clear this phone; no stored history or peer trust yet. | Explicit opt-in and erase/expiry-before-read, encryption/keystore/backup safeguards, clock rollback handling, no remote-deletion promise. Settings reflect what exists, not coming-soon switches. | Crypto/storage review; device backup/restore and deletion/expiry tests. Can be omitted from initial functional **communications** field-test build if clearly labeled. |
+| **F6** | **Production-quality UX and package:** one obvious Connect action, clear method selector, text/voice once confirmed, end/back warnings, accessible status, predictable manual retry, stable test installer. | Native Compose, M4 UI, CI APK. Manual emulator visual QA and stable signer still not fully verified. | Emulator/screens/large fonts/TalkBack targeted checks, lifecycle and low-memory behavior, no secret logging, exact APK inventory, deterministic test signing and upgrades, versioned release notes. | Owner test matrix and repeatable identity-preserving upgrades. |
+| **F7** | **Security, acceptance, release:** close the actual blockers rather than merely passing CI. | Development feature flags FALSE, no independent certification. | Threat model and protocol review package with binary identity, QR/session-binding, errors, ACK, audio, encrypted storage, 1:1 disconnect. Track critical fixes and reproducible evidence. | External security review, owner physical two-phone QA, signed release build, privacy policy/Play data safety and store testing. |
+
+## Dependency / stop rules
+
+- **LAN** is the only existing real debug text transport. Complete F1 within its authorized test channel; it does **not** grant Bluetooth/Wi-Fi Direct/PTT authority.
+- **Bluetooth F2** builds on diagnostic M3n-C1 but may **not** just skip its mandatory close, attach a composer, or claim security. TLS engine/provider handling and peer identity/session semantics need expert review and physical validation.
+- **Wi-Fi Direct F3** must bind the selected radio's resulting authenticated session to the actual QR peer; group formed is not proof of who joined.
+- **PTT F4** never sends to an unverified/consent-pending session. On-device D1 proves only local capture/output, not network voice.
+- All work uses explicit debug-only flows until real device and external security acceptance; `ReleaseCapabilities.CAN_CONNECT/CAN_SEND_MESSAGES/CAN_TRANSMIT_VOICE` stay **false**.
+- Never upload QR payloads, keys, MAC/IP addresses, identities, private chat text or raw security traces. Document generic test observations only.
+- **No phone now:** focus on source, deterministic JVM two-peer fakes, conservative protocol bounds, UX, and CI; owner initiates hardware testing when ready.
+
+## PR template / verification contract
+
+Each narrow PR must include a source change where safe; unit tests for success, malformed frames, early/duplicate/replay IDs, simultaneous disconnect and unknown states; permission/privacy/security audit; feature-local runbook with rollback; Android compile + APK review; **green PR CI and fresh merged-main CI**, recorded with immutable SHA. Failed checks are repaired, not ignored. Never change signing, package ID or existing app data without a separately reviewed migration.
+
+## Consolidated testing day — planned, NOT RUN
+
+- **Preparation:** choose a stable **same-signer** internal test APK (do not assume ordinary GitHub CI debug APK upgrades in place); verify package/version/fingerprint, keep both devices charged. No confidential content.
+- **LAN baseline:** two phones with WAN disconnected but router on; reciprocal QR; both approvals/confirmations; send in both directions; verify text and peer-app ACK status vs local TLS write; disconnect/restart; wrong QR/refusal/roam/background/rotate.
+- **Bluetooth:** turn Wi-Fi/cellular off; discover/select real target, verify QR identity and both consents, exchange test text if reviewed/implemented, stop radios/permissions mid-session and confirm close.
+- **Wi-Fi Direct:** no router/Internet; connect supported devices; verify QR binding, exchange text when implemented, leave, confirm no lingering group.
+- **PTT:** mic deny/grant, local sample, authenticated remote hold/release, speaker and headset, latency/packet loss, background/call interruption, no unsolicited recording.
+- **Privacy & accessibility:** clear/hide/history settings, 30-day cap, timer semantics, backup exclusion, TalkBack, font scale, compact screen and orientation; device restart and APK update identity continuity.
+- **Evidence:** screenshots only of generic/empty screens, counts/phase codes and sanitized QA logs. Keep actual QR/key/text/peer IDs out of issues.
+
+## Accepted checkpoint vs current blockages
+
+- M5-A through M5-E: test/cancellation/reset hardening, source/JVM/CI only.
+- M6-D1: real on-phone mic/speaker loopback implemented, not physically exercised.
+- **F1 is the first active functional integration.** F2/F3/F4 are **not** claimed available merely because diagnostics or local audio exist.
+- Blockers: owner-deferred physical QA [#26](https://github.com/PlayerEden/Eden-Comms/issues/26), stable signed upgrades [#27](https://github.com/PlayerEden/Eden-Comms/issues/27), security review of LAN [#42](https://github.com/PlayerEden/Eden-Comms/issues/42), manual emulator visual QA [#82](https://github.com/PlayerEden/Eden-Comms/issues/82), launch [#19](https://github.com/PlayerEden/Eden-Comms/issues/19). Treat a closed issue without its physical/review evidence as **not accepted**.
+
+**After F1:** move directly into F2's protocol/device-readiness review and feature integration—not another unbounded cosmetic audit. Keep scope honest: a complete *debug source* is still a hypothesis until real phones are tested.
