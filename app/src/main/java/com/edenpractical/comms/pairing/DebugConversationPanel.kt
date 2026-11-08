@@ -1,6 +1,8 @@
 package com.edenpractical.comms.pairing
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
@@ -15,6 +17,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHelp
@@ -265,6 +268,10 @@ internal fun DebugConversationPanel(
                 supportingText = {
                     Text("${DebugTextDraftPolicy.codePoints(draft)}/280 characters • Test only")
                 },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = {
+                    if (!hidden && DebugTextDraftPolicy.maySend(draft)) onSend()
+                }),
                 shape = CutCornerShape(6.dp)
             )
             Button(
@@ -296,6 +303,12 @@ internal fun DebugConversationPanel(
                     "Only a Received on this phone entry confirms local reception."
             )
         }
+        Text(
+            "This development chat has a 30-minute maximum per approved connection. " +
+                "The link also closes if the peer stops responding.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Text(
             "Session-only: leaving this screen or disconnecting clears the app's " +
                 "visible messages. Your keyboard or screenshots may still retain text.",
