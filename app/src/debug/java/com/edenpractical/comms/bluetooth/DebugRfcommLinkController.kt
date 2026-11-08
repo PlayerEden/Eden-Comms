@@ -186,7 +186,7 @@ internal class DebugRfcommLinkController(
             // Worker thread. After fully agreeing on the pinned session,
             // solicit one explicit per-person decision, then exchange
             // encrypted approvals and final confirmations. Never enable chat.
-            DebugRfcommTlsProbe.run(created, request) { decision ->
+            val completion = DebugRfcommTlsProbe.run(created, request) { decision ->
                 synchronized(lock) {
                     if (active !== token || !gate.isLive(token) ||
                         !isForeground() || !hasConnectPermission()
@@ -210,11 +210,40 @@ internal class DebugRfcommLinkController(
                     }
                 }
             }
-            // Consent succeeded inside TLS, but permission or foreground may
-            // have been lost immediately before the worker returned.
-            stop(token, DebugRfcommCompletionPolicy.endAfterConsent(
-                isForeground(), hasConnectPermission()
-            ))
+            try {
+                // The worker's verified diagnostic result is accepted exactly
+                // once, only for the SAME active socket token and host/join
+                // role. It is not a reusable connection or send capability.
+                val currentAttemptAcknowledged = synchronized(lock) {
+                    active === token &&
+                        gate.snapshot().phase == DebugRfcommAttemptGate.Phase.LINK_OPEN &&
+                        completion.acknowledgeOnce(
+                            expectedHostRole = token.role == DebugRfcommAttemptGate.Role.HOST,
+                            observedAtSeconds = System.currentTimeMillis() / 1000,
+                            foreground = isForeground(),
+                            connectPermission = hasConnectPermission()
+                        )
+                }
+                if (!currentAttemptAcknowledged) {
+                    // If Android prerequisites vanished, retain the specific
+                    // failure reason; never misreport mutual consent success.
+                    stop(token, when {
+                        !isForeground() -> DebugRfcommAttemptGate.End.BACKGROUND
+                        !hasConnectPermission() -> DebugRfcommAttemptGate.End.PERMISSION_LOST
+                        else -> DebugRfcommAttemptGate.End.FAILED
+                    })
+                } else {
+                    // F2-A rechecks foreground/permission immediately before
+                    // terminal closure, including when they change after
+                    // the one-use receipt was acknowledged.
+                    stop(token, DebugRfcommCompletionPolicy.endAfterConsent(
+                        isForeground(), hasConnectPermission()
+                    ))
+                }
+            } finally {
+                // Diagnostic socket always closes in stop(), not handed off.
+                completion.close()
+            }
         } catch (_: DebugBluetoothConsentDenied) {
             stop(token, DebugRfcommAttemptGate.End.CONSENT_DECLINED)
         } catch (_: Exception) {
