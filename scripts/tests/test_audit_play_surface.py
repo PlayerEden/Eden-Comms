@@ -45,12 +45,15 @@ class LaunchEvidenceTests(unittest.TestCase):
              "android.permission.NEARBY_WIFI_DEVICES",
              "android.permission.ACCESS_FINE_LOCATION",
              "android.permission.CHANGE_WIFI_STATE",
-             "android.permission.CHANGE_NETWORK_STATE"}
+             "android.permission.CHANGE_NETWORK_STATE",
+             "android.permission.RECORD_AUDIO"}
         )
         extra = "com.otherapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         self.assertNotIn(extra, audit.EXPECTED_APK_PERMISSIONS)
+        self.assertIn("android.permission.RECORD_AUDIO",
+                      audit.DEBUG_ONLY_PERMISSIONS)
         self.assertNotIn("android.permission.RECORD_AUDIO",
-                         audit.EXPECTED_APK_PERMISSIONS)
+                         audit.ALLOWED_PERMISSIONS)
 
     def test_direct_dependency_parser_flags_unknown_syntax(self):
         example = '''
