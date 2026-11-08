@@ -45,5 +45,11 @@ class DebugBluetoothJourneyCueTest {
             true, false, true)
         assertTrue(end.phase.contains("TEST ENDED"))
         assertTrue(end.next.contains("fresh codes"))
+        val restart = c.current(DebugBluetoothQrCoordinator.Stage.HOST_SHOW,
+            DebugRfcommAttemptGate.Phase.STOPPED, false, false, false)
+        assertTrue(restart.phase.contains("STEP 1"))
+        val retryJoin = c.current(DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED,
+            DebugRfcommAttemptGate.Phase.STOPPED, false, false, false)
+        assertTrue(retryJoin.phase.contains("STEP 2"))
     }
 }
