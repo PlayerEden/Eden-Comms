@@ -654,6 +654,36 @@ for forbidden in 'import android.bluetooth.' 'import javax.net.ssl.' \
   fi
 done
 
+# F3-A Wi-Fi Direct TCP reachability: Android group owner address only,
+# one bounded TCP handshake, zero application bytes and no trust grant.
+P2P_TCP="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTcpProbe.kt"
+P2P_HOST="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectGroupHostActivity.kt"
+P2P_JOIN="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTargetLinkController.kt"
+test -f "$P2P_TCP"
+grep -Fq 'listener.bind(InetSocketAddress(groupOwnerAddress, port), 1)' "$P2P_TCP"
+grep -Fq 'listener.soTimeout = ACCEPT_TIMEOUT_MS' "$P2P_TCP"
+grep -Fq 'outbound.connect(' "$P2P_TCP"
+grep -Fq 'testAddressAllowed(' "$P2P_TCP"
+grep -Fq 'info.groupFormed' "$P2P_HOST"
+grep -Fq 'info.isGroupOwner' "$P2P_HOST"
+grep -Fq 'info.groupFormed' "$P2P_JOIN"
+grep -Fq 'info.isGroupOwner' "$P2P_JOIN"
+grep -Fq 'tcpProbe?.close()' "$P2P_HOST"
+grep -Fq 'tcpProbe?.close()' "$P2P_JOIN"
+for forbidden in '.getInputStream(' '.getOutputStream(' '.inputStream' \
+  '.outputStream' '.read(' '.write(' '.send(' 'SSLEngine' \
+  'TestPacketCodec' 'sendDebugText(' 'sendPacket(' 'SharedPreferences' \
+  'openFileOutput(' 'Log.' 'println('; do
+  if grep -Fq "$forbidden" "$P2P_TCP"; then
+    echo "FAIL: F3-A TCP handshake probe gained payload, TLS or persistence" >&2
+    exit 1
+  fi
+done
+if find "$MAIN" -name 'DebugWifiDirectTcpProbe.kt' -print -quit | grep -q .; then
+  echo "FAIL: F3-A unauthenticated TCP probe moved into release source" >&2
+  exit 1
+fi
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
