@@ -24,7 +24,7 @@ internal object LanDemoStatus {
         PEER_DECLINED("The other person declined the debug test connection."),
         APPROVAL_TIMED_OUT("The debug approvals and final session confirmations did not finish in time."),
         WIFI_CHANGED("Wi-Fi changed. The test connection was closed."),
-        SESSION_LIMIT("The ten-minute test session limit was reached."),
+        SESSION_LIMIT("The 30-minute test session limit was reached."),
         PEER_SILENT("No response from the other phone. The test was closed."),
         CLOCK_INVALID("The session timer was inconsistent, so the test was closed."),
         LINK_INTERRUPTED("The local connection was interrupted."),

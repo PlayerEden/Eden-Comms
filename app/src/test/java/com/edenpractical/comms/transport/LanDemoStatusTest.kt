@@ -20,6 +20,12 @@ class LanDemoStatusTest {
         }
     }
 
+    @Test fun sessionLimitExplanationMatchesActualWatchdogDuration() {
+        assertEquals(30L * 60_000L, DemoSessionLivenessPolicy.MAX_SESSION_MS)
+        assertTrue(LanDemoStatus.EndCode.SESSION_LIMIT.display.contains("30-minute"))
+        assertFalse(LanDemoStatus.EndCode.SESSION_LIMIT.display.contains("ten-minute"))
+    }
+
     @Test fun allEndCategoriesUseFixedNonSensitiveDescriptions() {
         for (reason in LanDemoStatus.EndCode.values()) {
             val message = reason.display
