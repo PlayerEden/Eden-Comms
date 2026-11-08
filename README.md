@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F3-B3-A P2P interface-bound two-phone reachability (debug only):** host and joiner TCP tests now use the exact current Android Wi-Fi Direct group interface, reject unsuitable local/subnet routes, and bind sockets to that interface. This also handles Android anonymizing the host owner address. **Zero user data; no P2P TLS, authenticated peer, consent or chat yet.** [F3-B3-A physical QA and security gates](docs/F3_B3_A_P2P_INTERFACE_BOUND_TWO_PHONE_QA.md).
+
 - **F3-B2 same-TLS Wi-Fi Direct QR proof lab:** on two real JVM-loopback TLS sockets with mutually pinned peer certificates, both sides now exchange fresh QR nonce challenges and encrypted full-QR transcript commitments on the **same** connection. A wrong nonce or changed QR timestamp fails. **Still no live radio TLS, human approval, user text or PTT.** [F3-B2 technical handoff](docs/F3_B2_SAME_TLS_QR_PROOF_AND_TRANSCRIPT.md).
 
 - **F3-B1 Wi-Fi Direct QR-pinned TLS JVM lab:** three fresh in-person QR identity frames feed exact expected peer pins into two *real TCP* endpoints running mutual TLS 1.3 with different ephemeral certificates; wrong pin and tampered/expired QR are rejected. **Unwired, JVM loopback only: no live P2P TLS, messages, voice or contact trust.** [F3-B1 verification and review gates](docs/F3_B1_QR_PINNED_REAL_TLS_LOOPBACK_LAB.md).

@@ -30,10 +30,11 @@ class F3AReachabilityBoundary(unittest.TestCase):
             "CONNECT_TIMEOUT_MS = 2_000", "Role { HOST, JOIN }",
             "testAddressAllowed(", "address.address.size == 4",
             "address.isSiteLocalAddress", "forJvmLoopback && address.isLoopbackAddress",
-            "listener.bind(InetSocketAddress(groupOwnerAddress, port), 1)",
+            "listener.bind(InetSocketAddress(local, port), 1)",
             "listener.soTimeout = ACCEPT_TIMEOUT_MS",
             "listener.accept()", "outbound.connect(",
-            "CONNECT_TIMEOUT_MS", "synchronized(lock)", "stopped = true",
+            "CONNECT_TIMEOUT_MS", "outbound.bind(InetSocketAddress(local, 0))",
+            "synchronized(lock)", "stopped = true",
             "closeQuietly(socketToClose)", "closeQuietly(serverToClose)",
             "if (resultAllowed) onCompleted(success)"
         ):
@@ -49,8 +50,9 @@ class F3AReachabilityBoundary(unittest.TestCase):
 
     def test_android_group_roles_are_checked_before_user_requested_socket(self):
         for marker in (
-            "requestTcpHostReachability()", "m.requestConnectionInfo(c)",
+            "requestTcpHostReachability()", "m.requestConnectionInfo(c)", "m.requestGroupInfo(c)",
             "info.groupFormed", "info.isGroupOwner", "info.groupOwnerAddress",
+            "DebugWifiDirectP2pInterface.resolve(",
             "DebugWifiDirectTcpProbe.Role.HOST", "tcpProbe?.close()",
             "RUN 5-SECOND TCP LISTENER TEST — NO DATA",
             "gate.snapshot().phase != DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED",
@@ -59,12 +61,13 @@ class F3AReachabilityBoundary(unittest.TestCase):
             self.assertIn(marker, self.host, marker)
         for marker in (
             "fun requestTcpJoinReachability(): Boolean",
-            "m.requestConnectionInfo(c)", "info.groupFormed",
+            "m.requestConnectionInfo(c)", "m.requestGroupInfo(c)",
+            "DebugWifiDirectP2pInterface.resolve(", "info.groupFormed",
             "info.isGroupOwner", "info.groupOwnerAddress",
             "DebugWifiDirectTcpProbe.Role.JOIN",
             "gate.snapshot().phase == DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED",
             "current !== token", "tcpAttempted = true", "tcpProbe?.close()",
-            "No user text, voice or identity is transmitted."
+            "No text, QR, voice or identity is transmitted."
         ):
             self.assertIn(marker, self.join, marker)
         for marker in (

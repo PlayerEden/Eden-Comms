@@ -83,6 +83,25 @@ class DebugWifiDirectTcpProbeTest {
         }
     }
 
+    @Test fun androidP2pProbeCannotUseDefaultRouteWithoutLocalInterfaceBinding() {
+        val owner = InetAddress.getByAddress(
+            byteArrayOf(192.toByte(), 168.toByte(), 49, 1)
+        )
+        val listener = DebugWifiDirectTcpProbe(unusedPort())
+        val dialer = DebugWifiDirectTcpProbe(unusedPort())
+        try {
+            assertFalse(listener.start(DebugWifiDirectTcpProbe.Role.HOST, owner, {}))
+            assertFalse(dialer.start(DebugWifiDirectTcpProbe.Role.JOIN, owner, {}))
+            // A JVM loopback exception must remain an explicit test-only
+            // argument. Real private P2P cannot silently reuse it.
+            assertFalse(dialer.start(DebugWifiDirectTcpProbe.Role.JOIN,
+                owner, {}, forJvmLoopback = true))
+        } finally {
+            listener.close()
+            dialer.close()
+        }
+    }
+
     @Test fun duplicateAdmissionIsRejectedAndNoUserPayloadApiExists() {
         val probe = DebugWifiDirectTcpProbe(unusedPort())
         val ready = CountDownLatch(1)

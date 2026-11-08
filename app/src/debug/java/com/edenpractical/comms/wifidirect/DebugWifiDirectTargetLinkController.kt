@@ -243,40 +243,68 @@ internal class DebugWifiDirectTargetLinkController(
         val m = manager ?: return false
         val c = channel ?: return false
         tcpAttempted = true
-        onReport("Requesting Android's unverified group-owner endpoint for a " +
-            "single TCP handshake. No messages.")
+        onReport("Checking the joining phone's actual P2P interface. No user data.")
         try {
             m.requestConnectionInfo(c) { info ->
                 if (current !== token || !readyAndForeground() ||
                     gate.snapshot().phase != DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED
                 ) return@requestConnectionInfo
-                val address = info.groupOwnerAddress
-                if (!info.groupFormed || info.isGroupOwner || address == null) {
-                    onReport("This phone is not a confirmed P2P joiner with an " +
-                        "OS-reported owner endpoint. No TCP connection attempted.")
+                val ownerAddress = info.groupOwnerAddress
+                if (!info.groupFormed || info.isGroupOwner || ownerAddress == null) {
+                    onReport("Not a confirmed joining phone with an OS group owner; " +
+                        "no TCP connection was attempted.")
                     return@requestConnectionInfo
                 }
-                val probe = DebugWifiDirectTcpProbe()
-                tcpProbe = probe
-                if (!probe.start(DebugWifiDirectTcpProbe.Role.JOIN, address,
-                        onCompleted = { reached ->
-                            handler.post {
-                                if (current !== token || tcpProbe !== probe) return@post
-                                tcpProbe = null
-                                onReport(if (reached)
-                                    "TCP handshake completed with a private group endpoint. " +
-                                        "The remote app/peer is UNVERIFIED; no data sent."
-                                else "TCP handshake failed or timed out. No data sent.")
-                            }
+                try {
+                    m.requestGroupInfo(c) { group ->
+                        if (current !== token || !readyAndForeground() ||
+                            gate.snapshot().phase !=
+                                DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED
+                        ) return@requestGroupInfo
+                        if (group == null || group.isGroupOwner) {
+                            onReport("No joining P2P group interface; no TCP connection.")
+                            return@requestGroupInfo
                         }
-                    )
-                ) {
-                    probe.close()
-                    tcpProbe = null
-                    onReport("The unverified group endpoint failed private-IPv4 " +
-                        "validation; no TCP connection.")
-                } else onReport("Attempting one bounded TCP handshake. " +
-                    "No user text, voice or identity is transmitted.")
+                        // The specific OS P2P interface must own a private
+                        // IPv4 address within the group-owner subnet. This
+                        // prevents an accidental default-Wi-Fi/cellular dial.
+                        val local = DebugWifiDirectP2pInterface.resolve(
+                            group.getInterface(), isHost = false,
+                            groupOwnerAddress = ownerAddress
+                        )
+                        if (local == null) {
+                            onReport("Android's joining P2P interface address is " +
+                                "unavailable or incompatible. No socket was opened.")
+                            return@requestGroupInfo
+                        }
+                        val probe = DebugWifiDirectTcpProbe()
+                        tcpProbe = probe
+                        if (!probe.start(
+                                DebugWifiDirectTcpProbe.Role.JOIN, ownerAddress,
+                                onCompleted = { reached ->
+                                    handler.post {
+                                        if (current !== token || tcpProbe !== probe ||
+                                            !readyAndForeground()
+                                        ) return@post
+                                        tcpProbe = null
+                                        onReport(if (reached)
+                                            "TCP handshake reached the P2P group owner. " +
+                                                "Peer UNVERIFIED; no data sent."
+                                        else "P2P-bound TCP failed or timed out. No data sent.")
+                                    }
+                                },
+                                localP2pAddress = local
+                            )
+                        ) {
+                            probe.close()
+                            tcpProbe = null
+                            onReport("P2P interface binding rejected. No TCP connection.")
+                        } else onReport("Trying one TCP handshake bound to the OS " +
+                            "P2P interface. No text, QR, voice or identity is transmitted.")
+                    }
+                } catch (_: RuntimeException) {
+                    onReport("Could not inspect P2P group interface. No TCP connection.")
+                }
             }
         } catch (_: RuntimeException) {
             onReport("Unable to inspect Wi-Fi Direct endpoint. No TCP handshake.")
