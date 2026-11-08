@@ -304,7 +304,7 @@ internal fun DebugConversationPanel(
             )
         }
         Text(
-            "This development chat has a 30-minute maximum per approved connection. " +
+            "This development chat ends after 30 minutes from test-link readiness. " +
                 "The link also closes if the peer stops responding.",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
