@@ -41,7 +41,7 @@ class HoldToTalkSourceContract(unittest.TestCase):
             "onCancel = { cancelLiveVoiceCapture() }",
             "onAccessibilityClick = { tapVoiceCapture() }",
             "USE TAP CONTROLS INSTEAD", "HIDE TAP CONTROLS",
-            "Text(if (talking) \"SEND VOICE BURST\" else \"START TALKING\")",
+            'pendingFloorMode == "tap" -> "CANCEL TALK REQUEST"',
             "enabled = !voiceFinalizing && !privacyHidden && !peerTalking",
             'if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||',
             "micPermission.launch(Manifest.permission.RECORD_AUDIO)",
