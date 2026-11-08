@@ -32,6 +32,20 @@ class BuildEvidenceReportTest {
         assertFalse(brief.contains(certificate))
     }
 
+    @Test fun previewReportsItsActualIsolatedPackageWithoutTrustingOtherValues() {
+        val preview = BuildEvidenceReport.format(evidence().copy(
+            applicationId = "com.edenpractical.comms.preview",
+            versionName = "0.2.12-preview-200003"
+        ))
+        assertTrue(preview.contains("App package: com.edenpractical.comms.preview"))
+        assertTrue(preview.contains("App version: 0.2.12-preview-200003"))
+        val unsafe = BuildEvidenceReport.format(evidence().copy(
+            applicationId = "com.edenpractical.comms.preview\\nSECRET=peer-id"
+        ))
+        assertTrue(unsafe.contains("App package: unavailable"))
+        assertFalse(unsafe.contains("SECRET=peer-id"))
+    }
+
     @Test fun unknownLocalBuildDataMustNeverPretendToBeCIBuild() {
         val report = BuildEvidenceReport.format(evidence().copy(
             versionCode = null,
