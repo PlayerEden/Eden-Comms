@@ -661,11 +661,20 @@ internal class LanDemoSession(
             val raw = wifi.network.socketFactory.createSocket()
             sockets.ownSocket(raw)
             try {
-                raw.connect(
-                    InetSocketAddress(peer, PORT),
-                    if (retryWhileWaiting) LanConnectRetryPolicy.CONNECT_TIMEOUT_MS
-                    else CONNECT_TIMEOUT_MS
-                )
+                // Recompute immediately before the blocking connect: the
+                // final attempt must not start a full 1.5-second wait after
+                // almost all of the two-minute pre-TLS budget was consumed.
+                val connectTimeoutMs = if (retryWhileWaiting) {
+                    LanConnectRetryPolicy.attemptTimeoutMs(
+                        SystemClock.elapsedRealtime() - started
+                    )
+                } else CONNECT_TIMEOUT_MS
+                // Socket.connect(timeout=0) means an UNBOUNDED wait in Java.
+                // A zero budget is terminal, never passed into the socket.
+                if (connectTimeoutMs <= 0) {
+                    throw SocketTimeoutException("Local test connection retry window ended")
+                }
+                raw.connect(InetSocketAddress(peer, PORT), connectTimeoutMs)
                 return raw
             } catch (e: IOException) {
                 try { raw.close() } catch (_: Exception) { }
