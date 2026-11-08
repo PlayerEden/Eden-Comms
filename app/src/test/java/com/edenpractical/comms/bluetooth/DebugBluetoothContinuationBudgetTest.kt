@@ -52,6 +52,14 @@ class DebugBluetoothContinuationBudgetTest {
         assertFalse(budget.stillObserved(9, 52, true, true))
     }
 
+    @Test fun clockMovingBackwardEndsObservationAndDoesNotRearm() {
+        val budget = DebugBluetoothContinuationBudget(maxLifetimeMs = 100)
+        assertTrue(budget.beginObservation(7, 500, observations()))
+        assertFalse(budget.stillObserved(7, 499, true, true))
+        assertEquals(DebugBluetoothContinuationBudget.Phase.TERMINATED, budget.snapshot())
+        assertFalse(budget.beginObservation(7, 501, observations()))
+    }
+
     @Test fun backgroundPermissionLossAndUserEndAreTerminal() {
         val budget = DebugBluetoothContinuationBudget()
         assertTrue(budget.beginObservation(3, 10, observations()))
