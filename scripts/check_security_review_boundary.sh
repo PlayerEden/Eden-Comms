@@ -503,7 +503,17 @@ BT_RECEIPT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothP
 test -f "$BT_RECEIPT"
 grep -Fq 'return DebugBluetoothProbeCompletion.afterVerifiedDiagnostic(' "$BT_TLS_PROBE"
 grep -Fq 'val atEnd = request.freshBinding()' "$BT_TLS_PROBE"
-grep -Fq 'val completion = DebugRfcommTlsProbe.run(created, request) { decision ->' "$BT_RFCOMM"
+# F2-K permits read-only stage visibility only when the real worker still
+# has BOTH the actual current-token stage fence and original human-consent
+# callback. No runtime handoff, plaintext user message or socket retention.
+grep -Fq 'val completion = DebugRfcommTlsProbe.run(' "$BT_RFCOMM"
+grep -Fq 'created, request,' "$BT_RFCOMM"
+grep -Fq 'onVerifiedStage = { step -> verified(token, step) }' "$BT_RFCOMM"
+grep -Fq ') { decision ->' "$BT_RFCOMM"
+grep -Fq 'if (active !== token || !gate.isLive(token) ||' "$BT_RFCOMM"
+grep -Fq '(lastVerifiedStage?.step ?: 0) >= step.step' "$BT_RFCOMM"
+grep -Fq 'onConsentRequired(consent)' "$BT_TLS_PROBE"
+grep -Fq 'onVerifiedStage(DebugBluetoothVerifiedStage.HUMAN_CONFIRMATIONS)' "$BT_TLS_PROBE"
 grep -Fq 'active === token' "$BT_RFCOMM"
 grep -Fq 'gate.snapshot().phase == DebugRfcommAttemptGate.Phase.LINK_OPEN' "$BT_RFCOMM"
 grep -Fq 'completion.acknowledgeOnce(' "$BT_RFCOMM"
