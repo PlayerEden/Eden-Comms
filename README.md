@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F2-F future Bluetooth TEXT/ACK protocol rehearsal:** strict 512-byte UTF-8 framed text, zero-payload peer-app ACK, monotonic IDs and bounded pending state, with virtual two-peer JVM tests. **Not connected to RFCOMM, not encrypted by the codec, no live Bluetooth chat.** The [current full-function F0–F7 roadmap](docs/FULL_FUNCTION_DEVELOPMENT_TEST_ROADMAP_2026_11_07.md) and [F2-F acceptance/runbook](docs/F2_F_DEBUG_BLUETOOTH_TEXT_FRAME_REHEARSAL.md) track the remaining functional and physical/security gates.
+
 - **F2-E one-use Bluetooth completion receipt:** The verified debug TLS/QR/exporter/two-person-consent path now issues a role- and expiry-bound, single-use diagnostic result, acknowledged only for the active socket token before **immediate closure**. No retained Bluetooth session, chat or voice. [F2-E acceptance gates](docs/F2_E_ONE_USE_BLUETOOTH_PROBE_COMPLETION.md).
 
 - **F2-D paired TLS engine interoperability:** JVM-only test lab uses two ephemeral X.509 identities with real TLS 1.3 engines, opposite certificate pins, fixed encrypted control lengths and wrong-pin rejection. **Not Android radio QA or a security audit; Bluetooth chat remains disabled.** [F2-D test evidence and acceptance gates](docs/F2_D_PAIRED_TLS_ENGINE_INTEROP_TEST.md).
