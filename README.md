@@ -4,6 +4,8 @@
 
 > **DEVELOPMENT PROTOTYPE — NOT A PRODUCTION SECURE MESSENGER.** The Android debuggable build now has a functional prototype of short two-way **test** text over the QR-pinned TLS 1.3 session, after bilateral approval and matching final confirmations. It also keeps the four fixed test phrases. It is **unreviewed and not physically verified**; do not use for sensitive or emergency communications. Production connection, normal text and PTT capability flags remain off. See [M3e](docs/M3E_DEBUG_TWO_WAY_TEXT.md).
 
+- **M5-A automated reliability rehearsal:** Independent virtual two-peer cancellation/approval/late-callback tests, plain JVM loopback socket cleanup, and safe error-to-recovery classification. [M5-A QA and limits](docs/M5_A_TWO_PEER_RELIABILITY_REHEARSAL.md). This does not verify real Android/TLS phone-to-phone behavior.
+
 ## Product goal
 
 A simple, accessible way for two people nearby to **Connect → Communicate → Disconnect**, with no accounts, app-operated servers, analytics or advertising. Planned connectivity: local Wi-Fi, Bluetooth, Wi-Fi Direct. Text first; optional push-to-talk after verified two-phone messaging works.
