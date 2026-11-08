@@ -541,7 +541,13 @@ internal class LanDemoSession(
 
     private fun sendPacket(packet: TestPacketCodec.Packet) {
         synchronized(outputLock) {
-            if (!ready || stopped.get()) throw SocketException("Test already closed")
+            // The writer may have passed its earlier ending check before
+            // the user tapped Disconnect. Recheck immediately at the shared
+            // socket boundary, without blocking the UI on outputLock.
+            // Only best-effort CLOSE/DECLINE controls survive local teardown.
+            if (!ready || stopped.get() ||
+                !DebugSessionTeardownPolicy.mayWrite(ending.get(), packet.type)
+            ) throw SocketException("Test already closed")
             val tls = sockets.currentSocket() as? SSLSocket
                 ?: throw SocketException("Test socket closed")
             TestPacketCodec.write(tls.outputStream, packet)
@@ -716,17 +722,27 @@ internal class LanDemoSession(
     }
 
     private fun emit(event: Event) {
-        if (!stopped.get() && !terminal.get()) report(event)
+        // Never add a stale SENT/APPROVAL/READY event while a voluntary
+        // disconnect is already in progress.
+        if (DebugSessionTeardownPolicy.mayReportActivity(
+                stopped.get(), terminal.get(), ending.get()
+            )) report(event)
     }
 
     private fun emitTerminal(phase: Phase, endCode: LanDemoStatus.EndCode) {
-        if (!stopped.get() && terminal.compareAndSet(false, true)) {
+        // If the owner has ended or declined, a pending writer being closed
+        // must not overwrite that decision with LINK_INTERRUPTED.
+        if (DebugSessionTeardownPolicy.mayReportUnexpectedEnd(
+                stopped.get(), ending.get()
+            ) && terminal.compareAndSet(false, true)) {
             report(Event(phase, endCode.display, endCode = endCode))
         }
     }
 
     private fun emitTerminal(phase: Phase, failure: LanProbeDiagnostics.Failure) {
-        if (!stopped.get() && terminal.compareAndSet(false, true)) {
+        if (DebugSessionTeardownPolicy.mayReportUnexpectedEnd(
+                stopped.get(), ending.get()
+            ) && terminal.compareAndSet(false, true)) {
             report(Event(phase, failure.display(), failureCode = failure.code))
         }
     }
