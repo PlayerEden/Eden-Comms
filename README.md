@@ -17,6 +17,7 @@
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
 - **F4-D2 local PCM frame rehearsal (debug only):** the M6-D1 mic sample is now broken into bounded, ordered **20 ms / 640-byte** frames and played through streaming AudioTrack on the **same phone**; strict ordering/limits, wipe-on-teardown and JVM/source guards. **Not live streaming or remote PTT.** [F4-D2 testing and review gates](docs/F4_D2_LOCAL_20MS_PTT_FRAMES.md).
+- **F4-D3 local audio interruption hardening (debug only):** non-blocking microphone reads and 20 ms speaker-frame writes, an eight-second finite playback clock, and cancellation-safe result/worker cleanup for the same-phone demo. **Not live or remote PTT.** [F4-D3 QA and safety gates](docs/F4_D3_LOCAL_AUDIO_DEADLINE_AND_INTERRUPTION.md).
 
 - **F3-B3-A P2P interface-bound two-phone reachability (debug only):** host and joiner TCP tests now use the exact current Android Wi-Fi Direct group interface, reject unsuitable local/subnet routes, and bind sockets to that interface. This also handles Android anonymizing the host owner address. **Zero user data; no P2P TLS, authenticated peer, consent or chat yet.** [F3-B3-A physical QA and security gates](docs/F3_B3_A_P2P_INTERFACE_BOUND_TWO_PHONE_QA.md).
 
