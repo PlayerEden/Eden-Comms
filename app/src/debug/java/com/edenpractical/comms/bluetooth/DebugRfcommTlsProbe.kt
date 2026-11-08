@@ -36,6 +36,7 @@ internal object DebugRfcommTlsProbe {
     fun run(
         socket: BluetoothSocket,
         request: DebugBluetoothTlsProbeInput,
+        onVerifiedStage: (DebugBluetoothVerifiedStage) -> Unit = {},
         onConsentRequired: (DebugBluetoothConsentDecision) -> Unit
     ): DebugBluetoothProbeCompletion {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -63,6 +64,7 @@ internal object DebugRfcommTlsProbe {
             // F2-C: unsupported provider close/post-handshake state stops this
             // diagnostic before any encrypted QR control is exchanged.
             DebugTlsProviderReadiness.requireControlReady(engine)
+            onVerifiedStage(DebugBluetoothVerifiedStage.TLS_PIN)
 
             // The original QR is rechecked after blocking TLS negotiation.
             // The selected Bluetooth radio identifier is never used as trust.
@@ -81,6 +83,7 @@ internal object DebugRfcommTlsProbe {
                 DebugTlsControlTransport.Phase.QR_PROOF,
                 DebugTlsControlTransport.Phase.EXPORTER
             )
+            onVerifiedStage(DebugBluetoothVerifiedStage.QR_CHALLENGES)
 
             // Exchanging the exporter through an already mutually pinned
             // encrypted TLS channel proves SAME-CHANNEL exporter agreement;
@@ -99,6 +102,7 @@ internal object DebugRfcommTlsProbe {
                     DebugTlsControlTransport.Phase.EXPORTER,
                     DebugTlsControlTransport.Phase.COMMITMENT
                 )
+                onVerifiedStage(DebugBluetoothVerifiedStage.EXPORTER)
 
                 // Domain-separated transcript binds BOTH QR pins/nonces,
                 // fresh peer challenges and this specific TLS exporter.
@@ -111,6 +115,7 @@ internal object DebugRfcommTlsProbe {
                         transport.input, transport.output,
                         request.hostRole, commitment
                     )
+                    onVerifiedStage(DebugBluetoothVerifiedStage.COMMITMENT)
 
                     // Do not solicit human approval before exact TLS pins,
                     // QR proof, both exporters and commitments match.
@@ -133,6 +138,7 @@ internal object DebugRfcommTlsProbe {
             // Fail if QR expired during the encrypted control and consent exchange.
             val atEnd = request.freshBinding()
             clearBinding(atEnd)
+            onVerifiedStage(DebugBluetoothVerifiedStage.HUMAN_CONFIRMATIONS)
             // This marker can be issued ONLY after the real TLS/QR/exporter/
             // commitments and both encrypted human confirmations completed.
             // It has no socket/engine/secret and cannot grant a chat session.
