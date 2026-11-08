@@ -103,6 +103,9 @@ internal fun LocalPairingTestScreen(
     var transcript by remember { mutableStateOf(DebugSessionTranscript.fresh()) }
     // Session-only chat content; never rememberSaveable or persistent.
     var debugText by remember { mutableStateOf(DebugTextTranscript.fresh()) }
+    // A returned peer-app ACK can race ahead of TEXT_WRITTEN's main-thread
+    // callback. Store only a bounded set of IDs, never message content.
+    var ackedTextIds by remember { mutableStateOf(emptySet<Long>()) }
     var textDraft by remember { mutableStateOf("") }
     var privacyHidden by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
@@ -132,6 +135,7 @@ internal fun LocalPairingTestScreen(
         probe?.close()
         probe = null
         debugText = debugText.finish()
+        ackedTextIds = emptySet()
         textDraft = ""
         privacyHidden = false
         showClearConfirmation = false
@@ -188,6 +192,7 @@ internal fun LocalPairingTestScreen(
         scanRevision += 1
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
+        ackedTextIds = emptySet()
         textDraft = ""
         privacyHidden = false
         showClearConfirmation = false
@@ -299,6 +304,7 @@ internal fun LocalPairingTestScreen(
             stopTest()
             transcript = DebugSessionTranscript.fresh()
             debugText = DebugTextTranscript.fresh()
+            ackedTextIds = emptySet()
             textDraft = ""
             privacyHidden = false
             showClearConfirmation = false
@@ -437,6 +443,19 @@ internal fun LocalPairingTestScreen(
                                 else DebugTextTranscript.Direction.RECEIVED_HERE,
                                 messageId, text
                             )
+                        }
+                        LanDemoSession.Phase.TEXT_PEER_ACK -> {
+                            if (!DebugSessionEventAdmission.canRecord(
+                                    thisAttempt, attemptVersion, stage, transcript
+                                ) || debugText.state != DebugTextTranscript.State.ACTIVE
+                            ) return@post
+                            val id = event.messageId ?: return@post
+                            if (id > 0L) {
+                                // Bound UI-only IDs even if peer app responds
+                                // before this thread observes the write bubble.
+                                ackedTextIds = (ackedTextIds + id)
+                                    .toList().takeLast(16).toSet()
+                            }
                         }
                         LanDemoSession.Phase.ENDED -> {
                             if (!DebugSessionEventAdmission.canAcceptTerminal(
@@ -913,6 +932,7 @@ internal fun LocalPairingTestScreen(
                     // available but don't bury the composer on small screens.
                     DebugConversationPanel(
                         transcript = debugText,
+                        peerAckIds = ackedTextIds,
                         draft = textDraft,
                         hidden = privacyHidden,
                         onDraftChange = { textDraft = it },
@@ -1264,6 +1284,7 @@ internal fun LocalPairingTestScreen(
             confirmButton = {
                 TextButton(onClick = {
                     debugText = debugText.clearVisible()
+                    ackedTextIds = emptySet()
                     textDraft = ""
                     showClearConfirmation = false
                     status = "This phone's visible test messages and draft were cleared. " +

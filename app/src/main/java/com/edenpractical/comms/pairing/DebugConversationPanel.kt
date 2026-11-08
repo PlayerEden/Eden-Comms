@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun DebugConversationPanel(
     transcript: DebugTextTranscript,
+    peerAckIds: Set<Long>,
     draft: String,
     hidden: Boolean,
     onDraftChange: (String) -> Unit,
@@ -224,6 +225,13 @@ internal fun DebugConversationPanel(
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+                                        if (writtenHere && entry.id in peerAckIds) {
+                                            Text(
+                                                DebugConversationUiCopy.peerAppAckLabel,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -275,7 +283,8 @@ internal fun DebugConversationPanel(
             )
             Text(
                 "Not a delivery or read receipt. A write here does not prove the " +
-                    "other phone received or read it.",
+                    "other phone received or read it. A peer-app test ACK only " +
+                    "means a returned control was observed, not that anyone read it.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
