@@ -39,7 +39,7 @@ internal object TestPacketCodec {
         Phrase(4, "Can you read this?")
     )
 
-    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT, DEBUG_ACK, DEBUG_VOICE_START, DEBUG_VOICE_PCM, DEBUG_VOICE_END }
+    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT, DEBUG_ACK, DEBUG_VOICE_START, DEBUG_VOICE_PCM, DEBUG_VOICE_END, DEBUG_VOICE_FLOOR }
     // List makes byte-wise data class equality work in JVM wire tests.
     // Consent commitments are debug-only, never a transport secret.
     data class Packet(
@@ -48,7 +48,8 @@ internal object TestPacketCodec {
         val sessionCommitment: List<Byte> = emptyList(),
         val messageId: Long = 0,
         val text: String = "",
-        val voice: DebugLanVoiceWireCodec.Frame? = null
+        val voice: DebugLanVoiceWireCodec.Frame? = null,
+        val floor: DebugLanVoiceFloorCodec.Frame? = null
     )
 
     fun phrase(id: Int): String = phrases.firstOrNull { it.id == id }?.label
@@ -94,6 +95,9 @@ internal object TestPacketCodec {
         return packet
     }
 
+    fun debugVoiceFloor(frame: DebugLanVoiceFloorCodec.Frame): Packet =
+        Packet(Type.DEBUG_VOICE_FLOOR, floor = frame)
+
     private fun boundControl(type: Type, commitment: ByteArray): Packet {
         require(commitment.size == COMMITMENT_BYTES &&
             commitment.any { it != 0.toByte() }) { "Invalid debug session commitment" }
@@ -101,6 +105,14 @@ internal object TestPacketCodec {
     }
 
     fun encode(packet: Packet): ByteArray {
+        if (packet.floor != null) {
+            require(packet.type == Type.DEBUG_VOICE_FLOOR &&
+                packet.voice == null && packet.phraseId == 0 &&
+                packet.sessionCommitment.isEmpty() && packet.messageId == 0L &&
+                packet.text.isEmpty()) { "Floor packet may not contain content" }
+            return DebugLanVoiceFloorCodec.encode(packet.floor)
+        }
+        require(packet.type != Type.DEBUG_VOICE_FLOOR) { "Missing floor frame" }
         if (packet.voice != null) {
             require(packet.type in setOf(Type.DEBUG_VOICE_START, Type.DEBUG_VOICE_PCM,
                 Type.DEBUG_VOICE_END) && packet.phraseId == 0 &&
@@ -143,8 +155,8 @@ internal object TestPacketCodec {
             Type.DECLINE -> DECLINE
             Type.CONFIRM -> CONFIRM
             Type.DEBUG_TEXT, Type.DEBUG_ACK, Type.DEBUG_VOICE_START,
-            Type.DEBUG_VOICE_PCM, Type.DEBUG_VOICE_END ->
-                error("Debug-only text, voice and ACK handled before controls")
+            Type.DEBUG_VOICE_PCM, Type.DEBUG_VOICE_END, Type.DEBUG_VOICE_FLOOR ->
+                error("Debug-only text, voice, floor and ACK handled before controls")
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
@@ -169,6 +181,10 @@ internal object TestPacketCodec {
     fun decode(bytes: ByteArray): Packet {
         // Only the live debug LAN session may accept ECVP packets, after
         // bilateral approval. This decoder is never a send authorization.
+        if (bytes.size >= 4 && bytes[0] == 0x45.toByte() &&
+            bytes[1] == 0x43.toByte() && bytes[2] == 0x46.toByte() &&
+            bytes[3] == 0x4c.toByte()
+        ) return debugVoiceFloor(DebugLanVoiceFloorCodec.decode(bytes))
         if (bytes.size >= 4 && bytes[0] == 0x45.toByte() &&
             bytes[1] == 0x43.toByte() && bytes[2] == 0x56.toByte() &&
             bytes[3] == 0x50.toByte()
