@@ -84,6 +84,87 @@ class DebugLanVoiceFloorTest {
         host.remoteAudioEnd()
     }
 
+    @Test fun multipleRapidCancelledRequestsIgnoreEachLateGrantExactlyOnce() {
+        val host = DebugLanVoiceFloor(true)
+        val joiner = DebugLanVoiceFloor(false)
+        val oldGrants = mutableListOf<DebugLanVoiceFloorCodec.Frame>()
+        // The host may have already sent several GRANTs while the joiner's
+        // user rapidly taps and releases Talk, before replies reach the UI.
+        for (time in 1L..3L) {
+            val request = joiner.requestLocal(time * 10).packet!!
+            oldGrants.add(host.incoming(request, time * 10 + 1).outbound!!)
+            val cancel = joiner.cancelPending()!!
+            host.incoming(cancel, time * 10 + 2)
+        }
+        val current = joiner.requestLocal(100).packet!!
+        val currentGrant = host.incoming(current, 101).outbound!!
+
+        oldGrants.forEach { grant ->
+            assertEquals(DebugLanVoiceFloor.Signal.NONE,
+                joiner.incoming(grant, 105).signal)
+            assertFalse(joiner.maySendAudio())
+        }
+        assertEquals(DebugLanVoiceFloor.Signal.GRANTED,
+            joiner.incoming(currentGrant, 106).signal)
+        assertTrue(joiner.maySendAudio())
+        // The canceled response is no longer whitelisted after one consume:
+        // a duplicate wire control is still an invalid/replayed protocol event.
+        assertThrows(TestPacketException::class.java) {
+            joiner.incoming(oldGrants.first(), 107)
+        }
+    }
+
+    @Test fun cancelledBusyRequestsIgnoreLateDenialsWithoutReservingFloor() {
+        val host = DebugLanVoiceFloor(true)
+        val joiner = DebugLanVoiceFloor(false)
+        assertEquals(DebugLanVoiceFloor.Ask.GRANTED, host.requestLocal(1).status)
+        val denials = mutableListOf<DebugLanVoiceFloorCodec.Frame>()
+        repeat(4) { i ->
+            val request = joiner.requestLocal(10L + i).packet!!
+            denials.add(host.incoming(request, 20L + i).outbound!!)
+            assertEquals(DebugLanVoiceFloorCodec.Kind.DENY, denials.last().kind)
+            host.incoming(joiner.cancelPending()!!, 30L + i)
+        }
+        denials.forEach { denial ->
+            assertEquals(DebugLanVoiceFloor.Signal.NONE,
+                joiner.incoming(denial, 50).signal)
+        }
+        assertFalse(joiner.maySendAudio())
+        host.releaseLocal()
+        val request = joiner.requestLocal(60).packet!!
+        val grant = host.incoming(request, 61).outbound!!
+        assertEquals(DebugLanVoiceFloor.Signal.GRANTED,
+            joiner.incoming(grant, 62).signal)
+    }
+
+    @Test fun cancellationHistoryIsBoundedAndTooOldReplyFailsClosed() {
+        val joiner = DebugLanVoiceFloor(false)
+        val oldest = joiner.requestLocal(10).packet!!
+        joiner.cancelPending()
+        for (i in 1..DebugLanVoiceFloor.MAX_ABANDONED_REQUESTS) {
+            joiner.requestLocal(10L + i)
+            joiner.cancelPending()
+        }
+        // Evicted IDs are not authorized to be silently consumed. This
+        // defensive bound limits RAM on an unresponsive session.
+        assertThrows(TestPacketException::class.java) {
+            joiner.incoming(packet(DebugLanVoiceFloorCodec.Kind.GRANT, oldest.requestId), 99)
+        }
+        assertEquals(DebugLanVoiceFloor.Signal.NONE,
+            joiner.incoming(packet(
+                DebugLanVoiceFloorCodec.Kind.DENY,
+                oldest.requestId + DebugLanVoiceFloor.MAX_ABANDONED_REQUESTS
+            ), 100).signal)
+        assertFalse(joiner.maySendAudio())
+        joiner.close()
+        assertThrows(TestPacketException::class.java) {
+            joiner.incoming(packet(
+                DebugLanVoiceFloorCodec.Kind.GRANT,
+                oldest.requestId + DebugLanVoiceFloor.MAX_ABANDONED_REQUESTS
+            ), 101)
+        }
+    }
+
     @Test fun replayWrongRoleAndUnapprovedRemotePcmAreRejected() {
         val host = DebugLanVoiceFloor(true)
         val joiner = DebugLanVoiceFloor(false)

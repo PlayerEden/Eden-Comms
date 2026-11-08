@@ -25,7 +25,11 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
     private var owner = Owner.FREE
     private var id = 0L
     private var pending = 0L
-    private var cancelled = 0L
+    // A canceled joiner REQUEST can still receive a delayed GRANT or DENY
+    // even after other requests have been canceled. Retain a small bounded
+    // set until the matching response arrives. Each response is consumed ONCE;
+    // an unsolicited or duplicated response remains a protocol failure.
+    private val abandonedRequests = LinkedHashSet<Long>()
     private var nextRequest = 0L
     private var lastRemoteRequest = 0L
     private var startedAtMs = 0L
@@ -35,6 +39,7 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
 
     companion object {
         const val PENDING_TIMEOUT_MS = 3_000L
+        const val MAX_ABANDONED_REQUESTS = 32
         // Covers 3s accessible record + up to 3s paced playback fallback,
         // network/scheduler slack and teardown. NOT an indefinite lease.
         const val LEASE_TIMEOUT_MS = 9_000L
@@ -109,9 +114,10 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
                     }
                     Incoming(signal = if (kind == DebugLanVoiceFloorCodec.Kind.GRANT)
                         Signal.GRANTED else Signal.DENIED)
-                } else if (cancelled == requestId) {
-                    // A CANCEL can race with a GRANT already written by host.
-                    // The abandoned GRANT must not re-enable microphone.
+                } else if (abandonedRequests.remove(requestId)) {
+                    // The CANCEL raced with a GRANT/DENY already written by
+                    // the host. Ignore this precise old response ONCE only;
+                    // never activate a microphone or forgive a replay.
                     Incoming()
                 } else throw TestPacketException()
             }
@@ -145,10 +151,21 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
     @Synchronized
     fun cancelPending(): DebugLanVoiceFloorCodec.Frame? {
         if (closed || isHost || pending == 0L) return null
-        cancelled = pending
+        val abandonedId = pending
+        // Bounded even if a disconnected peer never replies. A reply older
+        // than the retained window fails closed rather than being accepted
+        // as a new grant. No unbounded session history is accumulated.
+        abandonedRequests.add(abandonedId)
+        if (abandonedRequests.size > MAX_ABANDONED_REQUESTS) {
+            val oldest = abandonedRequests.iterator()
+            oldest.next()
+            oldest.remove()
+        }
         pending = 0L
         startedAtMs = 0L
-        return DebugLanVoiceFloorCodec.Frame(DebugLanVoiceFloorCodec.Kind.CANCEL, cancelled)
+        return DebugLanVoiceFloorCodec.Frame(
+            DebugLanVoiceFloorCodec.Kind.CANCEL, abandonedId
+        )
     }
 
     @Synchronized
@@ -171,7 +188,7 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
     fun close() {
         closed = true
         free()
-        cancelled = 0L
+        abandonedRequests.clear()
     }
 
     private fun free() {
