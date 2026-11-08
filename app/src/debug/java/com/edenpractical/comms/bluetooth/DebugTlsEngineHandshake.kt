@@ -40,9 +40,13 @@ internal object DebugTlsEngineHandshake {
         return ByteArray(header.size + length).also { packet ->
             header.copyInto(packet)
             val body = ByteArray(length)
-            readExactly(input, body)
-            body.copyInto(packet, header.size)
-            body.fill(0)
+            try {
+                readExactly(input, body)
+                body.copyInto(packet, header.size)
+            } finally {
+                // Clear even when the radio closes midway through a record.
+                body.fill(0)
+            }
         }
     }
 
@@ -75,8 +79,9 @@ internal object DebugTlsEngineHandshake {
         val app = ByteBuffer.allocate(applicationCapacity)
         var finished = false
         var packetsSeen = 0
-        engine.beginHandshake()
-        repeat(MAX_STEPS) {
+        try {
+            engine.beginHandshake()
+            repeat(MAX_STEPS) {
             val status = engine.handshakeStatus
             if (status == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
                 if (finished && packetsSeen > 0) return
@@ -93,38 +98,48 @@ internal object DebugTlsEngineHandshake {
                 }
                 SSLEngineResult.HandshakeStatus.NEED_WRAP -> {
                     val outputRecord = ByteBuffer.allocate(packetCapacity)
-                    val result = engine.wrap(EMPTY.duplicate(), outputRecord)
-                    if (result.status != SSLEngineResult.Status.OK ||
-                        result.bytesConsumed() != 0 ||
-                        result.bytesProduced() !in 1..MAX_ENGINE_PACKET
-                    ) throw SSLException("Unexpected TLS handshake wrap")
-                    outputRecord.flip()
-                    val packet = ByteArray(outputRecord.remaining())
-                    outputRecord.get(packet)
-                    // The engine constructs TLS wire records; never send
-                    // application plaintext or downgrade to a raw fallback.
-                    output.write(packet)
-                    output.flush()
-                    packet.fill(0)
-                    packetsSeen++
-                    if (result.handshakeStatus ==
-                        SSLEngineResult.HandshakeStatus.FINISHED
-                    ) finished = true
+                    try {
+                        val result = engine.wrap(EMPTY.duplicate(), outputRecord)
+                        if (result.status != SSLEngineResult.Status.OK ||
+                            result.bytesConsumed() != 0 ||
+                            result.bytesProduced() !in 1..MAX_ENGINE_PACKET
+                        ) throw SSLException("Unexpected TLS handshake wrap")
+                        outputRecord.flip()
+                        val packet = ByteArray(outputRecord.remaining())
+                        try {
+                            outputRecord.get(packet)
+                            // The engine constructs TLS wire records; never send
+                            // application plaintext or downgrade to a raw fallback.
+                            output.write(packet)
+                            output.flush()
+                        } finally {
+                            packet.fill(0)
+                        }
+                        packetsSeen++
+                        if (result.handshakeStatus ==
+                            SSLEngineResult.HandshakeStatus.FINISHED
+                        ) finished = true
+                    } finally {
+                        outputRecord.array().fill(0)
+                    }
                 }
                 SSLEngineResult.HandshakeStatus.NEED_UNWRAP -> {
                     val record = readRecord(input)
-                    app.clear()
-                    val result = engine.unwrap(ByteBuffer.wrap(record), app)
-                    val recordLength = record.size
-                    record.fill(0)
-                    if (result.status != SSLEngineResult.Status.OK ||
-                        result.bytesProduced() != 0 ||
-                        result.bytesConsumed() != recordLength
-                    ) throw SSLException("Unexpected TLS handshake unwrap")
-                    packetsSeen++
-                    if (result.handshakeStatus ==
-                        SSLEngineResult.HandshakeStatus.FINISHED
-                    ) finished = true
+                    try {
+                        app.clear()
+                        val result = engine.unwrap(ByteBuffer.wrap(record), app)
+                        val recordLength = record.size
+                        if (result.status != SSLEngineResult.Status.OK ||
+                            result.bytesProduced() != 0 ||
+                            result.bytesConsumed() != recordLength
+                        ) throw SSLException("Unexpected TLS handshake unwrap")
+                        packetsSeen++
+                        if (result.handshakeStatus ==
+                            SSLEngineResult.HandshakeStatus.FINISHED
+                        ) finished = true
+                    } finally {
+                        record.fill(0)
+                    }
                 }
                 SSLEngineResult.HandshakeStatus.FINISHED -> {
                     finished = true
@@ -132,6 +147,10 @@ internal object DebugTlsEngineHandshake {
                 SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING -> Unit
             }
         }
-        throw SSLException("TLS handshake exceeded bounded diagnostic steps")
+            throw SSLException("TLS handshake exceeded bounded diagnostic steps")
+        } finally {
+            // An SSLEngine can leave plaintext in its scratch buffer on error.
+            app.array().fill(0)
+        }
     }
 }
