@@ -258,14 +258,16 @@ internal class DebugLocalPttActivity : Activity() {
                 debugBuild, foreground, capturing.get(), playing.get(), original.size
             )) return
         if (recordingThread?.isAlive == true) return
+        // One-phone protocol framing rehearsal: no socket, peer or network adapter.
+        val packets = DebugLocalPttFrames.fromClip(original) ?: return
         val token = currentGeneration.incrementAndGet()
-        val pcm = original.copyOf()
         playing.set(true)
-        status.text = "Playing on this phone only…"
+        status.text = "Playing ordered 20 ms audio frames on THIS phone only…"
         refresh()
         thread(name = "eden-debug-local-audio-play", isDaemon = true) {
             var track: AudioTrack? = null
             var failed = false
+            var complete = false
             try {
                 val minimum = AudioTrack.getMinBufferSize(
                     DebugLocalPttPolicy.SAMPLE_RATE_HZ,
@@ -277,8 +279,8 @@ internal class DebugLocalPttActivity : Activity() {
                     DebugLocalPttPolicy.SAMPLE_RATE_HZ,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,
-                    maxOf(minimum, pcm.size),
-                    AudioTrack.MODE_STATIC
+                    maxOf(minimum, DebugLocalPttFrames.FRAME_BYTES * 4),
+                    AudioTrack.MODE_STREAM
                 )
                 track = created
                 if (created.state != AudioTrack.STATE_INITIALIZED) {
@@ -289,36 +291,66 @@ internal class DebugLocalPttActivity : Activity() {
                         token != currentGeneration.get()
                     ) return@thread
                     activeTrack = created
-                    if (created.write(pcm, 0, pcm.size) != pcm.size) {
-                        throw IllegalStateException("Speaker write incomplete")
-                    }
                     created.play()
                 }
-                val deadline = SystemClock.elapsedRealtime() + 7_000L
-                while (playing.get() && foreground &&
-                    token == currentGeneration.get() &&
-                    created.playbackHeadPosition < pcm.size / 2 &&
-                    SystemClock.elapsedRealtime() < deadline
+                var sentSamples = 0
+                while (playing.get() && foreground && token == currentGeneration.get()) {
+                    val frame = packets.poll() ?: break
+                    try {
+                        var offset = 0
+                        while (offset < frame.pcm.size && playing.get() && foreground &&
+                            token == currentGeneration.get()
+                        ) {
+                            val written = created.write(
+                                frame.pcm, offset, frame.pcm.size - offset,
+                                AudioTrack.WRITE_BLOCKING
+                            )
+                            if (written <= 0 || written % 2 != 0) {
+                                throw IllegalStateException("Incomplete PCM frame")
+                            }
+                            offset += written
+                        }
+                        if (offset != frame.pcm.size) break
+                        sentSamples += frame.pcm.size / 2
+                    } finally {
+                        frame.pcm.fill(0)
+                    }
+                }
+                if (packets.queuedCount == 0 && playing.get() && foreground &&
+                    token == currentGeneration.get()
                 ) {
-                    Thread.sleep(25)
+                    val deadline = SystemClock.elapsedRealtime() + 7_000L
+                    while (playing.get() && foreground &&
+                        token == currentGeneration.get() &&
+                        created.playbackHeadPosition < sentSamples &&
+                        SystemClock.elapsedRealtime() < deadline
+                    ) {
+                        Thread.sleep(25)
+                    }
+                    complete = playing.get() && foreground &&
+                        token == currentGeneration.get() &&
+                        created.playbackHeadPosition >= sentSamples
                 }
             } catch (_: Exception) {
-                failed = true
+                if (playing.get()) failed = true
             } finally {
+                packets.close()
                 synchronized(audioGuard) {
                     if (activeTrack === track) activeTrack = null
                     try { track?.stop() } catch (_: Exception) {}
                     try { track?.release() } catch (_: Exception) {}
                 }
                 if (token == currentGeneration.get()) playing.set(false)
-                pcm.fill(0)
                 runOnUiThread {
                     if (DebugLocalPttPolicy.acceptWorkerResult(
                             token, currentGeneration.get(), foreground
                         )
                     ) {
-                        status.text = if (failed) "Couldn't play sound on this phone."
-                            else "Playback finished. No audio was transmitted."
+                        status.text = when {
+                            failed -> "Couldn't play sound on this phone."
+                            complete -> "Local frame playback finished. Nothing transmitted."
+                            else -> "Local frame playback stopped or timed out. Nothing transmitted."
+                        }
                         refresh()
                     }
                 }
