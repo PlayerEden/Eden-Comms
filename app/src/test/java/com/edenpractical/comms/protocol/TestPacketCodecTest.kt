@@ -175,7 +175,7 @@ class TestPacketCodecTest {
         assertEquals(actual, codec.read(ByteArrayInputStream(stream.toByteArray())))
     }
 
-    @Test fun invalidDebugTextAndUnreviewedAcksFailClosed() {
+    @Test fun invalidDebugTextAndMalformedPeerAcksFailClosed() {
         for (text in listOf("", "   ", "x".repeat(281), "ok\u0001",
             "\uD800", "\uDC00")) {
             assertThrows(ProposedChatWireException::class.java) {
@@ -196,7 +196,36 @@ class TestPacketCodecTest {
         val fakeAck = ProposedChatWireCodec.encode(
             ProposedChatWireCodec.Packet.Ack(3)
         )
-        assertThrows(TestPacketException::class.java) { codec.decode(fakeAck) }
+        // Exactly one acknowledged message ID, zero payload; never "read".
+        assertEquals(17, fakeAck.size)
+        assertEquals(codec.debugAck(3), codec.decode(fakeAck))
+        assertEquals(codec.debugAck(3), codec.decode(codec.encode(codec.debugAck(3))))
+        assertThrows(ProposedChatWireException::class.java) {
+            codec.debugAck(0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(
+                TestPacketCodec.Type.DEBUG_ACK, phraseId = 1, messageId = 3))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(
+                TestPacketCodec.Type.DEBUG_ACK, messageId = 3, text = "spoof"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            codec.encode(TestPacketCodec.Packet(
+                TestPacketCodec.Type.DEBUG_ACK, messageId = 3,
+                sessionCommitment = binding.toList()))
+        }
+        for (wrong in listOf(
+            fakeAck.copyOf(16),
+            fakeAck + byteArrayOf(1),
+            fakeAck.copyOf().also { it[6] = 1 },
+            fakeAck.copyOf().also { it[15] = 1 }
+        )) {
+            assertThrows(ProposedChatWireException::class.java) {
+                codec.decode(wrong)
+            }
+        }
         val invalid = codec.encode(codec.debugText(2, "hello")).copyOf()
         invalid[4] = 2
         assertThrows(ProposedChatWireException::class.java) {

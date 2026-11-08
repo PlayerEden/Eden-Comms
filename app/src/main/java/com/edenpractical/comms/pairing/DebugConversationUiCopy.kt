@@ -6,6 +6,7 @@ package com.edenpractical.comms.pairing
  * become a remote delivery/read claim or production messaging authority.
  */
 internal object DebugConversationUiCopy {
+    const val peerAppAckLabel = "Other app returned test ACK • not read"
     fun participant(direction: DebugTextTranscript.Direction): String =
         when (direction) {
             DebugTextTranscript.Direction.WRITTEN_TO_TLS -> "You"

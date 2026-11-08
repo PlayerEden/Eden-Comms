@@ -1,3 +1,7 @@
+## Current execution priority — full-function test-build roadmap (November 7, 2026)
+
+**Build the usable app, not just isolated diagnostics.** The [full-function development test roadmap](FULL_FUNCTION_DEVELOPMENT_TEST_ROADMAP_2026_11_07.md) is the active sequence: **F0 dependable LAN → F1 peer-app debug text ACK (active) → F2 authenticated Bluetooth text → F3 verified Wi-Fi Direct text → F4 remote PTT after secure session → F5 opt-in privacy/retention → F6 UX/build quality → F7 physical/security acceptance & release**. Milestones declare separate implemented, CI-verified, and on-phone/security-accepted statuses. None of the non-LAN communication modes or remote PTT is yet physically verified or production-enabled. External protocol and hardware gates cannot be bypassed to call the first test build complete.
+
 **D1 one-phone audio milestone (2026-11-07):** Real debug-only AudioRecord → AudioTrack capture/playback, explicit permission, hold/release and accessible Start/Stop; no remote transmission. [D1 runbook](M6_D1_LOCAL_PTT_AUDIO.md) and [functional demo targets](FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
 # Eden Comms — Core Feature Completion Plan (living plan, November 6, 2026)
