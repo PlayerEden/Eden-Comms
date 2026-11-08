@@ -359,50 +359,78 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         val m = manager ?: return
         val c = channel ?: return
         tcpAttempted = true
-        tcpNotice = "Inspecting the untrusted Wi-Fi Direct group-owner endpoint."
+        tcpNotice = "Checking the temporary Wi-Fi Direct group's own interface."
         try {
             m.requestConnectionInfo(c) { info ->
                 if (active !== token || !foreground || !ready() ||
                     gate.snapshot().phase != DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED
                 ) return@requestConnectionInfo
-                val address = info.groupOwnerAddress
-                if (!info.groupFormed || !info.isGroupOwner || address == null) {
-                    tcpNotice = "OS did not confirm a group-owner endpoint. No listener opened."
+                if (!info.groupFormed || !info.isGroupOwner) {
+                    tcpNotice = "Android did not confirm our group-owner role; no listener."
                     return@requestConnectionInfo
                 }
-                val probe = DebugWifiDirectTcpProbe()
-                tcpProbe = probe
-                if (!probe.start(
-                        DebugWifiDirectTcpProbe.Role.HOST, address,
-                        onCompleted = { reached ->
-                            handler.post {
-                                if (active !== token || tcpProbe !== probe || !foreground)
-                                    return@post
-                                tcpProbe = null
-                                tcpNotice = if (reached)
-                                    "A TCP connection reached the group listener. " +
-                                        "Peer UNVERIFIED. No data sent."
-                                else "TCP handshake timed out or failed. No data sent."
-                            }
-                        },
-                        onListening = {
-                            handler.post {
-                                if (active === token && tcpProbe === probe && foreground)
-                                    tcpNotice = "Listener active briefly. Tap CONNECTIVITY TEST " +
-                                        "on joining phone now. No data is exchanged."
-                            }
+                try {
+                    m.requestGroupInfo(c) { group ->
+                        if (active !== token || !foreground || !ready() ||
+                            gate.snapshot().phase !=
+                                DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED
+                        ) return@requestGroupInfo
+                        if (group?.isGroupOwner != true) {
+                            tcpNotice = "No active owner P2P group interface. No listener."
+                            return@requestGroupInfo
                         }
-                    )
-                ) {
-                    probe.close()
-                    tcpProbe = null
-                    tcpNotice = "Owner endpoint failed private-IPv4 validation; no listener."
-                } else {
-                    tcpNotice = "Opening 5-second listener on the temporary P2P interface."
+                        // Android can anonymize groupOwnerAddress on the HOST.
+                        // Resolve ONLY the exact P2P interface supplied by this
+                        // group. Never guess a default wlan/cellular address.
+                        val local = DebugWifiDirectP2pInterface.resolve(
+                            group.getInterface(), isHost = true, info.groupOwnerAddress
+                        )
+                        if (local == null) {
+                            tcpNotice = "Android's P2P interface address is unavailable " +
+                                "or ambiguous. TCP was not opened."
+                            return@requestGroupInfo
+                        }
+                        val probe = DebugWifiDirectTcpProbe()
+                        tcpProbe = probe
+                        if (!probe.start(
+                                DebugWifiDirectTcpProbe.Role.HOST,
+                                info.groupOwnerAddress,
+                                onCompleted = { reached ->
+                                    handler.post {
+                                        if (active !== token || tcpProbe !== probe ||
+                                            !foreground
+                                        ) return@post
+                                        tcpProbe = null
+                                        tcpNotice = if (reached)
+                                            "A TCP connection reached the P2P listener. " +
+                                                "Peer UNVERIFIED. No data sent."
+                                        else "TCP handshake timed out or failed. No data sent."
+                                    }
+                                },
+                                onListening = {
+                                    handler.post {
+                                        if (active === token && tcpProbe === probe &&
+                                            foreground
+                                        ) tcpNotice = "P2P-bound listener active briefly. " +
+                                            "Tap CONNECTIVITY TEST on joining phone now."
+                                    }
+                                },
+                                localP2pAddress = local
+                            )
+                        ) {
+                            probe.close()
+                            tcpProbe = null
+                            tcpNotice = "Could not bind to the OS P2P interface. No listener."
+                        } else {
+                            tcpNotice = "Opening 5-second listener on verified P2P interface."
+                        }
+                    }
+                } catch (_: RuntimeException) {
+                    tcpNotice = "Cannot inspect the active P2P group. No listener started."
                 }
             }
         } catch (_: RuntimeException) {
-            tcpNotice = "Cannot inspect Wi-Fi Direct endpoint; no listener started."
+            tcpNotice = "Cannot inspect Wi-Fi Direct endpoint. No listener started."
         }
     }
 
