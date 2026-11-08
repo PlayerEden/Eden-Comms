@@ -205,13 +205,17 @@ internal class DebugLocalPttActivity : Activity() {
                     AudioRecord.READ_NON_BLOCKING
                 )
                 when {
+                    // A read may race an explicit Stop. Keep any valid captured clip.
+                    n < 0 && !capturing.get() -> break
                     n < 0 -> throw IllegalStateException("Microphone read failed")
                     n == 0 -> Thread.sleep(DebugLocalPttPlaybackBudget.RETRY_PAUSE_MILLIS)
                     else -> written += n
                 }
             }
         } catch (_: Exception) {
-            hadError = true
+            // Stop/background can close the driver during a read without making
+            // an otherwise completed local clip a microphone error.
+            hadError = capturing.get() && foreground
         } finally {
             synchronized(audioGuard) {
                 if (activeRecorder === recorder) activeRecorder = null
