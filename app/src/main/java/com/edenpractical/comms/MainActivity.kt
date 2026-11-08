@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edenpractical.comms.chat.LocalChatPreviewScreen
+import com.edenpractical.comms.ui.HomeModeLayout
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
 import com.edenpractical.comms.ui.FieldHelp
@@ -433,24 +435,53 @@ private fun HomeScreen(
             "Voice is not available. Do not use this test build for secrets."
     )
     FieldSectionHeader("COMMUNICATION", null)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        CompactModeTile(
-            modifier = Modifier.weight(1f),
-            glyph = R.drawable.ic_eden_chat,
-            title = "Text",
-            detail = "Nearby test chat",
-            onClick = onChatPreview
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // Two narrow cards can crowd their text on compact and large-font phones.
+        // This responsive layout changes no authorization or radio capability.
+        val stackModes = HomeModeLayout.shouldStack(
+            maxWidth.value, LocalDensity.current.fontScale
         )
-        CompactModeTile(
-            modifier = Modifier.weight(1f),
-            glyph = R.drawable.ic_eden_ptt,
-            title = "Voice / PTT",
-            detail = "Preview",
-            onClick = onPtt
-        )
+        if (stackModes) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CompactModeTile(
+                    modifier = Modifier.fillMaxWidth(),
+                    glyph = R.drawable.ic_eden_chat,
+                    title = "Text",
+                    detail = "Development test only",
+                    onClick = onChatPreview
+                )
+                CompactModeTile(
+                    modifier = Modifier.fillMaxWidth(),
+                    glyph = R.drawable.ic_eden_ptt,
+                    title = "Voice / PTT",
+                    detail = "Not available",
+                    onClick = onPtt
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CompactModeTile(
+                    modifier = Modifier.weight(1f),
+                    glyph = R.drawable.ic_eden_chat,
+                    title = "Text",
+                    detail = "Development test only",
+                    onClick = onChatPreview
+                )
+                CompactModeTile(
+                    modifier = Modifier.weight(1f),
+                    glyph = R.drawable.ic_eden_ptt,
+                    title = "Voice / PTT",
+                    detail = "Not available",
+                    onClick = onPtt
+                )
+            }
+        }
     }
 
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
