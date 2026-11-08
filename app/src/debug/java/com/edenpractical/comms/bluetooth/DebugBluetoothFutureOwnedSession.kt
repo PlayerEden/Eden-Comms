@@ -7,7 +7,10 @@ import java.io.Closeable
  * post-consent connection resource. NOT wired to any real Android RFCOMM
  * socket, TLS engine, live callback, peer identity, UI, or message transport.
  *
- * F2-I additionally requires a same-role, same-peer-pin and same-transcript\n * *review context* on each matching-generation observation. The context is\n * caller-constructible and cannot authorize communication by itself.\n *\n * This class intentionally has no send/read API. The observations supplied
+ * F2-I additionally requires a same-role, same-peer-pin and same-transcript
+ * review context on each matching-generation observation. The context is
+ * caller-constructible and cannot authorize communication by itself.
+ *\n * This class intentionally has no send/read API. The observations supplied
  * to [begin] are CALLER CLAIMS, NOT cryptographic proof or authorization.
  * Neither this class nor the F2-E diagnostic completion can authorize chat.
  * Real socket retention still requires independent security/protocol review
