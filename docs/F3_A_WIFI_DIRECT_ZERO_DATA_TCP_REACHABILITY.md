@@ -19,16 +19,26 @@ only in debuggable APKs and sends/reads **zero application data**. A
 successful TCP handshake is NOT evidence of identity, QR possession,
 TLS encryption, bilateral consent, or peer-app receipt.
 
+**November 8 F3-B3-A routing correction:** The original host-address
+assumption below has been superseded by the
+[F3-B3-A OS P2P interface QA handoff](F3_B3_A_P2P_INTERFACE_BOUND_TWO_PHONE_QA.md).
+Android may anonymize the host's group-owner address. Both endpoints
+now re-read the current group, select the OS-named P2P interface,
+and bind their test sockets to its eligible local IPv4 or fail
+closed. The F3-A zero-payload and no-trust limits remain unchanged.
+
 ## Actual Android user path
 
 **Hosting phone (separate debug group-host screen):**
 1. Explicitly tap START 20-SECOND GROUP HOST TEST.
 2. Once Android reports HOST_OBSERVED, tap
    **RUN 5-SECOND TCP LISTENER TEST — NO DATA**.
-3. Re-read current `WifiP2pManager.requestConnectionInfo`. Only if
-   `groupFormed` and `isGroupOwner` are true, with an OS-reported
-   private IPv4 `groupOwnerAddress`, open exactly one listener **bound
-   to that specific private interface**, never 0.0.0.0 or the WAN.
+3. Re-read current `WifiP2pManager.requestConnectionInfo` to verify
+   `groupFormed` and `isGroupOwner`, then `requestGroupInfo`.
+   Bind one listener to the **private IPv4 of the exact OS-reported
+   P2P group interface**. A redacted group-owner address on the host
+   is permitted only if that specific local interface is valid;
+   never use 0.0.0.0 or a default network.
 4. Listen for one inbound TCP handshake for at most 5 seconds.
    Immediately close any accepted socket and listener. No user-data
    APIs, QR data, file storage or audio are involved.
@@ -39,9 +49,11 @@ TLS encryption, bilateral consent, or peer-app receipt.
    request the 18-second link test and wait for GROUP_OBSERVED.
 2. Tap **TEST ONE TCP CONNECTION — NO DATA OR TRUST** while the host's
    listener is running. This is a third explicit user action.
-3. On the same active link token, query Android connection info again.
-   Only if `groupFormed`, `!isGroupOwner`, and a private OS owner IPv4
-   are present, make one connection with at most a 2-second timeout.
+3. On the same active link token, verify `groupFormed` and
+   `!isGroupOwner`, then read `requestGroupInfo`. Require an
+   eligible private local IPv4 on the P2P group interface and a
+   private OS group-owner IPv4 within its reported subnet. Bind
+   the local P2P source before the bounded 2-second TCP connect.
 4. Close the connector immediately, regardless of success/failure.
    Never infer peer identity from the owner address or a platform
    connection-success callback. No messages, recording or screenshots
@@ -61,11 +73,12 @@ correct state. This does not mean any test actually succeeded on phones.
   app message or microphone API. It transfers **no app payload**.
 - Fixed high TCP port `39761`, host accept timeout 5 seconds, join
   connect timeout 2 seconds, one accepted connection at most.
-- Only private IPv4 (RFC 1918) addresses from Android's *current*
-  P2P connection info are accepted. Link-local, wildcard, multicast,
-  public and IPv6 are rejected. Loopback can be used only by the
-  separately invoked JVM test fixture and is not permitted by the
-  Android controller paths.
+- Only eligible RFC1918 IPv4 addresses on the OS-reported **P2P group
+  interface** are accepted. The host may tolerate a null/wildcard
+  *redacted* owner address but never binds to a wildcard. The joiner
+  requires the concrete OS owner IPv4 in the same reported subnet.
+  Link-local, multiple, malformed, public or IPv6 candidates fail
+  closed. JVM loopback is allowed only in isolated JVM fixtures.
 - Cancel closes sockets to abort blocking I/O. One probe per
   user-started group/link attempt. Late callbacks are checked against
   current Android group token and foreground state.
