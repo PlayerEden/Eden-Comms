@@ -103,7 +103,12 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                 if (token == generation) {
                     if (used >= DebugLanVoiceWireCodec.PCM_BYTES) {
                         val clip = recording.copyOf(used)
-                        try { onComplete(clip) } finally { clip.fill(0) }
+                        try { onComplete(clip) }
+                        catch (_: Exception) {
+                            // Callback failure must also release the UI's
+                            // pending state; never retain or retry PCM.
+                            try { onNoAudio() } catch (_: Exception) { }
+                        } finally { clip.fill(0) }
                     } else {
                         // Even an immediate release, absent mic or failed start
                         // must complete the UI's capture state. No fake packet.
