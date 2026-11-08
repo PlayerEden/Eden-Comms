@@ -92,6 +92,12 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             onState = { phase, description ->
                 linkPhase = phase
                 linkStatus = description
+                if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {
+                    // No reusable QR or anonymous radio candidate on retry:
+                    // restart the actual two-phone flow with fresh codes.
+                    qrCoordinator.clear()
+                    clearCandidateMemory()
+                }
             },
             onApprovalReady = { available ->
                 approvalPending = available
@@ -254,21 +260,48 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     ) {
                         Text("Bluetooth discovery — DEVELOPMENT TEST",
                             style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Search for nearby Bluetooth Classic radio activity. " +
-                                "This is NOT Eden Comms peer discovery, pairing, " +
-                                "encryption or message delivery."
+                        val guide = DebugBluetoothJourneyCue.current(
+                            qrCoordinator.stage, linkPhase,
+                            selectedOrdinal != null, busy, approvalPending
                         )
                         Text(
-                            "Only Android 12+ is included in this experiment. " +
-                                "You explicitly approve Nearby devices access. " +
-                                "Nothing is scanned in the background."
+                            guide.phase,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            "Radio observations: $observations (unverified events). " +
-                                "Up to 12 unnamed signal handles are held temporarily " +
-                                "in memory; no names, addresses or history are saved."
+                            guide.instruction,
+                            style = MaterialTheme.typography.titleMedium
                         )
+                        Text(guide.next, style = MaterialTheme.typography.bodyMedium)
+                        // QR comes FIRST; raw radio search is relevant to the
+                        // JOIN role only after two fresh codes are exchanged.
+                        if (linkPhase in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            )
+                        ) {
+                            Text(
+                                "QR preparation is frozen while this unverified " +
+                                    "Bluetooth test link is active. Disconnect before changing codes."
+                            )
+                        } else {
+                            DebugBluetoothQrPanel(qrCoordinator)
+                        }
+                        Text(
+                            "Bluetooth Classic • two phones • experimental link only. " +
+                                "QR plus both approvals are required. " +
+                                "Bluetooth TEXT and voice are NOT available yet.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        val showRadioSearch =
+                            qrCoordinator.stage == DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED ||
+                                busy || candidateRows.isNotEmpty() || selectedOrdinal != null
+                        if (showRadioSearch) {
+                            Text(
+                                "Radio observations: $observations (unverified events). " +
+                                    "Up to 12 unnamed signals are kept temporarily, never as trusted peers."
+                            )
                         Text(status, style = MaterialTheme.typography.bodyLarge)
                         Button(
                             onClick = { beginInquiry() },
@@ -316,6 +349,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                             ) { Text("FORGET SELECTED SIGNAL") }
                         }
+                        } // JOIN-only radio search; otherwise keep QR flow uncluttered.
                         Spacer(Modifier.height(2.dp))
                         Text(
                             "Bluetooth results can include unrelated devices. " +
@@ -328,18 +362,6 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "RFCOMM test link. Android may retain its own Bluetooth state; " +
                                 "Eden Comms does not save discovery results."
                         )
-                        if (linkPhase in setOf(
-                                DebugRfcommAttemptGate.Phase.CONNECTING,
-                                DebugRfcommAttemptGate.Phase.LINK_OPEN
-                            )
-                        ) {
-                            Text(
-                                "QR preparation is frozen while this unverified " +
-                                    "Bluetooth test link is active. Disconnect before changing codes."
-                            )
-                        } else {
-                            DebugBluetoothQrPanel(qrCoordinator)
-                        }
                         Text(
                             "BLUETOOTH LINK — DEVELOPMENT ONLY",
                             style = MaterialTheme.typography.titleMedium
