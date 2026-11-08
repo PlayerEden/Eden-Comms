@@ -43,6 +43,30 @@ internal object DebugTlsProviderReadiness {
         ) throw SSLException("Unsupported Bluetooth TLS control provider state")
     }
 
+    /**
+     * TLS 1.3 provider-only no-plaintext records (for example an encrypted
+     * post-handshake session ticket) may transiently report FINISHED on the
+     * SSLEngineResult, while the engine itself returns to NOT_HANDSHAKING.
+     *
+     * Never use this for a user/control payload or a send result. The caller
+     * must ALSO requireControlReady(engine) after unwrap, and enforce a small
+     * maximum number of skipped records. No NEED_TASK/NEED_WRAP or partial
+     * consumption is tolerated.
+     */
+    fun requireEmptyTlsOnlyResult(result: SSLEngineResult, consumed: Int) {
+        if (result.status != SSLEngineResult.Status.OK ||
+            result.bytesConsumed() != consumed ||
+            result.bytesProduced() != 0 ||
+            (result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING &&
+                result.handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED)
+        ) throw SSLException(
+            "Unsupported Bluetooth TLS-only record result: " +
+                "status=${result.status}, handshake=${result.handshakeStatus}, " +
+                "consumed=${result.bytesConsumed()}/$consumed, " +
+                "produced=${result.bytesProduced()}/0"
+        )
+    }
+
     fun requireExactControlResult(
         result: SSLEngineResult,
         consumed: Int,
@@ -52,6 +76,11 @@ internal object DebugTlsProviderReadiness {
             result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
             result.bytesConsumed() != consumed ||
             result.bytesProduced() != produced
-        ) throw SSLException("Unsupported Bluetooth TLS control engine result")
+        ) throw SSLException(
+            "Unsupported Bluetooth TLS control engine result: " +
+                "status=${result.status}, handshake=${result.handshakeStatus}, " +
+                "consumed=${result.bytesConsumed()}/$consumed, " +
+                "produced=${result.bytesProduced()}/$produced"
+        )
     }
 }

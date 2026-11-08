@@ -25,6 +25,11 @@ internal class DebugTlsControlTransport(
     companion object {
         const val PROOF_BYTES = 4 + 1 + 1 + 32 + 32 + 16 + 16 + 16 + 16
         const val COMMIT_BYTES = 4 + 1 + 1 + 32
+        // F2-D: JSSE TLS 1.3 may deliver encrypted session-ticket records
+        // after the handshake, before our first protocol control. Skip ONLY
+        // fully authenticated records yielding zero application bytes.
+        // Extra TLS-only records fail closed; never skip partial user/control.
+        const val MAX_NO_PLAINTEXT_RECORDS = 2
     }
 
     enum class Phase(val bytes: Int) {
@@ -45,26 +50,47 @@ internal class DebugTlsControlTransport(
         override fun read(b: ByteArray, off: Int, len: Int): Int {
             validateBounds(b.size, off, len)
             requireReady(len)
-            val encoded = DebugTlsEngineHandshake.readRecord(wireInput)
-            try {
-                DebugTlsRecordBoundary.requireSingleCiphertext(encoded)
-                val clear = ByteBuffer.allocate(phase.bytes)
+            // Exactly one application control is required. A TLS 1.3
+            // provider can emit one or two encrypted no-plaintext records
+            // (e.g. NewSessionTicket) after its initial handshake. They are
+            // not control frames and never enter the application buffer.
+            for (skipped in 0..MAX_NO_PLAINTEXT_RECORDS) {
+                val encoded = DebugTlsEngineHandshake.readRecord(wireInput)
                 try {
-                    val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
-                    DebugTlsProviderReadiness.requireExactControlResult(
-                        result, consumed = encoded.size, produced = phase.bytes
-                    )
-                    DebugTlsProviderReadiness.requireControlReady(engine)
-                    clear.flip()
-                    clear.get(b, off, len)
-                    return len
+                    DebugTlsRecordBoundary.requireSingleCiphertext(encoded)
+                    // SSLEngine requires space for its advertised maximum
+                    // application fragment before unwrap, even if this TLS
+                    // record ultimately produces zero app bytes. The F2-C
+                    // provider gate has already bounded this allocation.
+                    // Only EXACTLY phase.bytes may ever reach the caller.
+                    val clear = ByteBuffer.allocate(engine.session.applicationBufferSize)
+                    try {
+                        val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
+                        if (result.bytesProduced() == 0) {
+                            DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(
+                                result, consumed = encoded.size
+                            )
+                            DebugTlsProviderReadiness.requireControlReady(engine)
+                            if (skipped == MAX_NO_PLAINTEXT_RECORDS)
+                                throw SSLException("Too many TLS-only control-prefix records")
+                            continue
+                        }
+                        DebugTlsProviderReadiness.requireExactControlResult(
+                            result, consumed = encoded.size, produced = phase.bytes
+                        )
+                        DebugTlsProviderReadiness.requireControlReady(engine)
+                        clear.flip()
+                        clear.get(b, off, len)
+                        return len
+                    } finally {
+                        // Even malformed or partially produced plaintext is cleared.
+                        clear.array().fill(0)
+                    }
                 } finally {
-                    // Even malformed or partially produced plaintext is cleared.
-                    clear.array().fill(0)
+                    encoded.fill(0)
                 }
-            } finally {
-                encoded.fill(0)
             }
+            throw SSLException("Missing Bluetooth TLS control frame")
         }
     }
 

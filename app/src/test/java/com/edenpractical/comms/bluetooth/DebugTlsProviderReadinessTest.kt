@@ -48,6 +48,38 @@ class DebugTlsProviderReadinessTest {
         }
     }
 
+    @Test fun tlsOnlyRecordCanFinishTransientlyButNeverCarryControlPayload() {
+        val idle = SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
+        val finished = SSLEngineResult.HandshakeStatus.FINISHED
+        for (state in listOf(idle, finished)) {
+            val empty = SSLEngineResult(SSLEngineResult.Status.OK, state, 1031, 0)
+            DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(empty, consumed = 1031)
+            if (state == finished) {
+                assertThrows(SSLException::class.java) {
+                    DebugTlsProviderReadiness.requireExactControlResult(empty, 1031, 0)
+                }
+            }
+        }
+        for (state in SSLEngineResult.HandshakeStatus.values()) {
+            if (state != idle && state != finished) {
+                val disallowed = SSLEngineResult(SSLEngineResult.Status.OK, state, 1031, 0)
+                assertThrows(SSLException::class.java) {
+                    DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(disallowed, 1031)
+                }
+            }
+        }
+        for (bad in listOf(
+            SSLEngineResult(SSLEngineResult.Status.OK, finished, 1031, 1),
+            SSLEngineResult(SSLEngineResult.Status.OK, finished, 1030, 0),
+            SSLEngineResult(SSLEngineResult.Status.BUFFER_OVERFLOW, finished, 0, 0),
+            SSLEngineResult(SSLEngineResult.Status.CLOSED, finished, 1031, 0)
+        )) {
+            assertThrows(SSLException::class.java) {
+                DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(bad, 1031)
+            }
+        }
+    }
+
     @Test fun engineResultRequiresExactLengthsAndNoNewHandshake() {
         fun result(
             status: SSLEngineResult.Status = SSLEngineResult.Status.OK,
