@@ -42,6 +42,10 @@ NOT a reviewed secure messenger. Use only harmless sample text.
    online.
 3. Both people explicitly approve the current test connection and wait
    for **both final confirmations**. Don't send anything before that.
+   While the QR screen or active test chat is visible, the app asks
+   Android to keep the screen awake to avoid an accidental timeout.
+   The power button can still lock; backgrounding or leaving still
+   ends the live test. Idle/result screens do not hold the display awake.
 4. On A, type `hello test` and send using the **keyboard Send action**.
    Send another via **SEND TEST MESSAGE**. Check that B shows the actual
    received messages; test reverse direction B → A.
