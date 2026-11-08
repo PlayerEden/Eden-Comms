@@ -22,9 +22,6 @@ import java.io.ByteArrayOutputStream
  * these tests cannot prove real-world crypto, latency or audibility.
  */
 class DebugLanVirtualTwoPhoneRegressionTest {
-    private val floorKind = DebugLanVoiceFloorCodec.Kind
-    private val voiceKind = DebugLanVoiceWireCodec.Kind
-
     private class Phone(val isHost: Boolean) {
         val floor = DebugLanVoiceFloor(isHost)
         val audio = DebugLanVoiceAssembler()
@@ -107,10 +104,10 @@ class DebugLanVirtualTwoPhoneRegressionTest {
             val request = joiner.floor.requestLocal(110L + index * 5).packet!!
             assertFalse(joiner.floor.maySendAudio())
             val denial = deliverFloor(host, request, 111L + index * 5).outbound!!
-            assertEquals(floorKind.DENY, denial.kind)
+            assertEquals(DebugLanVoiceFloorCodec.Kind.DENY, denial.kind)
             delayedDenials.add(denial)
             val cancel = joiner.floor.cancelPending()!!
-            assertEquals(floorKind.CANCEL, cancel.kind)
+            assertEquals(DebugLanVoiceFloorCodec.Kind.CANCEL, cancel.kind)
             deliverFloor(host, cancel, 112L + index * 5)
         }
         // Network delay/reordering of replies must not re-enable an old mic.
@@ -142,7 +139,7 @@ class DebugLanVirtualTwoPhoneRegressionTest {
         // The same two peers turn the channel around to the joining phone.
         val requested = joiner.floor.requestLocal(200).packet!!
         val granted = deliverFloor(host, requested, 201).outbound!!
-        assertEquals(floorKind.GRANT, granted.kind)
+        assertEquals(DebugLanVoiceFloorCodec.Kind.GRANT, granted.kind)
         assertFalse(joiner.floor.maySendAudio()) // A REQUEST is not a GRANT.
         assertEquals(DebugLanVoiceFloor.Signal.GRANTED,
             deliverFloor(joiner, granted, 202).signal)
@@ -235,9 +232,11 @@ class DebugLanVirtualTwoPhoneRegressionTest {
         assertNull(deliverVoice(joiner, DebugLanVoiceWireCodec.start(5)))
         val outgoing = DebugLanLiveVoiceQueue()
         assertTrue(outgoing.offer(pcm(0x4d)))
+        val firstFrame = outgoing.poll()!!
         assertNull(deliverVoice(joiner, DebugLanVoiceWireCodec.data(
-            5, 0, outgoing.poll()!!.also { it.fill(0) }
+            5, 0, firstFrame
         )))
+        firstFrame.fill(0)
         // Simulate abrupt Wi-Fi loss: the sender discards untransmitted PCM,
         // both independent floor leases close, and the receiver drops a
         // partial turn instead of fabricating END or playing a full clip.
@@ -294,7 +293,7 @@ class DebugLanVirtualTwoPhoneRegressionTest {
     @Test fun missingGrantAndMissingReleaseRequireDisconnectNotFloorReassignment() {
         val joiner = Phone(false)
         val first = joiner.floor.requestLocal(100).packet!!
-        assertEquals(floorKind.REQUEST, first.kind)
+        assertEquals(DebugLanVoiceFloorCodec.Kind.REQUEST, first.kind)
         assertFalse(joiner.floor.maySendAudio())
         assertFalse(joiner.floor.timedOut(100 + DebugLanVoiceFloor.PENDING_TIMEOUT_MS))
         assertTrue(joiner.floor.timedOut(101 + DebugLanVoiceFloor.PENDING_TIMEOUT_MS))
@@ -302,12 +301,12 @@ class DebugLanVirtualTwoPhoneRegressionTest {
         assertFalse(joiner.floor.maySendAudio())
 
         val host = Phone(true)
-        host.incomingFloor(DebugLanVoiceFloorCodec.Frame(floorKind.REQUEST, 7), 300)
+        host.incomingFloor(DebugLanVoiceFloorCodec.Frame(DebugLanVoiceFloorCodec.Kind.REQUEST, 7), 300)
         assertTrue(host.floor.timedOut(301 + DebugLanVoiceFloor.LEASE_TIMEOUT_MS))
         host.disconnect()
         assertThrows(TestPacketException::class.java) {
             deliverFloor(host,
-                DebugLanVoiceFloorCodec.Frame(floorKind.RELEASE, 7), 10_000)
+                DebugLanVoiceFloorCodec.Frame(DebugLanVoiceFloorCodec.Kind.RELEASE, 7), 10_000)
         }
     }
 }
