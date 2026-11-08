@@ -25,6 +25,16 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-I cancellation-safe microphone send handoff (November 8):**
+A one-shot synchronized per-recording gate now orders an accessible tap
+capture's AudioRecord callback against Cancel/Hide/background. Cancel
+before send prevents a late voice clip from being enqueued; already-queued
+sound cannot be retracted. No-audio and live microphone-start failure
+also release otherwise unused floors. Concurrency/JVM and source
+regression coverage added; real handset cancellation timing and LAN
+audibility still untested. Source only, no new Preview signed yet.
+[F4-I verification handoff](F4_I_VOICE_CALLBACK_CANCEL_GUARD_2026_11_08.md).
+
 **F4-H floor-control scheduling under live audio (November 8):**
 On an already-approved local TLS test session, a separate four-packet
 bounded *scheduling* lane now sends REQUEST/GRANT/DENY/CANCEL without
