@@ -78,6 +78,9 @@ internal fun LocalPairingTestScreen(
     val handler = remember { Handler(Looper.getMainLooper()) }
     val voiceAudio = remember(context) { DebugLanVoiceAudio(context.applicationContext) }
     var talking by remember { mutableStateOf(false) }
+    // Block another capture while an ended recording is still finalizing
+    // and queuing its one bounded voice turn.
+    var voiceFinalizing by remember { mutableStateOf(false) }
     var voiceNote by remember { mutableStateOf("No voice burst sent yet.") }
     val micPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -164,6 +167,7 @@ internal fun LocalPairingTestScreen(
         probe = null
         voiceAudio.cancelAll()
         talking = false
+        voiceFinalizing = false
         voiceNote = "No voice burst sent yet."
         debugText = debugText.finish()
         ackedTextIds = emptySet()
@@ -478,7 +482,10 @@ internal fun LocalPairingTestScreen(
                             )
                         }
                         LanDemoSession.Phase.VOICE_RECEIVED -> {
-                            if (stage == "demo") voiceNote = "Received a short encrypted voice test burst."
+                            // The actual local speaker outcome is reported by
+                            // the AudioTrack callback below. Network reception
+                            // alone never claims playback on this phone.
+                            Unit
                         }
                         LanDemoSession.Phase.VOICE_WRITTEN -> {
                             if (stage == "demo") voiceNote =
@@ -541,12 +548,20 @@ internal fun LocalPairingTestScreen(
             // Same session, same pinned TLS and bilateral approval gates;
             // the receiver copies audio immediately and wipes the source.
             connection.setVoicePlayback { pcm ->
-                val played = voiceAudio.playReceived(pcm)
-                handler.post {
+                val accepted = voiceAudio.playReceived(pcm) { started ->
+                    handler.post {
+                        if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
+                            stage == "demo"
+                        ) voiceNote = if (started)
+                            "The speaker started playback on this phone (sound not verified)."
+                        else "Voice arrived, but the phone could not start speaker playback."
+                    }
+                }
+                if (!accepted) handler.post {
                     if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
                         stage == "demo"
-                    ) voiceNote = if (played) "Playing a short voice burst from the other phone."
-                        else "Received voice, but playback was unavailable or already in use."
+                    ) voiceNote =
+                        "Voice arrived while your microphone/speaker was busy. Ask to repeat."
                 }
             }
             probe = connection
@@ -1028,8 +1043,11 @@ internal fun LocalPairingTestScreen(
                         Button(
                             onClick = {
                                 if (talking) {
-                                    voiceAudio.finishCapture()
+                                    // Do not let an ultra-short press leave the
+                                    // screen indefinitely saying "Finishing".
+                                    voiceFinalizing = true
                                     talking = false
+                                    voiceAudio.finishCapture()
                                     voiceNote = "Finishing voice capture and sending…"
                                 } else if (context.checkSelfPermission(
                                         Manifest.permission.RECORD_AUDIO
@@ -1040,32 +1058,63 @@ internal fun LocalPairingTestScreen(
                                     val live = probe
                                     if (live == null) {
                                         voiceNote = "No active nearby test connection."
-                                    } else if (voiceAudio.startCapture { clip ->
-                                            val result = live.sendVoiceBurst(clip)
-                                            handler.post {
-                                                if (stage == "demo") voiceNote = when (result) {
-                                                    LanDemoSession.VoiceSendResult.QUEUED ->
-                                                        "Sending short encrypted voice burst…"
-                                                    LanDemoSession.VoiceSendResult.BUSY ->
-                                                        "Voice sender busy. Try again."
-                                                    LanDemoSession.VoiceSendResult.INVALID_AUDIO ->
-                                                        "Too short or microphone unavailable. Try again."
-                                                    LanDemoSession.VoiceSendResult.AWAITING_APPROVAL ->
-                                                        "Both phones must approve before voice testing."
-                                                    LanDemoSession.VoiceSendResult.NOT_CONNECTED ->
-                                                        "Test session ended. Reconnect with fresh codes."
-                                                }
-                                                talking = false
-                                            }
-                                        }
-                                    ) {
-                                        talking = true
-                                        voiceNote = "Microphone recording now • max 3 seconds"
                                     } else {
-                                        voiceNote = "Microphone or speaker busy. Try again."
+                                        // Only the current active, approved
+                                        // chat can receive this worker result.
+                                        val voiceAttempt = attemptVersion
+                                        val started = voiceAudio.startCapture(
+                                            onNoAudio = {
+                                                handler.post {
+                                                    if (DebugSessionEventAdmission.current(
+                                                            voiceAttempt, attemptVersion
+                                                        ) && stage == "demo"
+                                                    ) {
+                                                        talking = false
+                                                        voiceFinalizing = false
+                                                        voiceNote =
+                                                            "No usable microphone audio. Speak a little longer and try again."
+                                                    }
+                                                }
+                                            },
+                                            onComplete = { clip ->
+                                                val result = live.sendVoiceBurst(clip)
+                                                handler.post {
+                                                    if (DebugSessionEventAdmission.current(
+                                                            voiceAttempt, attemptVersion
+                                                        ) && stage == "demo"
+                                                    ) {
+                                                        voiceNote = when (result) {
+                                                            LanDemoSession.VoiceSendResult.QUEUED ->
+                                                                "Sending short encrypted voice burst…"
+                                                            LanDemoSession.VoiceSendResult.BUSY ->
+                                                                "Voice sender busy. Try again."
+                                                            LanDemoSession.VoiceSendResult.INVALID_AUDIO ->
+                                                                "Too short or microphone unavailable. Try again."
+                                                            LanDemoSession.VoiceSendResult.AWAITING_APPROVAL ->
+                                                                "Both phones must approve before voice testing."
+                                                            LanDemoSession.VoiceSendResult.NOT_CONNECTED ->
+                                                                "Test session ended. Reconnect with fresh codes."
+                                                        }
+                                                        talking = false
+                                                        voiceFinalizing = false
+                                                    }
+                                                }
+                                            }
+                                        )
+                                        if (started) {
+                                            talking = true
+                                            voiceFinalizing = false
+                                            voiceNote = "Microphone recording now • max 3 seconds"
+                                        } else {
+                                            voiceNote = "Microphone or speaker busy. Try again."
+                                        }
                                     }
+                                    // F4-B: end recording always produces a
+                                    // validated send OR an explicit no-audio
+                                    // result, never an indefinite finish state.
                                 }
                             },
+                            enabled = !voiceFinalizing,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
                             shape = CutCornerShape(6.dp)
                         ) {
@@ -1091,6 +1140,7 @@ internal fun LocalPairingTestScreen(
                             ending?.endByUser()
                             voiceAudio.cancelAll()
                             talking = false
+                            voiceFinalizing = false
                             clearTemporaryPairing()
                             details = "Test ended on this phone."
                             status = "Test ended."
