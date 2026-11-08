@@ -591,6 +591,39 @@ for forbidden in 'import android.bluetooth.' 'import android.net.' \
   fi
 done
 
+# F2-H: future-only resource owner closes a one-shot simulated link,
+# never claims actual RFCOMM or authenticated send/receive capabilities.
+BT_FUTURE_OWNER="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothFutureOwnedSession.kt"
+BT_FUTURE_BUDGET="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothContinuationBudget.kt"
+test -f "$BT_FUTURE_OWNER" && test -f "$BT_FUTURE_BUDGET"
+grep -Fq 'elapsedMs < lastObservedMs' "$BT_FUTURE_BUDGET"
+grep -Fq 'lastObservedMs = elapsedMs' "$BT_FUTURE_BUDGET"
+grep -Fq 'budget.beginObservation(generation, elapsedMs, observations)' "$BT_FUTURE_OWNER"
+grep -Fq 'budget.stillObserved(' "$BT_FUTURE_OWNER"
+grep -Fq 'if (phase != Phase.OBSERVING || attempt != generation)' "$BT_FUTURE_OWNER"
+grep -Fq 'closeQuietly(owned)' "$BT_FUTURE_OWNER"
+grep -Fq 'closeQuietly(released)' "$BT_FUTURE_OWNER"
+grep -Fq 'competingDisconnectAndDeadlineCallbacksCloseExactlyOnce' \
+  'app/src/test/java/com/edenpractical/comms/bluetooth/DebugBluetoothFutureOwnedSessionTest.kt'
+if grep -Fq 'DebugBluetoothFutureOwnedSession' "$BT_TLS_PROBE" ||
+   grep -Fq 'DebugBluetoothFutureOwnedSession' "$BT_RFCOMM"; then
+  echo "FAIL: F2-H future owner wired into live RFCOMM" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugBluetoothFutureOwnedSession.kt' -print -quit | grep -q .; then
+  echo "FAIL: F2-H future owner moved to release source" >&2
+  exit 1
+fi
+for forbidden in 'import android.bluetooth.' 'import javax.net.ssl.' \
+  'BluetoothSocket' 'SSLEngine' 'DebugBluetoothProbeCompletion' \
+  'DebugBluetoothTextFrameCodec' 'TestPacketCodec' 'sendDebugText(' \
+  'SharedPreferences' 'ProductionSessionAuthorization' 'AudioRecord'; do
+  if grep -Fq "$forbidden" "$BT_FUTURE_OWNER"; then
+    echo "FAIL: F2-H future owner gained identity, payload or radio send authority" >&2
+    exit 1
+  fi
+done
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
