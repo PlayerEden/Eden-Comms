@@ -478,6 +478,24 @@ if find "$MAIN" \( -name 'DebugBluetoothConsentDecision.kt' -o -name 'DebugBluet
   echo "FAIL: debug-only Bluetooth user approval entered release sources" >&2
   exit 1
 fi
+# F2-D is JVM-unit-test-only *real TLS* evidence, not radio interoperability
+# and never a runtime key generator or an authority to open Bluetooth chat.
+F2D_TEST="app/src/test/java/com/edenpractical/comms/bluetooth/DebugPairedTlsEngineInteropTest.kt"
+test -f "$F2D_TEST"
+grep -Fq 'Tls13PeerContext(hostIdentity.manager, hostExpected).unconnectedEngine(client = false)' "$F2D_TEST"
+grep -Fq 'Tls13PeerContext(joinIdentity.manager, joinExpected).unconnectedEngine(client = true)' "$F2D_TEST"
+grep -Fq 'wrongOutOfBandPeerPinCannotCompleteMutualTlsHandshake()' "$F2D_TEST"
+grep -Fq 'Files.createTempDirectory("eden-f2d-test-only-")' "$F2D_TEST"
+grep -Fq 'Files.deleteIfExists(' "$F2D_TEST"
+if find app/src/main app/src/debug -name 'DebugPairedTlsEngineInteropTest.kt' -print -quit | grep -q .; then
+  echo "FAIL: F2-D ephemeral certificate fixture entered a distributable source set" >&2
+  exit 1
+fi
+if grep -RFn --include='*.kt' 'DebugPairedTlsEngineInteropTest' app/src/main app/src/debug; then
+  echo "FAIL: production or debug runtime references F2-D JVM-only TLS fixture" >&2
+  exit 1
+fi
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
