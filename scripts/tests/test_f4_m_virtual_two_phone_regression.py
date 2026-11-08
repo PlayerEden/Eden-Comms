@@ -44,7 +44,7 @@ class F4MVirtualTwoPhoneCoverage(unittest.TestCase):
         actual = (MAIN / "transport/LanDemoSession.kt").read_text()
         for marker in (
             "TestPacketCodec.read(socket.inputStream)",
-            "TestPacketCodec.debugVoiceFloor(request)",
+            "TestPacketCodec.debugVoiceFloor(frame)",
             "queueFloorControl(request)",
             "sendPacket(TestPacketCodec.debugVoice(frame))",
             "voiceFloor?.close()",
