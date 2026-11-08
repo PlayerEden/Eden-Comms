@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import com.edenpractical.comms.protocol.TestPacketCodec
 import com.edenpractical.comms.protocol.DebugLanVoiceWireCodec
+import com.edenpractical.comms.protocol.DebugLanVoiceFloorCodec
 import com.edenpractical.comms.protocol.DebugLanVoiceAssembler
 import com.edenpractical.comms.protocol.TestPacketException
 import com.edenpractical.comms.security.LocalTlsIdentity
@@ -47,12 +48,14 @@ internal class LanDemoSession(
     enum class Phase {
         LISTENING, CONNECTING, PROGRESS, READY, APPROVAL_UPDATE, APPROVAL_COMPLETE,
         SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, TEXT_PEER_ACK,
-        VOICE_WRITTEN, VOICE_STARTED, VOICE_FINISHED, VOICE_RECEIVED, ENDED, FAILED
+        VOICE_WRITTEN, VOICE_STARTED, VOICE_FINISHED, VOICE_RECEIVED,
+        VOICE_FLOOR_GRANTED, VOICE_FLOOR_DENIED, ENDED, FAILED
     }
     enum class SendResult { QUEUED, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     enum class ApprovalResult { QUEUED, ALREADY_PENDING, NOT_CONNECTED }
     enum class TextSendResult { QUEUED, INVALID_TEXT, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     enum class VoiceSendResult { QUEUED, INVALID_AUDIO, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
+    enum class FloorRequestResult { GRANTED, PENDING, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     data class Event(
         val phase: Phase,
         val description: String,
@@ -109,6 +112,7 @@ internal class LanDemoSession(
     private val voiceQueued = AtomicBoolean(false)
     private val nextVoiceTurn = AtomicLong(1L)
     private val peerVoiceActive = AtomicBoolean(false)
+    @Volatile private var voiceFloor: DebugLanVoiceFloor? = null
     @Volatile private var liveVoice: LiveVoiceHandle? = null
     // In-memory playback consumer only. No file, history or export.
     @Volatile private var voicePlayback: ((ByteArray) -> Unit)? = null
@@ -249,6 +253,9 @@ internal class LanDemoSession(
         socket.soTimeout = 0
         connectedAtMs = SystemClock.elapsedRealtime()
         lastReceivedMs = connectedAtMs
+        // Each authenticated LAN session gets fresh presenter arbitration.
+        // No grant or previous request survives a new QR/TLS connection.
+        voiceFloor = DebugLanVoiceFloor(isHost = isHost)
         ready = true
         preReadyWifiMonitor?.cancel(false)
         emit(Event(
@@ -259,6 +266,16 @@ internal class LanDemoSession(
                 "text or preset phrases; not independently reviewed authorization."
         ))
         startHeartbeat()
+        // If a grant is delayed or an owner never releases, close the WHOLE
+        // session. Never silently hand the floor to another microphone.
+        cancellationTimer.scheduleAtFixedRate({
+            if (ready && !stopped.get() &&
+                voiceFloor?.timedOut(SystemClock.elapsedRealtime()) == true
+            ) {
+                emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                close()
+            }
+        }, 250, 250, TimeUnit.MILLISECONDS)
 
         // Fixed control types and a strict, bounded debug TEXT inner payload
         // inside FrameCodec. Never treat this as reviewed production messaging.
@@ -327,12 +344,41 @@ internal class LanDemoSession(
                                 DebugPeerAckLedger.Result.REJECT -> throw TestPacketException()
                             }
                         }
+                        TestPacketCodec.Type.DEBUG_VOICE_FLOOR -> {
+                            if (!approvalGate.maySendPreset()) throw TestPacketException()
+                            val frame = packet.floor ?: throw TestPacketException()
+                            val decision = (voiceFloor ?: throw TestPacketException())
+                                .incoming(frame, SystemClock.elapsedRealtime())
+                            decision.outbound?.let { response ->
+                                // Only the existing authenticated TLS writer
+                                // may respond. No independent radio control.
+                                writer.execute {
+                                    try { sendPacket(TestPacketCodec.debugVoiceFloor(response)) }
+                                    catch (_: Exception) {
+                                        emitTerminal(Phase.ENDED,
+                                            LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                                        close()
+                                    }
+                                }
+                            }
+                            when (decision.signal) {
+                                DebugLanVoiceFloor.Signal.GRANTED ->
+                                    emit(Event(Phase.VOICE_FLOOR_GRANTED,
+                                        "Approved peer granted this microphone the floor"))
+                                DebugLanVoiceFloor.Signal.DENIED ->
+                                    emit(Event(Phase.VOICE_FLOOR_DENIED,
+                                        "Other phone currently owns the radio channel"))
+                                DebugLanVoiceFloor.Signal.NONE -> Unit
+                            }
+                        }
                         TestPacketCodec.Type.DEBUG_VOICE_START,
                         TestPacketCodec.Type.DEBUG_VOICE_PCM,
                         TestPacketCodec.Type.DEBUG_VOICE_END -> {
                             if (!approvalGate.maySendPreset()) throw TestPacketException()
                             val voiceFrame = packet.voice ?: throw TestPacketException()
                             try {
+                                if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.START)
+                                    (voiceFloor ?: throw TestPacketException()).remoteAudioStart()
                                 val completed = incomingVoice.accept(voiceFrame)
                                 // The existing assembler still owns strict turn
                                 // ordering and replay rejection. With the F4-D
@@ -356,6 +402,7 @@ internal class LanDemoSession(
                                 } finally {
                                     completed?.fill(0)
                                     if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.END) {
+                                        (voiceFloor ?: throw TestPacketException()).remoteAudioEnd()
                                         peerVoiceActive.set(false)
                                         emit(Event(
                                             Phase.VOICE_FINISHED,
@@ -499,6 +546,69 @@ internal class LanDemoSession(
     }
 
     /**
+     * Request the sole presenter's per-session voice floor, BEFORE microphone
+     * startup. Host reserves locally; joiner waits for a correlated GRANT.
+     * An unapproved/closed socket never sends REQUEST.
+     */
+    fun requestVoiceFloor(): FloorRequestResult {
+        if (!ready || stopped.get() || ending.get()) return FloorRequestResult.NOT_CONNECTED
+        if (!approvalGate.maySendPreset()) return FloorRequestResult.AWAITING_APPROVAL
+        val floor = voiceFloor ?: return FloorRequestResult.NOT_CONNECTED
+        return when (val requested = floor.requestLocal(SystemClock.elapsedRealtime())) {
+            is DebugLanVoiceFloor.Request -> when (requested.status) {
+                DebugLanVoiceFloor.Ask.BUSY -> FloorRequestResult.BUSY
+                DebugLanVoiceFloor.Ask.GRANTED -> FloorRequestResult.GRANTED
+                DebugLanVoiceFloor.Ask.PENDING -> {
+                    val request = requested.packet ?: throw IllegalStateException()
+                    try {
+                        writer.execute {
+                            try { sendPacket(TestPacketCodec.debugVoiceFloor(request)) }
+                            catch (_: Exception) {
+                                emitTerminal(Phase.ENDED,
+                                    LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                                close()
+                            }
+                        }
+                        FloorRequestResult.PENDING
+                    } catch (_: RuntimeException) {
+                        floor.cancelPending()
+                        FloorRequestResult.NOT_CONNECTED
+                    }
+                }
+            }
+        }
+    }
+
+    /** Cancel an unstarted hold/tap. A late GRANT is ignored by the joiner. */
+    fun cancelUnstartedVoiceFloor() {
+        val floor = voiceFloor ?: return
+        val control = floor.cancelPending() ?: floor.releaseLocal()
+        if (control != null && ready && !stopped.get() && !ending.get()) {
+            try {
+                writer.execute {
+                    try { sendPacket(TestPacketCodec.debugVoiceFloor(control)) }
+                    catch (_: Exception) {
+                        emitTerminal(Phase.ENDED,
+                            LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                        close()
+                    }
+                }
+            } catch (_: RuntimeException) { close() }
+        }
+    }
+
+    /** Invoked on the SAME sole writer, immediately after the last PCM/END. */
+    private fun releaseWrittenVoiceFloor() {
+        val frame = voiceFloor?.releaseLocal() ?: return
+        if (!ready || stopped.get() || ending.get()) return
+        try { sendPacket(TestPacketCodec.debugVoiceFloor(frame)) }
+        catch (_: Exception) {
+            emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+            close()
+        }
+    }
+
+    /**
      * Debug-only, mutually approved 16kHz mono voice burst over this SAME
      * TLS session. A bounded 3-second clip is queued as 20ms PCM frames.
      * The writer owns an independent copy and erases it after send/abort.
@@ -507,6 +617,7 @@ internal class LanDemoSession(
     fun sendVoiceBurst(input: ByteArray): VoiceSendResult {
         if (!ready || stopped.get() || ending.get()) return VoiceSendResult.NOT_CONNECTED
         if (!approvalGate.maySendPreset()) return VoiceSendResult.AWAITING_APPROVAL
+        if (voiceFloor?.maySendAudio() != true) return VoiceSendResult.BUSY
         if (input.isEmpty() || input.size > DebugLanVoiceWireCodec.MAX_PCM_BYTES ||
             input.size % DebugLanVoiceWireCodec.PCM_BYTES != 0
         ) return VoiceSendResult.INVALID_AUDIO
@@ -553,6 +664,7 @@ internal class LanDemoSession(
                     close()
                 } finally {
                     clip.fill(0)
+                    releaseWrittenVoiceFloor()
                     voiceQueued.set(false)
                 }
             }
@@ -598,6 +710,8 @@ internal class LanDemoSession(
             return LiveVoiceStart(VoiceSendResult.NOT_CONNECTED)
         if (!approvalGate.maySendPreset())
             return LiveVoiceStart(VoiceSendResult.AWAITING_APPROVAL)
+        if (voiceFloor?.maySendAudio() != true)
+            return LiveVoiceStart(VoiceSendResult.BUSY)
         // Courtesy half-duplex: don't start while we know the peer is
         // speaking. Simultaneous unobserved presses still need floor arbitration.
         if (peerVoiceActive.get() || !voiceQueued.compareAndSet(false, true))
@@ -654,6 +768,7 @@ internal class LanDemoSession(
                     close()
                 } finally {
                     queue.clear()
+                    releaseWrittenVoiceFloor()
                     if (liveVoice === handle) liveVoice = null
                     voiceQueued.set(false)
                 }
@@ -1063,6 +1178,8 @@ internal class LanDemoSession(
         liveVoice?.cancel()
         liveVoice = null
         peerVoiceActive.set(false)
+        voiceFloor?.close()
+        voiceFloor = null
         incomingVoice.clear()
         voicePlayback = null
         liveVoicePlayback = null
