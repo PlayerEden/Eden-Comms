@@ -10,8 +10,15 @@ internal object BuildEvidenceReport {
         val versionName: String,
         val versionCode: Long?,
         val sourceRevision: String,
-        val apkSignerSha256: String?
+        val apkSignerSha256: String?,
+        val applicationId: String = "com.edenpractical.comms"
     )
+
+    fun packageId(value: String): String =
+        value.takeIf {
+            it == "com.edenpractical.comms" ||
+                it == "com.edenpractical.comms.preview"
+        } ?: "unavailable"
 
     fun version(value: String): String =
         value.takeIf {
@@ -43,7 +50,7 @@ internal object BuildEvidenceReport {
     fun format(evidence: Evidence): String = listOf(
         "EDEN COMMS — INSTALLED BUILD EVIDENCE",
         "Public APK metadata from this one phone; NOT a device upgrade test.",
-        "App package: com.edenpractical.comms",
+        "App package: ${packageId(evidence.applicationId)}",
         "App version: ${version(evidence.versionName)}",
         "App versionCode: ${code(evidence.versionCode)}",
         "Source revision: ${revision(evidence.sourceRevision)}",

@@ -18,7 +18,8 @@ internal object InstalledBuildEvidence {
         return try {
             val pm = context.packageManager
             val packageName = context.packageName
-            require(packageName == "com.edenpractical.comms")
+            require(packageName == BuildConfig.APPLICATION_ID &&
+                BuildEvidenceReport.packageId(packageName) != "unavailable")
             val info = when {
                 Build.VERSION.SDK_INT >= 33 ->
                     pm.getPackageInfo(
@@ -57,14 +58,16 @@ internal object InstalledBuildEvidence {
                 versionName = info.versionName ?: "unavailable",
                 versionCode = versionCode,
                 sourceRevision = revision,
-                apkSignerSha256 = signerFingerprint
+                apkSignerSha256 = signerFingerprint,
+                applicationId = packageName
             )
         } catch (_: Exception) {
             BuildEvidenceReport.Evidence(
                 versionName = "unavailable",
                 versionCode = null,
                 sourceRevision = revision,
-                apkSignerSha256 = null
+                apkSignerSha256 = null,
+                applicationId = BuildConfig.APPLICATION_ID
             )
         }
     }
