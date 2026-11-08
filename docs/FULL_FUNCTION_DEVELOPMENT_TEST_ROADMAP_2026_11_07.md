@@ -25,6 +25,15 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-J immediate local audio shutdown on link loss (November 8):**
+A one-shot session close hook now stops Android microphone/speaker directly
+during unexpected encrypted-session teardown rather than waiting for a
+posted UI event. Object-identity ownership fences prevent a stale old QR/TLS
+session from stopping audio from a newer attempt. New JVM concurrency and
+Python source guards; real two-phone Wi-Fi-off, interruption, screen lifecycle
+and speaker checks remain untested. No silent reconnect or new permission.
+[F4-J handoff](F4_J_LINK_LOSS_AUDIO_TEARDOWN_2026_11_08.md).
+
 **F4-I cancellation-safe microphone send handoff (November 8):**
 A one-shot synchronized per-recording gate now orders an accessible tap
 capture's AudioRecord callback against Cancel/Hide/background. Cancel
