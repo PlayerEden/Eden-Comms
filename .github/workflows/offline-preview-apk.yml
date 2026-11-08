@@ -2,7 +2,9 @@ name: Eden Comms - installable offline Preview APK
 
 # Sector Rebound / Operation Phosphor style: repeatable PUBLIC test signer
 # confined to an independent com.edenpractical.comms.preview package.
-# One initial run when this file lands; thereafter manual to conserve Actions.
+# Reviewed workflow updates make an installable test checkpoint; otherwise
+# runs are manual to conserve GitHub Actions minutes.
+# F4-F checkpoint: package actual approved LAN live PTT + host transmit-floor QA.
 on:
   workflow_dispatch:
   push:
@@ -121,9 +123,13 @@ jobs:
           echo "### This build: what to test" >> "$GITHUB_STEP_SUMMARY"
           echo "Open START-HERE-TEST.md in the downloaded artifact for one-phone" >> "$GITHUB_STEP_SUMMARY"
           echo "and two-phone LAN instructions. No production or security acceptance." >> "$GITHUB_STEP_SUMMARY"
-          echo "F4 voice milestone: on two approved same-Wi-Fi phones, tap START TALKING" >> "$GITHUB_STEP_SUMMARY"
-          echo "then SEND VOICE BURST. Maximum 3 seconds; record-then-send, NOT" >> "$GITHUB_STEP_SUMMARY"
-          echo "continuous walkie-talkie streaming. Test with harmless speech only." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4-F LIVE PTT TEST: on both phones use fresh reciprocal QR codes" >> "$GITHUB_STEP_SUMMARY"
+          echo "and two independent approvals/final confirmations on the same Wi-Fi." >> "$GITHUB_STEP_SUMMARY"
+          echo "HOLD TO TALK now requests the host-granted floor before enabling the mic;" >> "$GITHUB_STEP_SUMMARY"
+          echo "voice streams DURING a successful press, up to 3 seconds." >> "$GITHUB_STEP_SUMMARY"
+          echo "The accessible TAP fallback still records then sends, with the same grant." >> "$GITHUB_STEP_SUMMARY"
+          echo "Test simultaneous presses, canceled pending grants, and both directions." >> "$GITHUB_STEP_SUMMARY"
+          echo "No physical audio/latency/security acceptance. Never use for emergencies." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload installable Preview APK
         uses: actions/upload-artifact@v4
