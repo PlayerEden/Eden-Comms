@@ -146,6 +146,30 @@ class LocalQaReportTest {
         assertFalse(sanitized.contains("peer=secret"))
     }
 
+    @Test fun peerAppAckIsOnlyAnObservedEventNotAReadReceipt() {
+        val report = LocalQaReport.format(sample().copy(
+            testTextWrittenToTls = 3,
+            testTextReceivedHere = 2,
+            testTextPeerAckEvents = 1
+        ))
+        assertTrue(report.contains("Peer-app ACK events for debug text observed here: 1"))
+        assertTrue(report.contains("NOT message display, human reading or guaranteed delivery"))
+        assertTrue(report.contains("can be incomplete"))
+        assertFalse(report.contains("Hello from this phone"))
+    }
+
+    @Test fun peerAppAckCountCannotBecomeAnUnboundedOrSecretReport() {
+        for (invalid in listOf(-1, 10_001)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                LocalQaReport.format(sample().copy(testTextPeerAckEvents = invalid))
+            }
+        }
+        val maximum = LocalQaReport.format(sample().copy(testTextPeerAckEvents = 10_000))
+        assertTrue(maximum.contains("Peer-app ACK events for debug text observed here: 10000"))
+        val absent = LocalQaReport.format(sample())
+        assertTrue(absent.contains("Peer-app ACK events for debug text observed here: 0"))
+    }
+
     @Test fun developmentTextReportContainsCountsNeverTypedContent() {
         val report = LocalQaReport.format(sample().copy(
             testTextWrittenToTls = 2,
