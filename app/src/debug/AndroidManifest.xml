@@ -3,7 +3,9 @@
     <!-- M3m debug-only Classic inquiry + secure RFCOMM socket experiment.
          Android 12+ Nearby devices permissions are requested on user actions.
          Release gets none of these permissions; legacy location is capped at API 32.
-         No microphone, peer persistence or coordinates. -->
+         D1 local-only microphone test adds RECORD_AUDIO to debug APK; no peer persistence or coordinates. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation"/>
@@ -20,6 +22,10 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     <uses-feature android:name="android.hardware.wifi.direct" android:required="false"/>
     <application>
+        <activity
+            android:name=".audio.DebugLocalPttActivity"
+            android:exported="false"
+            android:label="Local microphone and speaker check"/>
         <activity
             android:name=".bluetooth.DebugBluetoothDiscoveryActivity"
             android:exported="false"

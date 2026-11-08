@@ -12,7 +12,8 @@ echo "$PERMISSIONS"
 # Android's explicit 120-second discoverability prompt on Host.
 # Main/release manifest MUST NOT request any Bluetooth permission.
 # M3p: Android 13+ Nearby Wi-Fi plus API <=32 location and Wi-Fi read state,
-# debug only; microphone, contacts and other radio permissions prohibited.
+# debug only; D1 allows a foreground, explicitly requested local microphone
+# check on one phone. Contacts and unexpected permissions remain prohibited.
 # Fail on unexpected permission additions rather than silently expanding access.
 ACTUAL="$(printf '%s\n' "$PERMISSIONS" | grep -oE 'android\.permission\.[A-Z_]+' | sort -u || true)"
 EXPECTED="$(printf '%s\n' \
@@ -24,6 +25,7 @@ EXPECTED="$(printf '%s\n' \
   android.permission.CHANGE_WIFI_STATE \
   android.permission.CHANGE_NETWORK_STATE \
   android.permission.NEARBY_WIFI_DEVICES \
+  android.permission.RECORD_AUDIO \
   android.permission.ACCESS_FINE_LOCATION \
   android.permission.CAMERA \
   android.permission.INTERNET | sort -u)"
@@ -45,10 +47,12 @@ test -f app/src/debug/AndroidManifest.xml
 for BT_PERMISSION in BLUETOOTH_SCAN BLUETOOTH_CONNECT BLUETOOTH_ADVERTISE; do
   grep -Fq "android.permission.$BT_PERMISSION" app/src/debug/AndroidManifest.xml
 done
+grep -Fq 'android.permission.RECORD_AUDIO' app/src/debug/AndroidManifest.xml
+grep -Fq 'android.hardware.microphone' app/src/debug/AndroidManifest.xml
 for WIFI_PERMISSION in ACCESS_WIFI_STATE CHANGE_WIFI_STATE CHANGE_NETWORK_STATE NEARBY_WIFI_DEVICES ACCESS_FINE_LOCATION; do
   grep -Fq "android.permission.$WIFI_PERMISSION" app/src/debug/AndroidManifest.xml
 done
 grep -Fq 'android:maxSdkVersion="32"' app/src/debug/AndroidManifest.xml
 test "$(grep -Fc 'android:usesPermissionFlags="neverForLocation"' app/src/debug/AndroidManifest.xml)" -ge 2
 grep -Fq 'android:exported="false"' app/src/debug/AndroidManifest.xml
-echo "PASS: exact debug LAN+QR/Bluetooth/M3p Wi-Fi Direct permissions"
+echo "PASS: exact debug LAN/QR/radio + opt-in local microphone permissions"

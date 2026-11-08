@@ -446,4 +446,30 @@ if find "$MAIN" \( -name 'DebugBluetoothConsentDecision.kt' -o -name 'DebugBluet
   echo "FAIL: debug-only Bluetooth user approval entered release sources" >&2
   exit 1
 fi
-echo "PASS: M3n-C1 encrypted bilateral APPROVE/DECLINE + two final CONFIRM frames; no messages, voice, persistence or production connection"
+# D1: local microphone must be debug-only and must never acquire a socket.
+LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
+LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
+test -f "$LOCAL_AUDIO" && test -f "$LOCAL_POLICY"
+grep -Fq 'class DebugLocalPttActivity : Activity()' "$LOCAL_AUDIO"
+grep -Fq 'ApplicationInfo.FLAG_DEBUGGABLE' "$LOCAL_AUDIO"
+grep -Fq 'Manifest.permission.RECORD_AUDIO' "$LOCAL_AUDIO"
+grep -Fq 'override fun onPause()' "$LOCAL_AUDIO"
+grep -Fq 'terminateAndDiscard()' "$LOCAL_AUDIO"
+grep -Fq 'DebugLocalPttPolicy.MAX_PCM_BYTES' "$LOCAL_AUDIO"
+grep -Fq 'audioClip?.fill(0)' "$LOCAL_AUDIO"
+grep -Fq 'android.permission.RECORD_AUDIO' app/src/debug/AndroidManifest.xml
+grep -Fq 'android:name=".audio.DebugLocalPttActivity"' app/src/debug/AndroidManifest.xml
+if grep -REn '(Socket\(|java\.net\.|javax\.net\.|BluetoothSocket|WifiP2p|LanDemoSession|startService\(|openFileOutput\(|SharedPreferences|MediaRecorder\.OutputFormat)' \
+ "$LOCAL_AUDIO" "$LOCAL_POLICY"; then
+  echo "FAIL: local microphone test gained transport, background or persistence" >&2
+  exit 1
+fi
+if find "$MAIN" \( -name 'DebugLocalPttActivity.kt' -o -name 'DebugLocalPttPolicy.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: local audio code entered production source" >&2
+  exit 1
+fi
+if grep -Fq 'android.permission.RECORD_AUDIO' app/src/main/AndroidManifest.xml; then
+  echo "FAIL: debug mic permission entered release" >&2
+  exit 1
+fi
+echo "PASS: reviewed Bluetooth diagnostic unchanged; D1 is local-only and debug-only"
