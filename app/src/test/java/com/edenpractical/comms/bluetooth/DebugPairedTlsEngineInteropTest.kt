@@ -173,6 +173,152 @@ class DebugPairedTlsEngineInteropTest {
         }
     }
 
+    /**
+     * F2-G: actual JVM TLS 1.3 encryption in both directions, reusing the
+     * real mutual certificate pin/handshake fixture from F2-D. Synthetic
+     * test traffic only: no QR, exporter, human consent, Android or radio.
+     */
+    @Test
+    fun pairedTlsEnginesExchangeEncryptedTextAndPeerAppAckBothDirections() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2g-jvm-test-only").apply { isDaemon = true }
+        }
+        try {
+            val a = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                PinnedTlsPeer.requirePinnedTls13(host.session, joinIdentity.pin)
+                DebugTlsProviderReadiness.requireControlReady(host)
+            })
+            val b = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                PinnedTlsPeer.requirePinnedTls13(join.session, hostIdentity.pin)
+                DebugTlsProviderReadiness.requireControlReady(join)
+            })
+            await(a)
+            await(b)
+
+            val hostLab = DebugBluetoothFutureTlsTextLab(host, pipe.hostInput, pipe.hostOutput)
+            val joinLab = DebugBluetoothFutureTlsTextLab(join, pipe.joinInput, pipe.joinOutput)
+            val hostMessages = DebugBluetoothTextLedger()
+            val joinMessages = DebugBluetoothTextLedger()
+            try {
+                val fromHost = hostMessages.prepareText("Host says hello 👋")
+                try {
+                    hostLab.transmit(fromHost)
+                } finally {
+                    fromHost.fill(0)
+                }
+                val receivedOnJoin = joinLab.receive()
+                val accepted = try {
+                    joinMessages.acceptText(receivedOnJoin)
+                } finally {
+                    receivedOnJoin.fill(0)
+                }
+                assertEquals("Host says hello 👋", accepted.text)
+                assertEquals(1, hostMessages.outstanding())
+                try {
+                    joinLab.transmit(accepted.ack)
+                } finally {
+                    accepted.ack.fill(0)
+                }
+                val hostAck = hostLab.receive()
+                try {
+                    assertEquals(1L, hostMessages.acceptAck(hostAck))
+                } finally {
+                    hostAck.fill(0)
+                }
+                assertEquals(0, hostMessages.outstanding())
+
+                val fromJoin = joinMessages.prepareText("Join replies — hej!")
+                try {
+                    joinLab.transmit(fromJoin)
+                } finally {
+                    fromJoin.fill(0)
+                }
+                val receivedOnHost = hostLab.receive()
+                val acceptedOnHost = try {
+                    hostMessages.acceptText(receivedOnHost)
+                } finally {
+                    receivedOnHost.fill(0)
+                }
+                assertEquals("Join replies — hej!", acceptedOnHost.text)
+                try {
+                    hostLab.transmit(acceptedOnHost.ack)
+                } finally {
+                    acceptedOnHost.ack.fill(0)
+                }
+                val joinAck = joinLab.receive()
+                try {
+                    assertEquals(1L, joinMessages.acceptAck(joinAck))
+                } finally {
+                    joinAck.fill(0)
+                }
+                assertEquals(0, joinMessages.outstanding())
+
+                // A valid TLS engine is not authorization for malformed
+                // plaintext or for continued use of a failed lab instance.
+                assertThrows(IllegalArgumentException::class.java) {
+                    hostLab.transmit(byteArrayOf(1, 2, 3))
+                }
+                assertThrows(javax.net.ssl.SSLException::class.java) {
+                    hostLab.transmit(DebugBluetoothTextFrameCodec.acknowledgment(1))
+                }
+                joinLab.clear()
+                assertThrows(javax.net.ssl.SSLException::class.java) {
+                    joinLab.transmit(DebugBluetoothTextFrameCodec.acknowledgment(1))
+                }
+            } finally {
+                hostLab.clear()
+                joinLab.clear()
+                hostMessages.close()
+                joinMessages.close()
+            }
+        } finally {
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
+    @Test
+    fun pairedTlsLabRejectsMalformedEncryptedRecordAndClosesItself() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2g-negative-jvm-test-only").apply { isDaemon = true }
+        }
+        try {
+            val a = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                PinnedTlsPeer.requirePinnedTls13(host.session, joinIdentity.pin)
+            })
+            val b = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                PinnedTlsPeer.requirePinnedTls13(join.session, hostIdentity.pin)
+            })
+            await(a)
+            await(b)
+            val joinLab = DebugBluetoothFutureTlsTextLab(join, pipe.joinInput, pipe.joinOutput)
+            try {
+                // Valid TLS record envelope, but forged/invalid encrypted body.
+                pipe.hostOutput.write(byteArrayOf(23, 3, 3, 0, 1, 0))
+                pipe.hostOutput.flush()
+                assertThrows(javax.net.ssl.SSLException::class.java) { joinLab.receive() }
+                assertThrows(javax.net.ssl.SSLException::class.java) { joinLab.receive() }
+            } finally {
+                joinLab.clear()
+            }
+        } finally {
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
     @Test
     fun wrongOutOfBandPeerPinCannotCompleteMutualTlsHandshake() {
         val incorrect = hostIdentity.pin.copyOf().also { it[0] = (it[0].toInt() xor 0x01).toByte() }
