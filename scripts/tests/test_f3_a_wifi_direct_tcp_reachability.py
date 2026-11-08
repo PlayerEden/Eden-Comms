@@ -88,7 +88,15 @@ class F3AReachabilityBoundary(unittest.TestCase):
     def test_release_flags_permissions_and_qr_boundary_unchanged(self):
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn("const val " + flag + " = false", self.release)
-        for path in D.glob("*Qr*.kt"):
+        # Check only the real QR metadata/scan UI. Future isolated
+        # JVM-only QR/TLS labs deliberately own test sockets; separate F3-B1
+        # and F3-B2 guards ensure they remain disconnected from live P2P.
+        for name in (
+            "DebugWifiDirectQrCodec.kt",
+            "DebugWifiDirectQrCoordinator.kt",
+            "DebugWifiDirectQrActivity.kt",
+        ):
+            path = D / name
             text = path.read_text()
             for forbidden in (
                 "DebugWifiDirectTcpProbe", "groupOwnerAddress", "ServerSocket(",
