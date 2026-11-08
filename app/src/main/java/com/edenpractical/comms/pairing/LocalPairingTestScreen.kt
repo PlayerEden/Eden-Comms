@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -77,6 +78,16 @@ internal fun LocalPairingTestScreen(
     }
     var wifi by remember { mutableStateOf<WifiLanEndpoint.Link?>(null) }
     var stage by remember { mutableStateOf("checking") }
+    // The OS needs an actively visible view to honor keepScreenOn. This is
+    // only a pairing/chat usability request, never a background WakeLock.
+    // Retired automatically on any stage transition, back navigation or
+    // composition removal. Backgrounding still stops the test socket below.
+    val pairingView = LocalView.current
+    DisposableEffect(pairingView, stage) {
+        val keepAwake = PairingScreenAwakePolicy.shouldKeepOn(stage)
+        pairingView.keepScreenOn = keepAwake
+        onDispose { pairingView.keepScreenOn = false }
+    }
     var status by remember { mutableStateOf("Checking this phone…") }
     // This only explains a restored navigation route. No previous socket,
     // peer, QR or text is restored to the new Activity instance.
