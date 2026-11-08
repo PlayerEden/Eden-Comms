@@ -44,7 +44,7 @@ internal class LanDemoSession(
 ) : AutoCloseable {
     enum class Phase {
         LISTENING, CONNECTING, PROGRESS, READY, APPROVAL_UPDATE, APPROVAL_COMPLETE,
-        SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, ENDED, FAILED
+        SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, TEXT_PEER_ACK, ENDED, FAILED
     }
     enum class SendResult { QUEUED, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     enum class ApprovalResult { QUEUED, ALREADY_PENDING, NOT_CONNECTED }
@@ -96,6 +96,8 @@ internal class LanDemoSession(
     private val outputLock = Any()
     private val sockets = SessionSocketRegistry()
     private val sendBudget = DemoSendBudget(2)
+    private val incomingAckBudget = DemoSendBudget(2)
+    private val peerAckLedger = DebugPeerAckLedger(maxOutstanding = 16)
     private val nextDebugTextId = AtomicLong(1L)
     // Reader-thread-only replay/sequence gate, reset per connected socket.
     private val debugTextReceive = DebugTextReceiveGuard()
@@ -245,7 +247,8 @@ internal class LanDemoSession(
 
         // Fixed control types and a strict, bounded debug TEXT inner payload
         // inside FrameCodec. Never treat this as reviewed production messaging.
-        // An unreviewed ACK candidate is NOT part of the accepted protocol.
+        // A debug ACK is only accepted after mutual approval and for a
+        // specifically tracked outgoing text ID; it does not imply read.
         while (!stopped.get()) {
             when (val packet = TestPacketCodec.read(socket.inputStream)) {
                 is TestPacketCodec.Packet -> {
@@ -285,10 +288,29 @@ internal class LanDemoSession(
                                     packet.messageId, approvalGate.maySendPreset()
                                 )
                             ) throw TestPacketException()
+                            // The peer app accepted a new validated test packet.
+                            // The ACK is queued only after this event, not
+                            // as proof of UI display or a human reading it.
                             emit(Event(
                                 Phase.TEXT_RECEIVED, "Development text received in this app",
                                 messageId = packet.messageId, text = packet.text
                             ))
+                            queuePeerAppAck(packet.messageId)
+                        }
+                        TestPacketCodec.Type.DEBUG_ACK -> {
+                            val result = peerAckLedger.acknowledge(
+                                packet.messageId, approvalGate.maySendPreset()
+                            )
+                            when (result) {
+                                DebugPeerAckLedger.Result.ACKNOWLEDGED ->
+                                    emit(Event(
+                                        Phase.TEXT_PEER_ACK,
+                                        "Other app returned a test ACK (not a read receipt)",
+                                        messageId = packet.messageId
+                                    ))
+                                DebugPeerAckLedger.Result.WAITING_FOR_WRITE -> Unit
+                                DebugPeerAckLedger.Result.REJECT -> throw TestPacketException()
+                            }
                         }
                         TestPacketCodec.Type.HEARTBEAT -> Unit
                         TestPacketCodec.Type.CLOSE -> {
@@ -300,6 +322,32 @@ internal class LanDemoSession(
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * At most two peer-app acknowledgements queued on the existing TLS writer.
+     * Receipt is optional; inability to queue never invents successful
+     * delivery or sends data over any unverified transport.
+     */
+    private fun queuePeerAppAck(id: Long) {
+        if (!ready || stopped.get() || ending.get() ||
+            !approvalGate.maySendPreset() || !incomingAckBudget.tryAcquire()) return
+        try {
+            writer.execute {
+                try {
+                    if (!ready || stopped.get() || ending.get() ||
+                        !approvalGate.maySendPreset()) return@execute
+                    sendPacket(TestPacketCodec.debugAck(id))
+                } catch (_: IOException) {
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                    close()
+                } finally {
+                    incomingAckBudget.release()
+                }
+            }
+        } catch (_: RuntimeException) {
+            incomingAckBudget.release()
         }
     }
 
@@ -358,26 +406,40 @@ internal class LanDemoSession(
             sendBudget.release()
             return TextSendResult.INVALID_TEXT
         }
+        if (!peerAckLedger.queue(id)) {
+            sendBudget.release()
+            return TextSendResult.BUSY
+        }
         val packet = TestPacketCodec.debugText(id, clean)
         return try {
             writer.execute {
+                var didWrite = false
                 try {
                     if (!ready || stopped.get() || ending.get() ||
                         !approvalGate.maySendPreset()) return@execute
                     sendPacket(packet)
+                    didWrite = true
+                    val arrivedEarly = peerAckLedger.written(id)
                     emit(Event(
                         Phase.TEXT_WRITTEN, "Development text written to TLS (not delivery)",
                         messageId = id, text = clean
+                    ))
+                    if (arrivedEarly) emit(Event(
+                        Phase.TEXT_PEER_ACK,
+                        "Other app returned a test ACK (not a read receipt)",
+                        messageId = id
                     ))
                 } catch (_: IOException) {
                     emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
                     close()
                 } finally {
+                    if (!didWrite) peerAckLedger.cancel(id)
                     sendBudget.release()
                 }
             }
             TextSendResult.QUEUED
         } catch (_: RuntimeException) {
+            peerAckLedger.cancel(id)
             sendBudget.release()
             TextSendResult.NOT_CONNECTED
         }
@@ -754,6 +816,7 @@ internal class LanDemoSession(
         approvalGate.close()
         debugConsentCommitment?.fill(0)
         debugConsentCommitment = null
+        peerAckLedger.close()
         sockets.close()
         preReadyWifiMonitor?.cancel(false)
         pulses.shutdownNow()
