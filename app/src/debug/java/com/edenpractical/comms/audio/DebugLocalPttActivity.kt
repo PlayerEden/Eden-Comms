@@ -300,6 +300,7 @@ internal class DebugLocalPttActivity : Activity() {
                     created.play()
                 }
                 var sentSamples = 0
+                var allFramesWritten = true
                 // Non-blocking native writes let STOP/background promptly invalidate
                 // the attempt even when the output route is stalled.
                 while (stillPlaying(token, budget)) {
@@ -321,13 +322,18 @@ internal class DebugLocalPttActivity : Activity() {
                                 offset += n
                             }
                         }
-                        if (offset != pcm.size) break
+                        if (offset != pcm.size) {
+                            allFramesWritten = false
+                            break
+                        }
                         sentSamples += pcm.size / 2
                     } finally {
                         pcm.fill(0)
                     }
                 }
-                if (packets.queuedCount == 0 && stillPlaying(token, budget)) {
+                if (allFramesWritten && packets.queuedCount == 0 &&
+                    stillPlaying(token, budget)
+                ) {
                     while (created.playbackHeadPosition < sentSamples &&
                         stillPlaying(token, budget)
                     ) {
