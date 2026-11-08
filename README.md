@@ -4,6 +4,8 @@
 
 > **DEVELOPMENT PROTOTYPE — NOT A PRODUCTION SECURE MESSENGER.** The Android debuggable build now has a functional prototype of short two-way **test** text over the QR-pinned TLS 1.3 session, after bilateral approval and matching final confirmations. It also keeps the four fixed test phrases. It is **unreviewed and not physically verified**; do not use for sensitive or emergency communications. Production connection, normal text and PTT capability flags remain off. See [M3e](docs/M3E_DEBUG_TWO_WAY_TEXT.md).
 
+- **F0-LAN-QA two-phone readiness (debug reporting only):** the actual same-Wi-Fi test's one-phone QA summary now counts peer-app ACK *events* received from the live, mutually confirmed session, without exposing text, peer IDs or certificates. This is not a read/delivery receipt or security acceptance; both phones must still be physically tested. [Two-phone comparison guide](docs/F0_LAN_TWO_PHONE_ACK_QA_EVIDENCE_2026_11_08.md).
+
 - **M5-A automated reliability rehearsal:** Independent virtual two-peer cancellation/approval/late-callback tests, plain JVM loopback socket cleanup, and safe error-to-recovery classification. [M5-A QA and limits](docs/M5_A_TWO_PEER_RELIABILITY_REHEARSAL.md). This does not verify real Android/TLS phone-to-phone behavior.
 
 - **M5-B — bounded TCP retry deadline:** The debug LAN joiner no longer starts a full-length blocking TCP connection attempt at the end of its two-minute pairing retry window, and explicitly rejects zero (unbounded) socket timeouts. [M5-B audit and verification](docs/M5_B_LAN_RETRY_DEADLINE.md). Real two-phone reliability still requires physical QA.
