@@ -293,7 +293,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         // disabled radio buttons on the initial screen.
                         if (qrCoordinator.stage ==
                             DebugBluetoothQrCoordinator.Stage.HOST_PREPARED &&
-                            linkPhase == DebugRfcommAttemptGate.Phase.IDLE) {
+                            linkPhase !in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            )) {
                         Button(
                             onClick = { beginHostLink() },
                             enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
@@ -428,7 +431,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         if (qrCoordinator.stage ==
                             DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED &&
                             selectedOrdinal != null &&
-                            linkPhase == DebugRfcommAttemptGate.Phase.IDLE) {
+                            linkPhase !in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            )) {
                         Button(
                             onClick = { beginJoinLink() },
                             enabled = foreground && !busy && pendingLink == PendingLink.NONE &&
