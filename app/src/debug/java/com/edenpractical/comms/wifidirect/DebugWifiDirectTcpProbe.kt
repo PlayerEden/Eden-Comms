@@ -68,6 +68,11 @@ internal class DebugWifiDirectTcpProbe(
         onListening: () -> Unit = {},
         localP2pAddress: InetAddress? = null
     ): Boolean {
+        if (forJvmLoopback && groupOwnerAddress?.isLoopbackAddress != true) {
+            // The fixture escape hatch is only for real loopback JVM tests,
+            // never private/public addresses or actual Android radio links.
+            return false
+        }
         val local = if (forJvmLoopback) groupOwnerAddress else localP2pAddress
         if (local == null || !testAddressAllowed(local, forJvmLoopback)) return false
         if (role == Role.JOIN) {
