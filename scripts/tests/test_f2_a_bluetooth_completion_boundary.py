@@ -19,7 +19,7 @@ class BluetoothCompletionBoundaryTest(unittest.TestCase):
         cls.release = (MAIN / "model/ReleaseCapabilities.kt").read_text()
 
     def test_approved_worker_rechecks_lifecycle_before_terminal_success(self):
-        self.assertIn("DebugRfcommTlsProbe.run(created, request)", self.controller)
+        self.assertIn("DebugRfcommTlsProbe.run(\n                created, request,", self.controller)\n        self.assertIn("onVerifiedStage = { step -> verified(token, step) }", self.controller)\n        self.assertIn(") { decision ->", self.controller)
         self.assertIn("stop(token, DebugRfcommCompletionPolicy.endAfterConsent(", self.controller)
         self.assertIn("isForeground(), hasConnectPermission()", self.controller)
         for part in (
