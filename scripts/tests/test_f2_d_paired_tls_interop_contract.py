@@ -50,6 +50,15 @@ class F2DInteropBoundary(unittest.TestCase):
                 self.assertIn(marker, self.code, marker)
 
     def test_zero_plaintext_tls_records_are_strictly_bounded(self):
+        # A correctly sized SSLEngine scratch buffer is required even
+        # when a valid encrypted TLS record decrypts to zero app bytes.
+        self.assertIn("ByteBuffer.allocate(engine.session.applicationBufferSize)",
+                      self.control)
+        self.assertNotIn("ByteBuffer.allocate(phase.bytes)", self.control)
+        self.assertIn("DebugTlsProviderReadiness.requireControlReady(engine)",
+                      self.control)
+        self.assertIn("applicationBytes !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET",
+                      (DEBUG / "DebugTlsProviderReadiness.kt").read_text())
         self.assertIn("MAX_NO_PLAINTEXT_RECORDS = 2", self.control)
         self.assertIn("for (skipped in 0..MAX_NO_PLAINTEXT_RECORDS)", self.control)
         self.assertIn("if (result.bytesProduced() == 0)", self.control)
