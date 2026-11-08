@@ -83,13 +83,13 @@ class ApkIdentityEvidenceTests(unittest.TestCase):
             aapt = ("package: name='com.edenpractical.comms.preview' "
                     "versionCode='200001' versionName='0.2.12-preview-200001'")
             cert = "Signer #1 certificate SHA-256 digest: " + FINGERPRINT + "\\n"
-            with patch.object(mod, "tool_output", side_effect=[aapt, cert]), \\
-                 patch.object(mod, "sdk_tool", return_value="fake"):
-                report = mod.inspect(
-                    apk, EXAMPLE_GRADLE, "f" * 40,
-                    offline_preview_version_code=200001,
-                    expected_signer_sha256=FINGERPRINT
-                )
+            with patch.object(mod, "tool_output", side_effect=[aapt, cert]):
+                with patch.object(mod, "sdk_tool", return_value="fake"):
+                    report = mod.inspect(
+                        apk, EXAMPLE_GRADLE, "f" * 40,
+                        offline_preview_version_code=200001,
+                        expected_signer_sha256=FINGERPRINT
+                    )
         self.assertEqual(report["signing_profile"], "public-offline-preview")
         self.assertFalse(report["signer_continuity_verified"])
         self.assertTrue(report["configured_signer_fingerprint_matched"])
@@ -100,14 +100,14 @@ class ApkIdentityEvidenceTests(unittest.TestCase):
             apk.write_bytes(b"synthetic")
             wrong_aapt = ("package: name='com.edenpractical.comms' "
                           "versionCode='200001' versionName='0.2.12-preview-200001'")
-            with patch.object(mod, "tool_output", return_value=wrong_aapt), \\
-                 patch.object(mod, "sdk_tool", return_value="fake"):
-                with self.assertRaises(mod.IdentityAuditError):
-                    mod.inspect(
-                        apk, EXAMPLE_GRADLE, "f" * 40,
-                        offline_preview_version_code=200001,
-                        expected_signer_sha256=FINGERPRINT
-                    )
+            with patch.object(mod, "tool_output", return_value=wrong_aapt):
+                with patch.object(mod, "sdk_tool", return_value="fake"):
+                    with self.assertRaises(mod.IdentityAuditError):
+                        mod.inspect(
+                            apk, EXAMPLE_GRADLE, "f" * 40,
+                            offline_preview_version_code=200001,
+                            expected_signer_sha256=FINGERPRINT
+                        )
 
     def test_wrong_pinned_signer_rejected_before_any_report_is_written(self):
         from unittest.mock import patch
