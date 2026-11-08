@@ -38,8 +38,22 @@ def source_identity(gradle_text):
     }
 
 
-def expected_identity(gradle_text, internal_test_version_code=None):
+def expected_identity(gradle_text, internal_test_version_code=None,
+                      offline_preview_version_code=None):
     expected = source_identity(gradle_text)
+    if internal_test_version_code is not None and offline_preview_version_code is not None:
+        raise IdentityAuditError("Public preview and private internal-test builds cannot mix")
+    if offline_preview_version_code is not None:
+        if (type(offline_preview_version_code) is not int or
+                not 200_001 <= offline_preview_version_code <= 2_100_000_000):
+            raise IdentityAuditError("Invalid offline preview versionCode")
+        expected["application_id"] += ".preview"
+        expected["version_code"] = offline_preview_version_code
+        expected["version_name"] = (
+            expected["version_name"].split("-")[0] + "-preview-" +
+            str(offline_preview_version_code)
+        )
+        return expected
     if internal_test_version_code is None:
         return expected
     if (type(internal_test_version_code) is not int or
@@ -110,11 +124,14 @@ def sha256(path):
 
 
 def inspect(apk, gradle_text, build_sha,
-            internal_test_version_code=None, expected_signer_sha256=None):
+            internal_test_version_code=None, expected_signer_sha256=None,
+            offline_preview_version_code=None):
     if not apk.is_file():
         raise IdentityAuditError("APK missing")
     observed = parse_apk_badging(tool_output([sdk_tool("aapt"), "dump", "badging", str(apk)]))
-    expected = expected_identity(gradle_text, internal_test_version_code)
+    expected = expected_identity(
+        gradle_text, internal_test_version_code, offline_preview_version_code
+    )
     if observed != expected:
         raise IdentityAuditError("Packaged APK identity/version differs from Gradle source")
     signer_output = tool_output(
@@ -124,7 +141,7 @@ def inspect(apk, gradle_text, build_sha,
     if expected_signer_sha256 is not None:
         if (not re.fullmatch(r"[0-9a-fA-F]{64}", expected_signer_sha256) or
                 fingerprint != expected_signer_sha256.lower()):
-            raise IdentityAuditError("APK signer does not match configured internal test pin")
+            raise IdentityAuditError("APK signer does not match the expected certificate pin")
     return {
         "schema": "eden-comms.debug-apk-identity.v1",
         "source_commit": build_sha,
@@ -133,7 +150,8 @@ def inspect(apk, gradle_text, build_sha,
         "signer_certificate_sha256": fingerprint,
         "signer_continuity_verified": False,
         "configured_signer_fingerprint_matched": expected_signer_sha256 is not None,
-        "signing_profile": ("pinned-internal-test" if expected_signer_sha256 is not None
+        "signing_profile": ("public-offline-preview" if offline_preview_version_code is not None
+                            else "pinned-internal-test" if expected_signer_sha256 is not None
                             else "ordinary-debug"),
         "install_safety_note": (
             "A configured signer match does NOT verify compatibility with an "
@@ -194,6 +212,8 @@ def main():
     parser.add_argument("--previous", type=Path, help="Optional earlier identity JSON for fail-closed update comparison")
     parser.add_argument("--internal-test-version-code", type=int,
                         help="Strict versionCode override used only by manually signed internal APK builds")
+    parser.add_argument("--offline-preview-version-code", type=int,
+                        help="Distinct .preview package using a PUBLIC fixed development signer, never release")
     parser.add_argument("--expected-signer-sha256",
                         help="Fail if APK signer does not match the configured public certificate fingerprint")
     args = parser.parse_args()
@@ -205,6 +225,7 @@ def main():
             os.environ.get("GITHUB_SHA", "local-unassigned"),
             internal_test_version_code=args.internal_test_version_code,
             expected_signer_sha256=args.expected_signer_sha256,
+            offline_preview_version_code=args.offline_preview_version_code,
         )
         if args.previous is not None:
             previous = json.loads(args.previous.read_text(encoding="utf-8"))
