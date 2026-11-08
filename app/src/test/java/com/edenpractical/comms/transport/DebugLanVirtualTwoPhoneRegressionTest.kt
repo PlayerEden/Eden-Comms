@@ -11,6 +11,11 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * F4-M: deterministic, virtual two-phone LAN PTT regression.
@@ -288,6 +293,52 @@ class DebugLanVirtualTwoPhoneRegressionTest {
             deliverVoice(host, DebugLanVoiceWireCodec.data(9, 0, pcm(3)))
         }
         assertFalse(joiner.floor.maySendAudio())
+    }
+
+    @Test fun deniedFloorResponseUsesIndependentLaneWhilePcmWorkerIsBusy() {
+        val host = Phone(true)
+        val joiner = Phone(false)
+        assertEquals(DebugLanVoiceFloor.Ask.GRANTED,
+            host.floor.requestLocal(10).status)
+        val request = joiner.floor.requestLocal(11).packet!!
+        val denial = deliverFloor(host, request, 12).outbound!!
+        assertEquals(DebugLanVoiceFloorCodec.Kind.DENY, denial.kind)
+
+        val audioWriter = Executors.newSingleThreadExecutor()
+        val controlWriter = Executors.newSingleThreadExecutor()
+        val audioBegan = CountDownLatch(1)
+        val audioRelease = CountDownLatch(1)
+        val controlFinished = CountDownLatch(1)
+        val signal = AtomicReference(DebugLanVoiceFloor.Signal.NONE)
+        val failures = AtomicInteger()
+        try {
+            audioWriter.execute {
+                audioBegan.countDown()
+                audioRelease.await(3, TimeUnit.SECONDS)
+            }
+            assertTrue(audioBegan.await(2, TimeUnit.SECONDS))
+            val lane = DebugLanFloorControlQueue(
+                executor = controlWriter,
+                write = { frame ->
+                    signal.set(deliverFloor(joiner, frame, 13).signal)
+                    controlFinished.countDown()
+                },
+                onFailure = { failures.incrementAndGet() }
+            )
+            assertTrue(lane.offer(denial))
+            assertTrue("DENY must arrive without waiting for PCM writer release",
+                controlFinished.await(2, TimeUnit.SECONDS))
+            assertEquals(1L, audioRelease.count)
+            assertEquals(DebugLanVoiceFloor.Signal.DENIED, signal.get())
+            assertFalse(joiner.floor.maySendAudio())
+            assertEquals(0, failures.get())
+        } finally {
+            audioRelease.countDown()
+            audioWriter.shutdownNow()
+            controlWriter.shutdownNow()
+            host.disconnect()
+            joiner.disconnect()
+        }
     }
 
     @Test fun missingGrantAndMissingReleaseRequireDisconnectNotFloorReassignment() {
