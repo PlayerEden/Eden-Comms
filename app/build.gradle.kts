@@ -18,6 +18,30 @@ android {
         "Build source revision must be a 40-character lowercase Git SHA or unavailable"
     }
 
+    // Simple SIDeload preview workflow. Public AOSP test key is permitted ONLY
+    // on an isolated debug .preview application ID, never the release package.
+    // The existing ordinary/debug and protected private internal-test paths
+    // remain unchanged unless this exact opt-in build property is provided.
+    val offlinePreview = providers.gradleProperty("edenOfflinePreview").orNull
+    val offlinePreviewCodeText =
+        providers.gradleProperty("edenOfflinePreviewVersionCode").orNull
+    require(offlinePreview == null || offlinePreview == "true") {
+        "edenOfflinePreview must be true when supplied"
+    }
+    require((offlinePreview == "true") == (offlinePreviewCodeText != null)) {
+        "Offline preview requires its isolated package switch and versionCode together"
+    }
+    val offlinePreviewCode = offlinePreviewCodeText?.let { raw ->
+        require(raw.matches(Regex("[1-9][0-9]{0,8}"))) {
+            "Invalid offline preview versionCode"
+        }
+        val code = raw.toIntOrNull() ?: error("Offline preview versionCode overflow")
+        require(code in 200_001..2_100_000_000) {
+            "Offline preview versionCode outside allowed bounds"
+        }
+        code
+    }
+
     defaultConfig {
         buildConfigField("String", "SOURCE_REVISION", "\"$sourceRevision\"")
         applicationId = "com.edenpractical.comms"
@@ -26,6 +50,7 @@ android {
         versionCode = 11
         versionName = "0.2.12-approval-review-only"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["edenAppLabel"] = "Eden Comms"
     }
 
     // Optional, CI-authorized internal test APK version override. The normal
@@ -33,6 +58,9 @@ android {
     // Signing happens separately, AFTER Gradle, so private keys never enter
     // the project's Gradle runtime. No production capabilities are unlocked.
     val internalTestVersionCode = providers.gradleProperty("edenInternalTestVersionCode").orNull
+    require(offlinePreviewCode == null || internalTestVersionCode == null) {
+        "Do not combine public offline preview with private internal-test signing"
+    }
     if (internalTestVersionCode != null) {
         require(internalTestVersionCode.matches(Regex("[1-9][0-9]{0,8}"))) {
             "Internal test version must be a canonical positive integer"
@@ -47,7 +75,22 @@ android {
             (defaultConfig.versionName?.substringBefore('-') ?: "0.2.12") + "-internal-" + code
     }
 
+    if (offlinePreviewCode != null) {
+        defaultConfig.versionCode = offlinePreviewCode
+        defaultConfig.versionName =
+            (defaultConfig.versionName?.substringBefore('-') ?: "0.2.12") +
+                "-preview-" + offlinePreviewCode
+    }
+
     buildTypes {
+        debug {
+            if (offlinePreviewCode != null) {
+                // An *independent* Android package: cannot replace, sign or
+                // reset the existing com.edenpractical.comms installation.
+                applicationIdSuffix = ".preview"
+                manifestPlaceholders["edenAppLabel"] = "Eden Comms Preview"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
