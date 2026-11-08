@@ -36,16 +36,16 @@ class LiveRadioStatusContract(unittest.TestCase):
             "RECEIVING • OTHER PHONE IS TALKING",
             "TRANSMITTING • LIVE TEST AUDIO",
             "enabled = !voiceFinalizing && !privacyHidden && !peerTalking",
-            "(!peerTalking || talking)",
+            '(!peerTalking || talking || pendingFloorMode == "tap")',
             "voiceAudio.cancelAll()",
             "peerTalking = false",
-            "Audio is transmitted during a held press",
-            "does not reserve the channel",
+            "Audio starts only after an authenticated talk grant",
+            "If both users press at once, the host arbitrates",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, ui)
         self.assertGreaterEqual(
-            ui.count("peerTalking) return false"), 2,
+            ui.count("peerTalking || pendingFloorMode != null) return false"), 2,
             "Live and tap starts must both reject an observed incoming turn"
         )
 

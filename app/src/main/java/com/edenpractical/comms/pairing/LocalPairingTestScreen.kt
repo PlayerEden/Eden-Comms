@@ -82,6 +82,9 @@ internal fun LocalPairingTestScreen(
     // F4-E: only validated START/END frames from this active TLS reader
     // change the remote-radio indicator, never a local timer or permission.
     var peerTalking by remember { mutableStateOf(false) }
+    // "hold" or "tap" while the joiner awaits an explicit peer GRANT.
+    // No microphone starts during this pending state.
+    var pendingFloorMode by remember { mutableStateOf<String?>(null) }
     // Block another capture while an ended recording is still finalizing
     // and queuing its one bounded voice turn.
     var voiceFinalizing by remember { mutableStateOf(false) }
@@ -171,21 +174,9 @@ internal fun LocalPairingTestScreen(
      * and existing ECVP frames, but sends each 20ms frame DURING the hold.
      * The UI never creates a socket, unverified session or background service.
      */
-    fun startLiveVoiceCapture(): Boolean {
-        if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||
-            peerTalking) return false
-        if (context.checkSelfPermission(
-                Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            micPermission.launch(Manifest.permission.RECORD_AUDIO)
-            return false
-        }
-        val session = probe
-        if (session == null) {
-            voiceNote = "No active nearby test connection."
-            return false
-        }
+    fun beginLiveCaptureWithFloor(session: LanDemoSession): Boolean {
+        // This is reached only after the host owns the floor locally or the
+        // joiner received the exact REQUEST-correlated GRANT.
         val startedSession = session.startLiveVoice()
         val handle = startedSession.handle
         if (startedSession.status != LanDemoSession.VoiceSendResult.QUEUED ||
@@ -236,9 +227,53 @@ internal fun LocalPairingTestScreen(
         voiceFinalizing = false
         voiceNote = "Transmitting live test frames while held • max 3 seconds"
         return true
+
+    }
+
+    fun startLiveVoiceCapture(): Boolean {
+        if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||
+            peerTalking || pendingFloorMode != null) return false
+        if (context.checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return false
+        }
+        val session = probe ?: run {
+            voiceNote = "No active nearby test connection."
+            return false
+        }
+        return when (session.requestVoiceFloor()) {
+            LanDemoSession.FloorRequestResult.GRANTED ->
+                beginLiveCaptureWithFloor(session)
+            LanDemoSession.FloorRequestResult.PENDING -> {
+                pendingFloorMode = "hold"
+                voiceNote = "Requesting talk channel… Microphone is still OFF."
+                true
+            }
+            LanDemoSession.FloorRequestResult.BUSY -> {
+                voiceNote = "Talk channel busy. Wait for the other phone to finish."
+                false
+            }
+            LanDemoSession.FloorRequestResult.AWAITING_APPROVAL -> {
+                voiceNote = "Both phones must approve and confirm first."
+                false
+            }
+            LanDemoSession.FloorRequestResult.NOT_CONNECTED -> {
+                voiceNote = "Connection ended. Start again with fresh QR codes."
+                false
+            }
+        }
     }
 
     fun finishLiveVoiceCapture() {
+        if (pendingFloorMode == "hold") {
+            pendingFloorMode = null
+            probe?.cancelUnstartedVoiceFloor()
+            voiceNote = "Talk request cancelled before microphone started."
+            return
+        }
         if (!talking || stage != "demo" || liveVoiceHandle == null) return
         talking = false
         voiceFinalizing = true
@@ -248,6 +283,12 @@ internal fun LocalPairingTestScreen(
     }
 
     fun cancelLiveVoiceCapture() {
+        if (pendingFloorMode == "hold") {
+            pendingFloorMode = null
+            probe?.cancelUnstartedVoiceFloor()
+            voiceNote = "Talk request cancelled; microphone never started."
+            return
+        }
         val handle = liveVoiceHandle ?: return
         handle.cancel()
         liveVoiceHandle = null
@@ -261,21 +302,9 @@ internal fun LocalPairingTestScreen(
     // One shared capture path for hold gestures, TalkBack activation and
     // optional visible tap controls. This still records, THEN sends one bounded
     // burst on the same debug-only, already-approved TLS session.
-    fun startVoiceCapture(): Boolean {
-        if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||
-            peerTalking) return false
-        if (context.checkSelfPermission(
-                Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            micPermission.launch(Manifest.permission.RECORD_AUDIO)
-            return false
-        }
-        val live = probe
-        if (live == null) {
-            voiceNote = "No active nearby test connection."
-            return false
-        }
+    fun beginTapCaptureWithFloor(live: LanDemoSession): Boolean {
+        // Accessible two-tap fallback retains record-then-send, but both the
+        // capture and queued burst require the same explicit floor ownership.
         val voiceAttempt = attemptVersion
         val started = voiceAudio.startCapture(
             onNoAudio = {
@@ -286,6 +315,7 @@ internal fun LocalPairingTestScreen(
                     ) {
                         talking = false
                         voiceFinalizing = false
+                        live.cancelUnstartedVoiceFloor()
                         voiceNote =
                             "No usable microphone audio. Speak a little longer and try again."
                     }
@@ -293,6 +323,8 @@ internal fun LocalPairingTestScreen(
             },
             onComplete = { clip ->
                 val result = live.sendVoiceBurst(clip)
+                if (result != LanDemoSession.VoiceSendResult.QUEUED)
+                    live.cancelUnstartedVoiceFloor()
                 handler.post {
                     if (DebugSessionEventAdmission.current(
                             voiceAttempt, attemptVersion
@@ -321,9 +353,48 @@ internal fun LocalPairingTestScreen(
             voiceFinalizing = false
             voiceNote = "Microphone recording now • max 3 seconds"
         } else {
+            live.cancelUnstartedVoiceFloor()
             voiceNote = "Microphone or speaker busy. Try again."
         }
         return started
+
+    }
+
+    fun startVoiceCapture(): Boolean {
+        if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||
+            peerTalking || pendingFloorMode != null) return false
+        if (context.checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return false
+        }
+        val session = probe ?: run {
+            voiceNote = "No active nearby test connection."
+            return false
+        }
+        return when (session.requestVoiceFloor()) {
+            LanDemoSession.FloorRequestResult.GRANTED ->
+                beginTapCaptureWithFloor(session)
+            LanDemoSession.FloorRequestResult.PENDING -> {
+                pendingFloorMode = "tap"
+                voiceNote = "Requesting talk channel… Microphone is still OFF."
+                true
+            }
+            LanDemoSession.FloorRequestResult.BUSY -> {
+                voiceNote = "Talk channel busy. Wait and try again."
+                false
+            }
+            LanDemoSession.FloorRequestResult.AWAITING_APPROVAL -> {
+                voiceNote = "Both phones must approve and confirm first."
+                false
+            }
+            LanDemoSession.FloorRequestResult.NOT_CONNECTED -> {
+                voiceNote = "Connection ended. Start again with fresh QR codes."
+                false
+            }
+        }
     }
 
     fun finishVoiceCapture() {
@@ -335,7 +406,14 @@ internal fun LocalPairingTestScreen(
     }
 
     fun cancelVoiceCapture() {
+        if (pendingFloorMode == "tap") {
+            pendingFloorMode = null
+            probe?.cancelUnstartedVoiceFloor()
+            voiceNote = "Talk request cancelled; microphone never started."
+            return
+        }
         if (stage != "demo" || (!talking && !voiceFinalizing)) return
+        probe?.cancelUnstartedVoiceFloor()
         // A cancelled gesture is not permission to send an unfinished burst.
         // Generation invalidation also suppresses the old recording callback.
         voiceAudio.cancelAll()
@@ -345,7 +423,9 @@ internal fun LocalPairingTestScreen(
     }
 
     fun tapVoiceCapture() {
-        if (talking) finishVoiceCapture() else startVoiceCapture()
+        if (pendingFloorMode == "tap") cancelVoiceCapture()
+        else if (talking) finishVoiceCapture()
+        else startVoiceCapture()
     }
 
     fun stopTest() {
@@ -358,6 +438,7 @@ internal fun LocalPairingTestScreen(
         voiceAudio.cancelAll()
         talking = false
         peerTalking = false
+        pendingFloorMode = null
         voiceFinalizing = false
         voiceNote = "No voice burst sent yet."
         debugText = debugText.finish()
@@ -672,6 +753,26 @@ internal fun LocalPairingTestScreen(
                                 else DebugTextTranscript.Direction.RECEIVED_HERE,
                                 messageId, text
                             )
+                        }
+                        LanDemoSession.Phase.VOICE_FLOOR_GRANTED -> {
+                            if (stage == "demo") {
+                                val mode = pendingFloorMode
+                                pendingFloorMode = null
+                                val active = probe
+                                if (active != null && !privacyHidden && !peerTalking) {
+                                    when (mode) {
+                                        "hold" -> beginLiveCaptureWithFloor(active)
+                                        "tap" -> beginTapCaptureWithFloor(active)
+                                        else -> active.cancelUnstartedVoiceFloor()
+                                    }
+                                } else active?.cancelUnstartedVoiceFloor()
+                            }
+                        }
+                        LanDemoSession.Phase.VOICE_FLOOR_DENIED -> {
+                            if (stage == "demo" && pendingFloorMode != null) {
+                                pendingFloorMode = null
+                                voiceNote = "Other phone has the channel. Try again after it finishes."
+                            }
                         }
                         LanDemoSession.Phase.VOICE_STARTED -> {
                             // Only an approved, decoded START from the real peer
@@ -1254,8 +1355,14 @@ internal fun LocalPairingTestScreen(
                                 // Hiding the conversation also stops local
                                 // recording/playback. The peer can still send
                                 // over TLS: hidden is not a network block.
+                                val activeLiveStream = liveVoiceHandle != null
                                 liveVoiceHandle?.cancel()
                                 liveVoiceHandle = null
+                                pendingFloorMode = null
+                                // A LIVE writer must send its END before it
+                                // sends RELEASE. Only an unstarted floor is
+                                // released directly from the UI.
+                                if (!activeLiveStream) probe?.cancelUnstartedVoiceFloor()
                                 voiceAudio.cancelAll()
                                 talking = false
                                 voiceFinalizing = false
@@ -1300,6 +1407,7 @@ internal fun LocalPairingTestScreen(
                             when {
                                 privacyHidden -> "VOICE MUTED ON THIS PHONE"
                                 peerTalking -> "RECEIVING • OTHER PHONE IS TALKING"
+                                pendingFloorMode != null -> "WAITING FOR RADIO CHANNEL • MIC OFF"
                                 talking -> "TRANSMITTING • LIVE TEST AUDIO"
                                 voiceFinalizing -> "STOPPING TRANSMISSION…"
                                 else -> "READY TO TALK • TEST CONNECTION"
@@ -1314,7 +1422,8 @@ internal fun LocalPairingTestScreen(
                         // session while held. A remote START temporarily
                         // disables a new hold, but is not floor arbitration.
                         DebugHoldToTalkControl(
-                            enabled = !voiceFinalizing && !privacyHidden && !peerTalking,
+                            enabled = !voiceFinalizing && !privacyHidden && !peerTalking &&
+                                pendingFloorMode != "tap",
                             recording = talking,
                             onPressStart = { startLiveVoiceCapture() },
                             onRelease = { finishLiveVoiceCapture() },
@@ -1323,7 +1432,8 @@ internal fun LocalPairingTestScreen(
                         )
                         TextButton(
                             onClick = { showTapVoiceControls = !showTapVoiceControls },
-                            enabled = !talking && !voiceFinalizing,
+                            enabled = !talking && !voiceFinalizing &&
+                                pendingFloorMode == null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         ) {
                             Text(if (showTapVoiceControls) "HIDE TAP CONTROLS"
@@ -1335,20 +1445,25 @@ internal fun LocalPairingTestScreen(
                                 // Keep Stop available if a tap-mode capture
                                 // and remote START race each other.
                                 enabled = !voiceFinalizing && !privacyHidden &&
-                                    (!peerTalking || talking),
+                                    (!peerTalking || talking || pendingFloorMode == "tap") &&
+                                    pendingFloorMode != "hold",
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
                                 shape = CutCornerShape(6.dp)
                             ) {
-                                Text(if (talking) "SEND VOICE BURST" else "START TALKING")
+                                Text(when {
+                                    pendingFloorMode == "tap" -> "CANCEL TALK REQUEST"
+                                    talking -> "SEND VOICE BURST"
+                                    else -> "START TALKING"
+                                })
                             }
                         }
                         Text(voiceNote,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                         Text(
-                            "Audio is transmitted during a held press; already-sent " +
-                                "sound cannot be recalled. The remote talk indicator " +
-                                "helps avoid overlap but does not reserve the channel. " +
+                            "Audio starts only after an authenticated talk grant. " +
+                                "Already-transmitted sound cannot be recalled. " +
+                                "If both users press at once, the host arbitrates. " +
                                 "Backgrounding or disconnecting stops local audio. " +
                                 "No recording is saved. Use harmless test speech.",
                             style = MaterialTheme.typography.labelSmall,

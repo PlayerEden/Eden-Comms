@@ -25,6 +25,16 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-F host-granted PTT floor (November 8):** Both the live hold-to-talk
+and accessible record-then-send paths now request the SAME per-session
+host-arbitrated floor before starting a microphone. The joiner must receive
+a matching encrypted GRANT; the host serializes simultaneous requests,
+rejects early release/replays, treats stale canceled grants as inert and
+closes the entire TLS session on a stuck lease rather than silently handing
+ownership to another microphone. Debug-only source/CI work, **physical A/B
+collision and audible latency QA NOT DONE**, independent review outstanding.
+[F4-F source/QA handoff](F4_F_REAL_LAN_FLOOR_HANDSHAKE_2026_11_08.md).
+
 **F4-E observed radio state (November 8):** The real approved LAN test
 reader now produces explicit START/END observations for the nearby conversation.
 The UI displays `RECEIVING • OTHER PHONE IS TALKING`, local transmitting
