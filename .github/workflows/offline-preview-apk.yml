@@ -4,7 +4,9 @@ name: Eden Comms - installable offline Preview APK
 # confined to an independent com.edenpractical.comms.preview package.
 # Reviewed workflow updates make an installable test checkpoint; otherwise
 # runs are manual to conserve GitHub Actions minutes.
-# F4-F checkpoint: package actual approved LAN live PTT + host transmit-floor QA.
+# F4-K checkpoint: build a single signed handset test APK with F4-H/I/J
+# floor response scheduling, cancellation-safe tap send, and fast link-loss
+# microphone/speaker shutdown. F4-D/E/F live PTT stays debug-only.
 on:
   workflow_dispatch:
   push:
@@ -129,6 +131,10 @@ jobs:
           echo "voice streams DURING a successful press, up to 3 seconds." >> "$GITHUB_STEP_SUMMARY"
           echo "The accessible TAP fallback still records then sends, with the same grant." >> "$GITHUB_STEP_SUMMARY"
           echo "Test simultaneous presses, canceled pending grants, and both directions." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4-H/J CHECK: while transmitting, other phone should get prompt BUSY/DENY;" >> "$GITHUB_STEP_SUMMARY"
+          echo "Wi-Fi loss/End should stop local mic and speaker promptly, no auto-reconnect." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4-I CHECK: cancel or hide TAP recording before send; no late ghost burst." >> "$GITHUB_STEP_SUMMARY"
+          echo "If recording sent before cancel, already sent audio cannot be recalled." >> "$GITHUB_STEP_SUMMARY"
           echo "No physical audio/latency/security acceptance. Never use for emergencies." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload installable Preview APK

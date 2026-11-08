@@ -111,6 +111,48 @@ is not suitable for real private, safety-critical or emergency radio use.
 For detailed QA and failure reports, see
 [F4-F two-phone handoff](F4_F_REAL_LAN_FLOOR_HANDSHAKE_2026_11_08.md).
 
+## F4-H/I/J reliability regression tests (newer than Preview 200004)
+
+The next consolidated signed Preview is intended to **update** your previous
+Preview in place. Keep the existing installed app and use Android's normal
+Update flow. Do not uninstall or reset your identity to solve an unexpected
+package/signature error; report the installer message instead.
+
+These changes address **three practical radio interruptions**, but their
+actual performance on two Android phones is not yet established:
+
+1. **Busy channel while speaking (F4-H):** Connect both devices on the same
+   Wi-Fi, finish all reciprocal QR/approval steps, and hold Talk on phone A.
+   While A is still speaking, briefly press Talk on B. B should get a
+   prompt BUSY/DENY indication or remain silent; the entire chat should
+   not disconnect merely because A was sending its three-second burst.
+   Repeat in both directions and with both pressing almost simultaneously.
+2. **Cancel an unfinished tap recording (F4-I):** Switch to accessible
+   START TALKING / SEND VOICE BURST controls. Start recording and immediately
+   cancel or hide the conversation *before* sending. There should be no
+   unexpected new burst at the other phone. Repeat just before the
+   three-second automatic stop. If the send already committed first,
+   audio already queued or transmitted cannot be taken back.
+3. **Connection loss while speaking/listening (F4-J):** While A is holding
+   Talk, disable A's Wi-Fi or disconnect the peer. Check that local
+   microphone and speaker activity stops promptly and the app enters a
+   disconnected result state, without resuming itself. Repeat while
+   waiting for a GRANT, during the accessible tap recording, and while
+   B is receiving playback. Reconnect using **new QR codes and both
+   people's approvals**, then confirm the *old* connection does not
+   interrupt the new one.
+4. **Normal cleanup:** Press End, hide the conversation, leave the app
+   with Home, and lock the screen during short test speech. The app should
+   not keep capturing or playing in the background. Typed test text and
+   peer-app ACK remain usable during a healthy approved connection.
+
+Do **not** use these tests with sensitive speech or as a safety-critical
+radio. They establish only observed development behavior, not independent
+security review. See the [F4-H contention](F4_H_FLOOR_CONTROL_SCHEDULING_2026_11_08.md),
+[F4-I cancel](F4_I_VOICE_CALLBACK_CANCEL_GUARD_2026_11_08.md) and
+[F4-J link-loss](F4_J_LINK_LOSS_AUDIO_TEARDOWN_2026_11_08.md)
+handoffs for detailed evidence requirements.
+
 ## What to report (do not post private material)
 
 - Which APK `versionCode` and public `source revision` were installed;
