@@ -5,7 +5,7 @@ import java.io.Closeable
 /**
  * F2-H: FUTURE-ONLY, DEBUG-ONLY ownership rehearsal for a single bounded
  * post-consent connection resource. NOT wired to any real Android RFCOMM
- * socket, SSLEngine, live callback, peer identity, UI, or message transport.
+ * socket, TLS engine, live callback, peer identity, UI, or message transport.
  *
  * This class intentionally has no send/read API. The observations supplied
  * to [begin] are CALLER CLAIMS, NOT cryptographic proof or authorization.
