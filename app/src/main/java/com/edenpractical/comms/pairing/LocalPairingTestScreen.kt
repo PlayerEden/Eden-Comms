@@ -548,6 +548,15 @@ internal fun LocalPairingTestScreen(
             // Same session, same pinned TLS and bilateral approval gates;
             // the receiver copies audio immediately and wipes the source.
             connection.setVoicePlayback { pcm ->
+                // Hide conversation is local display/audio privacy, not a
+                // remote transport block. Do not play incoming sound here.
+                if (privacyHidden) {
+                    handler.post {
+                        if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
+                            stage == "demo"
+                        ) voiceNote = "Conversation hidden: received voice was not played."
+                    }
+                } else {
                 val accepted = voiceAudio.playReceived(pcm) { started ->
                     handler.post {
                         if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
@@ -562,6 +571,7 @@ internal fun LocalPairingTestScreen(
                         stage == "demo"
                     ) voiceNote =
                         "Voice arrived while your microphone/speaker was busy. Ask to repeat."
+                }
                 }
             }
             probe = connection
@@ -1006,7 +1016,18 @@ internal fun LocalPairingTestScreen(
                         draft = textDraft,
                         hidden = privacyHidden,
                         onDraftChange = { textDraft = it },
-                        onToggleHidden = { privacyHidden = !privacyHidden },
+                        onToggleHidden = {
+                            privacyHidden = !privacyHidden
+                            if (privacyHidden) {
+                                // Hiding the conversation also stops local
+                                // recording/playback. The peer can still send
+                                // over TLS: hidden is not a network block.
+                                voiceAudio.cancelAll()
+                                talking = false
+                                voiceFinalizing = false
+                                voiceNote = "Conversation hidden. Microphone and speaker stopped here."
+                            }
+                        },
                         onClearRequested = { showClearConfirmation = true },
                         onSend = {
                             when (probe?.sendDebugText(textDraft)) {
@@ -1036,8 +1057,8 @@ internal fun LocalPairingTestScreen(
                         Text(
                             "Same approved Wi-Fi connection. Tap Start talking, say a " +
                                 "short test phrase, then tap Send voice. The other " +
-                                "phone plays it when received. Up to 3 seconds; " +
-                                "not continuous live voice.",
+                                "phone attempts speaker playback when received. Up to " +
+                                "3 seconds; not continuous live voice.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         Button(
