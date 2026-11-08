@@ -4,7 +4,7 @@ package com.edenpractical.comms.pairing
  * Foreground-only UI convenience for Eden Comms' real LAN debug flow.
  *
  * Android View.keepScreenOn requests that the display not dim while THIS
- * particular composition is visible. It is not a WakeLock, does not run
+ * particular composition is visible. It does not hold background power, does not run
  * in the background, open a transport, bypass QR or approvals, or grant
  * any messaging capability. Screen power button and OS policy still win.
  */
