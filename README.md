@@ -14,6 +14,8 @@
 
 - **M5-E — fresh restart and callback guards:** Incomplete QR preflight now cleans up ephemeral pairing state, camera callbacks are generation/revision checked, and identity setup cannot auto-continue an outdated role after backgrounding. [M5-E runbook](docs/M5_E_RESTART_CALLBACK_ADMISSION.md). Device validation remains outstanding.
 
+- **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
+
 ## Product goal
 
 A simple, accessible way for two people nearby to **Connect → Communicate → Disconnect**, with no accounts, app-operated servers, analytics or advertising. Planned connectivity: local Wi-Fi, Bluetooth, Wi-Fi Direct. Text first; optional push-to-talk after verified two-phone messaging works.

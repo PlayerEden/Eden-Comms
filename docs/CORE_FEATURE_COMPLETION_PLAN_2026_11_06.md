@@ -1,3 +1,5 @@
+**D1 one-phone audio milestone (2026-11-07):** Real debug-only AudioRecord → AudioTrack capture/playback, explicit permission, hold/release and accessible Start/Stop; no remote transmission. [D1 runbook](M6_D1_LOCAL_PTT_AUDIO.md) and [functional demo targets](FUNCTIONAL_TEST_BUILD_TARGETS.md).
+
 # Eden Comms — Core Feature Completion Plan (living plan, November 6, 2026)
 
 **Owner's instruction:** Build a well-rounded Android communication app now through small, reviewed GitHub PRs, with automated tests after each step. **The owner will explicitly say when physical two-phone testing begins.** Do not stall coding to request hardware evidence or Google Play signing. Keep those items tracked as uncompleted release gates.
@@ -14,7 +16,7 @@
 | Connection recovery | Wi-Fi status, fresh QR retry, failure guidance and cancellation | On-device network interruption and reliability testing |
 | Bluetooth | M3j testable discovery state machine; **M3k raw Classic inquiry; M3l anonymous staging; M3m bounded secure RFCOMM OS socket; M3n-A reciprocal in-person QR prepared (no app encryption/text yet)** | Device selection, RFCOMM link, checked identity + authenticated encrypted messages over that link |
 | Wi-Fi Direct | Plans, discovery/permission lifecycle model only | Android P2P discovery, link, verified encrypted communication |
-| Voice / PTT | Disabled UI prototype and roadmap | Audio recording/playback and transport with verified-session/permission gates; physical latency/dropout testing |
+| Voice / PTT | D1 **local-only** microphone/speaker prototype under debug sources; remote voice disabled | Reviewed verified-session transport/audio framing and real one-phone/peer device testing |
 | Privacy | Session-only in-memory debug text; Hide conversation and Clear my screen | User opt-in encrypted local 1–30-day history, best-effort disappearing timer, independently optional 1–30-day peer trust |
 | Release | Green CI, sanitized QR QA worksheet, debug APK artifacts | Stable test signing/update evidence, full device matrix, independent security audit, privacy policy, Google Play prerequisites |
 
