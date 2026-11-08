@@ -55,7 +55,7 @@ class LiveRadioStatusContract(unittest.TestCase):
         self.assertTrue(caps, "Must preserve explicit production-off boundary")
         text = caps[0].read_text()
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
-            self.assertRegex(text, rf"{flag}\\s*=\\s*false")
+            self.assertRegex(text, rf"{flag}\s*=\s*false")
 
 
 if __name__ == "__main__":
