@@ -42,8 +42,10 @@ import java.security.SecureRandom
 /**
  * M3s debug only: this device may briefly host a local P2P group by an
  * explicit user tap, but NEVER initiates connection to M3r candidates.
- * No credentials, device IDs, IPs, passphrase, peer data, sockets or text
- * are exposed/saved. OS removal is best effort, NOT a shutdown guarantee.
+ * No credentials, device IDs, IPs, passphrase, peer data or text are
+ * exposed/saved. F3-A allows one explicit TCP handshake-only listener on
+ * the OS-reported private group-owner interface, exchanging ZERO data.
+ * OS removal is best effort, NOT a shutdown guarantee.
  */
 class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val gate = DebugWifiDirectGroupHostGate()
