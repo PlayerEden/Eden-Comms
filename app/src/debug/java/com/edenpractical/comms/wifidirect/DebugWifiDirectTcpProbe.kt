@@ -63,7 +63,8 @@ internal class DebugWifiDirectTcpProbe(
         role: Role,
         groupOwnerAddress: InetAddress,
         onCompleted: (Boolean) -> Unit,
-        forJvmLoopback: Boolean = false
+        forJvmLoopback: Boolean = false,
+        onListening: () -> Unit = {}
     ): Boolean {
         if (!testAddressAllowed(groupOwnerAddress, forJvmLoopback)) return false
         synchronized(lock) {
@@ -87,6 +88,7 @@ internal class DebugWifiDirectTcpProbe(
                         listener.reuseAddress = false
                         listener.bind(InetSocketAddress(groupOwnerAddress, port), 1)
                         listener.soTimeout = ACCEPT_TIMEOUT_MS
+                        if (synchronized(lock) { !stopped }) onListening()
                         val connected = listener.accept()
                         synchronized(lock) {
                             if (!stopped) socket = connected
