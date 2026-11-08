@@ -97,7 +97,8 @@ class F2FFrameSafetyBoundary(unittest.TestCase):
         for marker in ('Updated November 8, 2026',
                        'F0 + F1', 'F2-A–E', 'F2-F',
                        'F3-A — actual Wi-Fi Direct TCP reachability',
-                       'F3-B/C — Wi-Fi Direct authenticated text', 'F4 — PTT',
+                       'F3-B1 — QR-to-pinned mutual TLS over real JVM TCP',
+                       'F3-B2/C — live Wi-Fi Direct authenticated text', 'F4 — PTT',
                        'F5 — optional privacy', 'F6 + F7'):
             self.assertIn(marker, self.roadmap)
         self.assertIn('F2-F — Bluetooth text/ACK format — SOURCE/CI VERIFIED',
