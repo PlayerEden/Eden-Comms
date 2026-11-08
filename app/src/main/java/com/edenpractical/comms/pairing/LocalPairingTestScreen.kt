@@ -106,6 +106,9 @@ internal fun LocalPairingTestScreen(
     // A returned peer-app ACK can race ahead of TEXT_WRITTEN's main-thread
     // callback. Store only a bounded set of IDs, never message content.
     var ackedTextIds by remember { mutableStateOf(emptySet<Long>()) }
+    // Event count only: no text, peer identity, QR, or ACK IDs exported.
+    // Keep after stopTest for result QA; reset only on a fresh pairing attempt.
+    var qaPeerAppAckEvents by remember { mutableIntStateOf(0) }
     var textDraft by remember { mutableStateOf("") }
     var privacyHidden by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
@@ -193,6 +196,7 @@ internal fun LocalPairingTestScreen(
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
         ackedTextIds = emptySet()
+        qaPeerAppAckEvents = 0
         textDraft = ""
         privacyHidden = false
         showClearConfirmation = false
@@ -305,6 +309,7 @@ internal fun LocalPairingTestScreen(
             transcript = DebugSessionTranscript.fresh()
             debugText = DebugTextTranscript.fresh()
             ackedTextIds = emptySet()
+            qaPeerAppAckEvents = 0
             textDraft = ""
             privacyHidden = false
             showClearConfirmation = false
@@ -451,6 +456,9 @@ internal fun LocalPairingTestScreen(
                             ) return@post
                             val id = event.messageId ?: return@post
                             if (id > 0L) {
+                                // Only this attempt\'s actual peer-app ACK callback is counted.
+                                // Never infer display, reading, or delivery from this event.
+                                if (qaPeerAppAckEvents < 10_000) qaPeerAppAckEvents += 1
                                 // Bound UI-only IDs even if peer app responds
                                 // before this thread observes the write bubble.
                                 ackedTextIds = (ackedTextIds + id)
@@ -1160,6 +1168,11 @@ internal fun LocalPairingTestScreen(
                             Text(details, style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
+                            "Peer-app ACK events observed on this phone: $qaPeerAppAckEvents " +
+                                "(not a read receipt or remote display confirmation).",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
                             "Technical details are local observations, not proof of " +
                                 "secure messaging or a delivery/read receipt.",
                             style = MaterialTheme.typography.bodySmall,
@@ -1189,7 +1202,8 @@ internal fun LocalPairingTestScreen(
                                 localConfirmationWritten = qaLocalConfirmationWritten,
                                 peerConfirmationObserved = qaPeerConfirmationObserved,
                                 testTextWrittenToTls = debugText.writtenHere,
-                                testTextReceivedHere = debugText.receivedHere
+                                testTextReceivedHere = debugText.receivedHere,
+                                testTextPeerAckEvents = qaPeerAppAckEvents
                             )
                             try {
                                 val clipboard = context.getSystemService(
