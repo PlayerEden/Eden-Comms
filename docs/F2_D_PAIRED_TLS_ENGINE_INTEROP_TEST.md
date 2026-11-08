@@ -68,6 +68,20 @@ to the JSSE API, an engine can require a full advertised application
 buffer to unwrap a TLS record **even when that record ultimately yields
 no plaintext**.
 
+The next paired test (run `42451561871`) verified that larger scratch
+allocation eliminated `BUFFER_OVERFLOW`. It then found a second,
+legitimate TLS 1.3 provider transition on the same zero-plaintext
+record: `Status.OK`, `HandshakeStatus.FINISHED`, complete ciphertext
+consumption (`1031/1031`), and `0` application bytes. Per JSSE,
+`FINISHED` can be a transient result indicating completed handshake
+processing. F2-D now permits that transient result **only** through a
+separate no-plaintext TLS-only verifier. The normal encrypted protocol
+control verifier still strictly requires `NOT_HANDSHAKING`; the
+engine itself must also return to `NOT_HANDSHAKING` immediately after
+processing this TLS-only record. The two-record prefix cap remains.
+`NEED_TASK`, `NEED_WRAP`, `NEED_UNWRAP`, abnormal statuses,
+partial ciphertext consumption and nonzero output remain rejected.
+
 F2-D now allocates the TLS scratch buffer using the **bounded
 provider-specified application capacity**; the pre-existing F2-C gate
 rejects anything outside 1–32,768 bytes. Decrypted application data
