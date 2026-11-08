@@ -25,6 +25,16 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-L multiple canceled radio requests / stale reply handling (November 8):**
+When a joining phone rapidly cancels multiple Talk requests, old legitimate
+GRANT/DENY responses must not be mistaken for new permission or a fatal
+protocol violation. The joiner now retains at most 32 canceled IDs,
+consumes each late response once, rejects replays and clears all IDs on
+session closure. JVM virtual host/joiner sequences and Python source
+checks added; real two-phone timing/voice tests remain pending. Preview
+200005 predates F4-L, so a future consolidated test build must include it.
+[F4-L review and QA handoff](F4_L_CANCELLED_FLOOR_RESPONSES_2026_11_08.md).
+
 **F4-J immediate local audio shutdown on link loss (November 8):**
 A one-shot session close hook now stops Android microphone/speaker directly
 during unexpected encrypted-session teardown rather than waiting for a
