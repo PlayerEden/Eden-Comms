@@ -534,10 +534,18 @@ grep -Fq 'bytes.size == HEADER_BYTES + bodyLength' "$BT_TEXT_FRAME"
 grep -Fq 'onMalformedInput(CodingErrorAction.REPORT)' "$BT_TEXT_FRAME"
 grep -Fq 'pending.remove(frame.messageId)' "$BT_TEXT_FRAME"
 grep -Fq 'frame.messageId == nextIncoming' "$BT_TEXT_FRAME"
-if grep -REn '(BluetoothSocket\(|SSLEngine|TestPacketCodec|sendDebugText\(|AudioRecord|SharedPreferences|openFileOutput\(|ProductionSessionAuthorization)' "$BT_TEXT_FRAME" | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(\*|//)'; then
-  echo "FAIL: F2-F future-only frame model gained live socket, trust, audio or persistence" >&2
-  exit 1
-fi
+# Use literal checks for concrete APIs/imports. Do not reject a comment
+# explaining that this model has NO SSLEngine or BluetoothSocket access.
+for forbidden in 'import android.bluetooth.' 'import android.net.' \
+  'import java.net.' 'import java.io.' 'import javax.net.ssl.' \
+  'BluetoothSocket(' 'SSLEngine(' 'TestPacketCodec' 'sendDebugText(' \
+  'AudioRecord' 'SharedPreferences' 'openFileOutput(' \
+  'ProductionSessionAuthorization'; do
+  if grep -Fq "$forbidden" "$BT_TEXT_FRAME"; then
+    echo "FAIL: F2-F future-only frame model gained live socket, trust, audio or persistence" >&2
+    exit 1
+  fi
+done
 if grep -Fq 'DebugBluetoothTextFrameCodec' "$BT_TLS_PROBE" ||
    grep -Fq 'DebugBluetoothTextLedger' "$BT_TLS_PROBE" ||
    grep -Fq 'DebugBluetoothTextFrameCodec' "$BT_RFCOMM" ||
