@@ -126,7 +126,7 @@ Do not paste peer QRs, private keys, actual message content, IPs, raw
 certificates or personally identifying device details into an issue.
 
 **Still experimental:** LAN voice and collision behavior need actual two-phone
-QA and an independent security review. Actual Bluetooth and Wi-Fi Direct messaging,
+QA and an independent security review; actual Bluetooth and Wi-Fi Direct messaging,
 long-running/background radio use, public release and production credentials
 remain unfinished.
 
