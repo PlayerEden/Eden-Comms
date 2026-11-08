@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edenpractical.comms.chat.LocalChatPreviewScreen
 import com.edenpractical.comms.ui.HomeModeLayout
+import com.edenpractical.comms.ui.TopBarLayout
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHeaderRule
 import com.edenpractical.comms.ui.FieldHelp
@@ -335,7 +336,12 @@ private fun titleForPage(page: String): String = when (page) {
 
 @Composable
 private fun TopBar(page: String, onBack: () -> Unit, sessionActive: Boolean = false) {
-    Row(
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // Only the header presentation changes; the Back callback stays intact.
+        val titleLines = TopBarLayout.maxTitleLines(
+            maxWidth.value, LocalDensity.current.fontScale
+        )
+        Row(
         modifier = Modifier.fillMaxWidth()
             .heightIn(min = 64.dp)
             .padding(horizontal = 16.dp, vertical = 6.dp),
@@ -348,13 +354,17 @@ private fun TopBar(page: String, onBack: () -> Unit, sessionActive: Boolean = fa
                 modifier = Modifier.size(42.dp)
             )
             Spacer(Modifier.width(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
                     "EDEN COMMS",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.7.sp,
-                    maxLines = 1
+                    maxLines = titleLines,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     "EDEN PRACTICAL  /  COMMUNICATIONS",
@@ -378,13 +388,16 @@ private fun TopBar(page: String, onBack: () -> Unit, sessionActive: Boolean = fa
             Spacer(Modifier.width(4.dp))
             Text(
                 if (sessionActive) "TEST CONVERSATION" else titleForPage(page).uppercase(),
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.3.sp,
-                maxLines = 1,
+                maxLines = titleLines,
+                softWrap = true,
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
     }
 }
 
