@@ -23,6 +23,20 @@ This design minimizes dependencies and CPU overhead but is **not streaming PTT**
 - `LocalPairingTestScreen.kt`: prompts on tap, shows start/send and accurate remote playback status, cancels on actual session exit. Text chat remains available.
 - The older `DebugFutureLanVoiceFrameCodec` stays separate, **unwired** from live Android app/transport.
 
+## F4-C revised hold-to-talk interface
+
+When running a Preview that includes F4-C, the default voice action is a
+large **HOLD TO TALK** surface. Keep a finger down while speaking, then
+**RELEASE TO SEND** (three seconds maximum). This still buffers audio during
+the press and sends the encrypted burst afterward, not live as you talk.
+If you cannot use touch-and-hold, choose **USE TAP CONTROLS INSTEAD** to
+show the original START TALKING / SEND VOICE BURST option. A cancelled
+gesture must not send unintended audio. Screen-reader/keyboard activation
+uses the same two-tap fallback. Check permission grant/denial, pointer
+cancellation and background/disconnect before relying on the gesture.
+
+[F4-C gesture test notes](F4_C_HOLD_TO_TALK_GESTURE_2026_11_08.md).
+
 ## F4-B pre-phone reliability improvements
 
 Source tests now cover two practical recording/display hazards before two-phone
