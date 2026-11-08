@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F3-B1 Wi-Fi Direct QR-pinned TLS JVM lab:** three fresh in-person QR identity frames feed exact expected peer pins into two *real TCP* endpoints running mutual TLS 1.3 with different ephemeral certificates; wrong pin and tampered/expired QR are rejected. **Unwired, JVM loopback only: no live P2P TLS, messages, voice or contact trust.** [F3-B1 verification and review gates](docs/F3_B1_QR_PINNED_REAL_TLS_LOOPBACK_LAB.md).
+
 - **F3-A Wi-Fi Direct TCP reachability (debug only):** temporary group host and target joiner have explicit controls for one real, bounded TCP handshake using Android's current private group-owner address. **No application payload, QR binding, TLS, peer trust, text or voice.** See the [F3-A two-phone test design and blockers](docs/F3_A_WIFI_DIRECT_ZERO_DATA_TCP_REACHABILITY.md) and [canonical full-function roadmap](docs/FULL_FUNCTION_DEVELOPMENT_TEST_ROADMAP_2026_11_07.md).
 
 - **F2-I identity-bound future Bluetooth handoff review:** future-only session ownership now requires matching host/join role, peer public certificate pin and transcript commitment on every same-attempt observation; mismatches close the test resource. The [independent Bluetooth session review packet](docs/F2_I_BLUETOOTH_SESSION_REVIEW_GATE.md) maps real live-probe source to the remaining expert/security and Android device gates. **Still no live Bluetooth chat.**

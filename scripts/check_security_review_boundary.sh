@@ -684,6 +684,41 @@ if find "$MAIN" -name 'DebugWifiDirectTcpProbe.kt' -print -quit | grep -q .; the
   exit 1
 fi
 
+# F3-B1: actual mutually pinned TLS 1.3 over REAL JVM TCP loopback only,
+# using the three QR public identity expectations. Never use it on current
+# unverified live Wi-Fi Direct radio, or enable message/voice I/O.
+P2P_QR_TLS="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectFutureQrTlsExpectation.kt"
+P2P_TLS_LAB="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectFutureTlsSocketLab.kt"
+P2P_TLS_TEST="app/src/test/java/com/edenpractical/comms/wifidirect/DebugWifiDirectQrPinnedTlsSocketTest.kt"
+test -f "$P2P_QR_TLS" && test -f "$P2P_TLS_LAB" && test -f "$P2P_TLS_TEST"
+grep -Fq 'DebugWifiDirectQrCodec.decodeAck(' "$P2P_QR_TLS"
+grep -Fq 'DebugWifiDirectQrCodec.decodeReply(' "$P2P_QR_TLS"
+grep -Fq 'MessageDigest.isEqual(host.pin, ownPin)' "$P2P_QR_TLS"
+grep -Fq 'address.isLoopbackAddress && address.address.size == 4' "$P2P_TLS_LAB"
+grep -Fq 'PinnedTlsPeer.requirePinnedTls13(incoming.session, peerPin)' "$P2P_TLS_LAB"
+grep -Fq 'PinnedTlsPeer.requirePinnedTls13(client.session, peerPin)' "$P2P_TLS_LAB"
+grep -Fq 'wrongPeerFingerprintInScannedQrFailsRealMutualTls' "$P2P_TLS_TEST"
+for source in "$P2P_HOST" "$P2P_JOIN" "$P2P_TCP" \
+  'app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectQrCoordinator.kt'; do
+  if grep -Fq 'DebugWifiDirectFutureTlsSocketLab' "$source" ||
+     grep -Fq 'DebugWifiDirectFutureQrTlsExpectation' "$source"; then
+    echo "FAIL: unreviewed F3-B1 loopback TLS lab wired into live P2P" >&2
+    exit 1
+  fi
+done
+for forbidden in 'getInputStream(' 'getOutputStream(' '.write(' '.read(' \
+  'sendDebugText(' 'sendPacket(' 'SharedPreferences' 'openFileOutput(' \
+  'AudioRecord' 'Log.' 'println('; do
+  if grep -Fq "$forbidden" "$P2P_TLS_LAB"; then
+    echo "FAIL: F3-B1 lab gained application data or storage APIs" >&2
+    exit 1
+  fi
+done
+if find "$MAIN" -name 'DebugWifiDirectFutureTlsSocketLab.kt' -print -quit | grep -q .; then
+  echo "FAIL: F3-B1 unreviewed TLS lab in release source" >&2
+  exit 1
+fi
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
