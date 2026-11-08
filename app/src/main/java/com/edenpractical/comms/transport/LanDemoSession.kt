@@ -606,7 +606,11 @@ internal class LanDemoSession(
     /** Cancel an unstarted hold/tap. A late GRANT is ignored by the joiner. */
     fun cancelUnstartedVoiceFloor() {
         val floor = voiceFloor ?: return
-        val control = floor.cancelPending() ?: floor.releaseLocal()
+        // If a record-then-send voice burst is ALREADY on the audio writer,
+        // its END must precede RELEASE. The PCM writer's finally block owns
+        // that release; never rush it through the separate control lane.
+        val control = floor.cancelPending()
+            ?: if (!voiceQueued.get()) floor.releaseLocal() else null
         if (control != null && ready && !stopped.get() && !ending.get()) {
             queueFloorControl(control)
         }
