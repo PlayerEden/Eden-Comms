@@ -46,13 +46,16 @@ internal class DebugRfcommLinkController(
     private var socket: BluetoothSocket? = null
     private var consent: DebugBluetoothConsentDecision? = null
     private var deadline: Runnable? = null
+    // UI closure callbacks must belong to the most recently stopped attempt.
+    private var lastStoppedToken: DebugRfcommAttemptGate.Token? = null
 
     fun phase(): DebugRfcommAttemptGate.Phase = gate.snapshot().phase
 
     @Suppress("MissingPermission")
     fun host(adapter: BluetoothAdapter, request: DebugBluetoothTlsProbeInput): Boolean {
-        if (!request.hostRole) return false
-        val token = begin(DebugRfcommAttemptGate.Role.HOST) ?: return false
+        if (!request.hostRole) { request.close(); return false }
+        val token = begin(DebugRfcommAttemptGate.Role.HOST)
+            ?: run { request.close(); return false }
         Thread({
             var listening: BluetoothServerSocket? = null
             try {
@@ -84,8 +87,9 @@ internal class DebugRfcommLinkController(
 
     @Suppress("MissingPermission")
     fun join(device: BluetoothDevice, adapter: BluetoothAdapter, request: DebugBluetoothTlsProbeInput): Boolean {
-        if (request.hostRole) return false
-        val token = begin(DebugRfcommAttemptGate.Role.JOIN) ?: return false
+        if (request.hostRole) { request.close(); return false }
+        val token = begin(DebugRfcommAttemptGate.Role.JOIN)
+            ?: run { request.close(); return false }
         Thread({
             try {
                 // Inquiring during connect makes Bluetooth connections slower.
@@ -206,7 +210,11 @@ internal class DebugRfcommLinkController(
                     }
                 }
             }
-            stop(token, DebugRfcommAttemptGate.End.CONSENT_CONFIRMED)
+            // Consent succeeded inside TLS, but permission or foreground may
+            // have been lost immediately before the worker returned.
+            stop(token, DebugRfcommCompletionPolicy.endAfterConsent(
+                isForeground(), hasConnectPermission()
+            ))
         } catch (_: DebugBluetoothConsentDenied) {
             stop(token, DebugRfcommAttemptGate.End.CONSENT_DECLINED)
         } catch (_: Exception) {
@@ -245,14 +253,16 @@ internal class DebugRfcommLinkController(
 
     /** These actions only choose the current socket's pending decision. */
     fun approve(): Boolean = synchronized(lock) {
-        if (active == null || gate.snapshot().phase !=
-            DebugRfcommAttemptGate.Phase.LINK_OPEN
+        if (active == null || !DebugRfcommCompletionPolicy.mayChooseConsent(
+                gate.snapshot().phase, isForeground(), hasConnectPermission()
+            )
         ) false else consent?.approve() ?: false
     }
 
     fun decline(): Boolean = synchronized(lock) {
-        if (active == null || gate.snapshot().phase !=
-            DebugRfcommAttemptGate.Phase.LINK_OPEN
+        if (active == null || !DebugRfcommCompletionPolicy.mayChooseConsent(
+                gate.snapshot().phase, isForeground(), hasConnectPermission()
+            )
         ) false else consent?.decline() ?: false
     }
 
@@ -284,6 +294,7 @@ internal class DebugRfcommLinkController(
                 gate.snapshot().phase != DebugRfcommAttemptGate.Phase.STOPPED
             ) return
             active = null
+            lastStoppedToken = token
             cancelTimer()
             oldServer = server
             oldSocket = socket
@@ -301,8 +312,8 @@ internal class DebugRfcommLinkController(
             // An old connection's queued closure message cannot overwrite
             // a newer user-started link after reset or reconnect.
             synchronized(lock) {
-                if (active != null || gate.snapshot().phase !=
-                    DebugRfcommAttemptGate.Phase.STOPPED
+                if (active != null || lastStoppedToken !== token ||
+                    gate.snapshot().phase != DebugRfcommAttemptGate.Phase.STOPPED
                 ) return@post
             }
             onApprovalReady(false)
