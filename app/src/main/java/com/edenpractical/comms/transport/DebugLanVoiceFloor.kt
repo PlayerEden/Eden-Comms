@@ -30,6 +30,7 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
     private var lastRemoteRequest = 0L
     private var startedAtMs = 0L
     private var remoteAudioStarted = false
+    private var remoteTurnConsumed = false
     private var closed = false
 
     companion object {
@@ -108,7 +109,7 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
                     }
                     Incoming(signal = if (kind == DebugLanVoiceFloorCodec.Kind.GRANT)
                         Signal.GRANTED else Signal.DENIED)
-                } else if (cancelled == requestId && pending == 0L) {
+                } else if (cancelled == requestId) {
                     // A CANCEL can race with a GRANT already written by host.
                     // The abandoned GRANT must not re-enable microphone.
                     Incoming()
@@ -124,14 +125,21 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
     @Synchronized
     fun remoteAudioStart() {
         if (closed || remoteAudioStarted || owner == Owner.LOCAL ||
-            (isHost && owner != Owner.REMOTE)) throw TestPacketException()
+            (isHost && (owner != Owner.REMOTE || remoteTurnConsumed)))
+            throw TestPacketException()
         remoteAudioStarted = true
+        remoteTurnConsumed = true
     }
 
     @Synchronized
     fun remoteAudioEnd() {
         if (closed || !remoteAudioStarted) throw TestPacketException()
         remoteAudioStarted = false
+        // For a joiner observing host transmissions there is no explicit
+        // host GRANT frame. Each END lets the next host-owned turn begin.
+        // A presenter must instead demand an exact RELEASE before allowing
+        // another joiner turn.
+        if (!isHost) remoteTurnConsumed = false
     }
 
     @Synchronized
@@ -168,6 +176,7 @@ internal class DebugLanVoiceFloor(private val isHost: Boolean) {
 
     private fun free() {
         owner = Owner.FREE
+        remoteTurnConsumed = false
         pending = 0L
         id = 0L
         startedAtMs = 0L
