@@ -19,6 +19,8 @@ class F4D3LocalAudioInterruption(unittest.TestCase):
                  "DebugLocalPttPlaybackBudgetTest.kt").read_text()
         for required in (
             "AudioRecord.READ_NON_BLOCKING",
+            "n < 0 && !capturing.get() -> break",
+            "hadError = capturing.get() && foreground",
             "AudioTrack.WRITE_NON_BLOCKING",
             "DebugLocalPttPlaybackBudget(SystemClock.elapsedRealtime())",
             "DebugLocalPttPlaybackBudget.RETRY_PAUSE_MILLIS",
