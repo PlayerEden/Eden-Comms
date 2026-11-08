@@ -27,14 +27,15 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Debug-only foreground touch surface. Press starts *local* microphone
- * capture; release ends the maximum-three-second clip and the already
- * confirmed LAN session sends the completed short burst.
+ * capture; 20ms frames are sent over the existing approved LAN TLS
+ * session WHILE pressed. Release ends the bounded live turn.
  *
- * This does NOT stream while held, bypass QR/consent, start a radio link,
- * request permissions or claim production push-to-talk.
+ * This never bypasses QR/consent, starts a separate radio link, requests
+ * microphone permissions or claims reviewed/production radio quality.
  *
  * The press handler is not restarted when [recording] changes: cancelling
- * a pointer during navigation/capture teardown aborts rather than sends.
+ * a pointer during navigation/capture teardown stops future samples.
+ * Already transmitted live audio cannot be retracted.
  * Screen-reader activation uses the existing two-tap accessible fallback.
  */
 @Composable
@@ -68,9 +69,8 @@ internal fun DebugHoldToTalkControl(
                                 finished = true
                                 if (released) currentRelease() else currentCancel()
                             } finally {
-                                // Pointer cancellation, route removal and
-                                // gesture interruption never send unrequested
-                                // microphone content.
+                                // Cancellation stops future samples; earlier
+                                // live frames may already have reached the peer.
                                 if (!finished) currentCancel()
                             }
                         }
@@ -80,8 +80,8 @@ internal fun DebugHoldToTalkControl(
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = if (recording)
-                    "Recording short test voice. Release to send."
-                else "Hold to record a short test voice burst, release to send."
+                    "Transmitting short live test audio. Release to stop."
+                else "Hold to transmit live test voice, release to stop."
                 if (!enabled) disabled()
                 else onClick {
                     // TalkBack/keyboard users need not perform a long press.
@@ -92,7 +92,7 @@ internal fun DebugHoldToTalkControl(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            if (recording) "RELEASE TO SEND" else "HOLD TO TALK",
+            if (recording) "RELEASE TO STOP" else "HOLD TO TALK",
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
             color = if (recording) colors.onTertiaryContainer else colors.onPrimaryContainer,
             style = MaterialTheme.typography.titleMedium,

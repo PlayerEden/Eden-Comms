@@ -23,6 +23,18 @@ This design minimizes dependencies and CPU overhead but is **not streaming PTT**
 - `LocalPairingTestScreen.kt`: prompts on tap, shows start/send and accurate remote playback status, cancels on actual session exit. Text chat remains available.
 - The older `DebugFutureLanVoiceFrameCodec` stays separate, **unwired** from live Android app/transport.
 
+## F4-D live send and early playback (Preview newer than 200003)
+
+The default **HOLD TO TALK** gesture now sends each 20ms audio frame over
+the existing approved TLS session **while the button is down**; the other
+device may begin playing before release. The 3-second cap, original
+session approval, debug-only mic permission and no saved sound remain.
+**USE TAP CONTROLS INSTEAD** still offers the original record-then-send
+fallback. Gesture cancellation now stops future audio, but any live frames
+already transmitted cannot be unsent. Distributed radio-floor arbitration,
+actual device latency and independent security review remain unfinished.
+[New F4-D test guide](F4_D_LIVE_WIFI_PTT_STREAM_2026_11_08.md).
+
 ## F4-C revised hold-to-talk interface
 
 When running a Preview that includes F4-C, the default voice action is a

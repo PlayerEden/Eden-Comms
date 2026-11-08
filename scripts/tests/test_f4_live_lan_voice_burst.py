@@ -24,7 +24,7 @@ class ActualLanVoiceBurstBoundary(unittest.TestCase):
         self.assertIn("TestPacketCodec.write(tls.outputStream, packet)", lan)
         self.assertIn("sendPacket(TestPacketCodec.debugVoice(frame))", lan)
         self.assertIn("incomingVoice.accept(voiceFrame)", lan)
-        self.assertIn("completed.fill(0)", lan)
+        self.assertIn("completed?.fill(0)", lan)  # wipe assembled PCM with or without live sink
         self.assertIn("voicePlayback = null", lan)
         self.assertIn("incomingVoice.clear()", lan)
         self.assertIn("close()", lan)

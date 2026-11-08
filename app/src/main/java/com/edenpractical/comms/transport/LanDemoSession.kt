@@ -108,8 +108,14 @@ internal class LanDemoSession(
     private val incomingVoice = DebugLanVoiceAssembler()
     private val voiceQueued = AtomicBoolean(false)
     private val nextVoiceTurn = AtomicLong(1L)
+    private val peerVoiceActive = AtomicBoolean(false)
+    @Volatile private var liveVoice: LiveVoiceHandle? = null
     // In-memory playback consumer only. No file, history or export.
     @Volatile private var voicePlayback: ((ByteArray) -> Unit)? = null
+    // The receiver calls this only after strict current-turn/sequence checks.
+    // Android audio copies PCM into its own small, bounded playout queue.
+    @Volatile private var liveVoicePlayback:
+        ((DebugLanVoiceWireCodec.Kind, ByteArray) -> Unit)? = null
     private val heartbeatQueued = AtomicBoolean(false)
     private val approvalQueued = AtomicBoolean(false)
     private val confirmationQueued = AtomicBoolean(false)
@@ -328,13 +334,24 @@ internal class LanDemoSession(
                             val voiceFrame = packet.voice ?: throw TestPacketException()
                             try {
                                 val completed = incomingVoice.accept(voiceFrame)
-                                if (completed != null) {
-                                    try { voicePlayback?.invoke(completed) }
-                                    finally { completed.fill(0) }
-                                    emit(Event(
+                                // The existing assembler still owns strict turn
+                                // ordering and replay rejection. With the F4-D
+                                // listener installed, dispatch each validated
+                                // frame BEFORE END (never double-play the clip).
+                                if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.START)
+                                    peerVoiceActive.set(true)
+                                try {
+                                    val live = liveVoicePlayback
+                                    if (live != null) live(voiceFrame.kind, voiceFrame.pcm)
+                                    else if (completed != null) voicePlayback?.invoke(completed)
+                                    if (completed != null) emit(Event(
                                         Phase.VOICE_RECEIVED,
-                                        "Encrypted test voice burst received by this app"
+                                        "Validated encrypted voice turn finished in this app"
                                     ))
+                                } finally {
+                                    completed?.fill(0)
+                                    if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.END)
+                                        peerVoiceActive.set(false)
                                 }
                             } finally { voiceFrame.clear() }
                         }
@@ -497,7 +514,15 @@ internal class LanDemoSession(
                         !approvalGate.maySendPreset()) return@execute
                     sendVoiceFrame(DebugLanVoiceWireCodec.start(turn))
                     val count = clip.size / DebugLanVoiceWireCodec.PCM_BYTES
+                    // F4-D receiver plays early on a tiny 240ms queue.
+                    // Legacy record-then-send must now pace each buffered
+                    // 20ms frame near real time instead of dumping up to 3s
+                    // instantly and overflowing the bounded speaker queue.
+                    val burstStartMs = SystemClock.elapsedRealtime()
                     repeat(count) { sequence ->
+                        val dueMs = burstStartMs + sequence * 20L
+                        val waitMs = dueMs - SystemClock.elapsedRealtime()
+                        if (waitMs > 0L) Thread.sleep(waitMs)
                         if (!ready || ending.get() || stopped.get() ||
                             !approvalGate.maySendPreset()) throw SocketException("Voice test ended")
                         val pcm = clip.copyOfRange(
@@ -529,14 +554,128 @@ internal class LanDemoSession(
         }
     }
 
+    /**
+     * Real foreground in-press PCM: the microphone supplies one 20ms frame
+     * at a time. The pre-existing, single TLS writer sends each frame soon
+     * after capture, NOT after the finger lifts. At most 12 frames queue.
+     *
+     * A voice control START is deliberately deferred until a real PCM frame
+     * exists, so a quick tap emits no empty/invalid wire turn.
+     */
+    inner class LiveVoiceHandle internal constructor(
+        private val queue: DebugLanLiveVoiceQueue
+    ) {
+        fun offerPcm(frame: ByteArray): Boolean =
+            !stopped.get() && !ending.get() &&
+                approvalGate.maySendPreset() && queue.offer(frame)
+
+        fun finish() = queue.finish()
+
+        /**
+         * Aborts any pending, unsent samples. Frames already written over
+         * TLS may already have been heard; END still closes that turn.
+         */
+        fun cancel() = queue.cancel()
+    }
+
+    data class LiveVoiceStart(
+        val status: VoiceSendResult,
+        val handle: LiveVoiceHandle? = null
+    )
+
+    fun startLiveVoice(): LiveVoiceStart {
+        if (!ready || stopped.get() || ending.get())
+            return LiveVoiceStart(VoiceSendResult.NOT_CONNECTED)
+        if (!approvalGate.maySendPreset())
+            return LiveVoiceStart(VoiceSendResult.AWAITING_APPROVAL)
+        // Courtesy half-duplex: don't start while we know the peer is
+        // speaking. Simultaneous unobserved presses still need floor arbitration.
+        if (peerVoiceActive.get() || !voiceQueued.compareAndSet(false, true))
+            return LiveVoiceStart(VoiceSendResult.BUSY)
+        val turn = nextVoiceTurn.getAndIncrement()
+        if (turn <= 0L) {
+            voiceQueued.set(false)
+            return LiveVoiceStart(VoiceSendResult.INVALID_AUDIO)
+        }
+        val queue = DebugLanLiveVoiceQueue()
+        val handle = LiveVoiceHandle(queue)
+        liveVoice = handle
+        return try {
+            writer.execute {
+                var sent = 0
+                var opened = false
+                try {
+                    val deadline = SystemClock.elapsedRealtime() + 4_000L
+                    while (!stopped.get() && !ending.get() &&
+                        approvalGate.maySendPreset() &&
+                        SystemClock.elapsedRealtime() < deadline
+                    ) {
+                        val pcm = queue.poll()
+                        if (pcm != null) {
+                            try {
+                                if (!opened) {
+                                    sendVoiceFrame(DebugLanVoiceWireCodec.start(turn))
+                                    opened = true
+                                }
+                                sendVoiceFrame(DebugLanVoiceWireCodec.data(turn, sent, pcm))
+                                sent++
+                            } finally {
+                                pcm.fill(0)
+                            }
+                            if (sent >= DebugLanVoiceWireCodec.MAX_FRAMES) break
+                        } else if (queue.isFinishedAndEmpty()) break
+                    }
+                    // Only an actual opened turn receives END. Cancellation
+                    // cannot undo already transmitted frames, but it can
+                    // stop the next frame and release the remote receiver.
+                    if (opened && !stopped.get() && !ending.get()) {
+                        sendVoiceFrame(DebugLanVoiceWireCodec.end(turn, sent))
+                        emit(Event(
+                            Phase.VOICE_WRITTEN,
+                            "Live voice frames sent while held; local TLS write is not peer audibility"
+                        ))
+                    }
+                    if (queue.overran()) emit(Event(
+                        Phase.PROGRESS,
+                        "Voice network was busy; live test audio was cut short"
+                    ))
+                } catch (_: Exception) {
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                    close()
+                } finally {
+                    queue.clear()
+                    if (liveVoice === handle) liveVoice = null
+                    voiceQueued.set(false)
+                }
+            }
+            LiveVoiceStart(VoiceSendResult.QUEUED, handle)
+        } catch (_: RuntimeException) {
+            queue.clear()
+            if (liveVoice === handle) liveVoice = null
+            voiceQueued.set(false)
+            LiveVoiceStart(VoiceSendResult.NOT_CONNECTED)
+        }
+    }
+
     private fun sendVoiceFrame(frame: DebugLanVoiceWireCodec.Frame) {
         try { sendPacket(TestPacketCodec.debugVoice(frame)) }
         finally { frame.clear() }
     }
 
-    /** The receiver must COPY before returning; source bytes are wiped. */
+    /** The legacy short-burst receiver remains available as a fallback. */
     fun setVoicePlayback(listener: ((ByteArray) -> Unit)?) {
         voicePlayback = if (!stopped.get()) listener else null
+    }
+
+    /**
+     * Experimental in-progress playout on the SAME validated LAN frames.
+     * Listener must copy audio promptly and must NEVER block the TLS reader.
+     * This is a device-local PCM callback, not evidence of human audibility.
+     */
+    fun setLiveVoicePlayback(
+        listener: ((DebugLanVoiceWireCodec.Kind, ByteArray) -> Unit)?
+    ) {
+        liveVoicePlayback = if (!stopped.get()) listener else null
     }
 
     /**
@@ -911,8 +1050,12 @@ internal class LanDemoSession(
         debugConsentCommitment?.fill(0)
         debugConsentCommitment = null
         peerAckLedger.close()
+        liveVoice?.cancel()
+        liveVoice = null
+        peerVoiceActive.set(false)
         incomingVoice.clear()
         voicePlayback = null
+        liveVoicePlayback = null
         sockets.close()
         preReadyWifiMonitor?.cancel(false)
         pulses.shutdownNow()
