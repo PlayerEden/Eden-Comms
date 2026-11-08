@@ -93,6 +93,11 @@ class F2IReviewHandoffTests(unittest.TestCase):
             self.assertNotIn(forbidden, self.owner)
 
     def test_review_packet_requires_actual_independent_and_device_signoff(self):
+        # Markdown can wrap a phrase across lines, or apply emphasis inside it.
+        # Check normalized reviewer meaning rather than formatting details.
+        normalized_review = " ".join(
+            self.review.lower().replace("**", "").replace("`", "").split()
+        )
         for requirement in (
             "same live RFCOMM socket",
             "two encrypted CONFIRM",
@@ -106,7 +111,8 @@ class F2IReviewHandoffTests(unittest.TestCase):
             "independent security review",
             "Do not enable Bluetooth text",
         ):
-            self.assertIn(requirement.lower(), self.review.lower(), requirement)
+            normalized_requirement = " ".join(requirement.lower().split())
+            self.assertIn(normalized_requirement, normalized_review, requirement)
 
 
 if __name__ == "__main__":
