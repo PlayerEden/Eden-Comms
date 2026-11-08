@@ -12,6 +12,8 @@
 
 - **M5-D — terminal UI callback protection:** The debug pairing screen now accepts ENDED/FAILED only from the current live attempt and invalidates that attempt before displaying its result, preventing late terminal callbacks from rewriting a completed screen. [M5-D verification](docs/M5_D_TERMINAL_UI_ADMISSION.md).
 
+- **M5-E — fresh restart and callback guards:** Incomplete QR preflight now cleans up ephemeral pairing state, camera callbacks are generation/revision checked, and identity setup cannot auto-continue an outdated role after backgrounding. [M5-E runbook](docs/M5_E_RESTART_CALLBACK_ADMISSION.md). Device validation remains outstanding.
+
 ## Product goal
 
 A simple, accessible way for two people nearby to **Connect → Communicate → Disconnect**, with no accounts, app-operated servers, analytics or advertising. Planned connectivity: local Wi-Fi, Bluetooth, Wi-Fi Direct. Text first; optional push-to-talk after verified two-phone messaging works.
