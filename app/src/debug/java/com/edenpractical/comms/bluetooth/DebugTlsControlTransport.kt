@@ -47,17 +47,22 @@ internal class DebugTlsControlTransport(
             requireReady(len)
             val encoded = DebugTlsEngineHandshake.readRecord(wireInput)
             try {
+                DebugTlsRecordBoundary.requireSingleCiphertext(encoded)
                 val clear = ByteBuffer.allocate(phase.bytes)
-                val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
-                if (result.status != SSLEngineResult.Status.OK ||
-                    result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
-                    result.bytesConsumed() != encoded.size ||
-                    result.bytesProduced() != phase.bytes
-                ) throw SSLException("Unexpected Bluetooth TLS control record")
-                clear.flip()
-                clear.get(b, off, len)
-                clear.array().fill(0)
-                return len
+                try {
+                    val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
+                    if (result.status != SSLEngineResult.Status.OK ||
+                        result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
+                        result.bytesConsumed() != encoded.size ||
+                        result.bytesProduced() != phase.bytes
+                    ) throw SSLException("Unexpected Bluetooth TLS control record")
+                    clear.flip()
+                    clear.get(b, off, len)
+                    return len
+                } finally {
+                    // Even malformed or partially produced plaintext is cleared.
+                    clear.array().fill(0)
+                }
             } finally {
                 encoded.fill(0)
             }
@@ -73,20 +78,27 @@ internal class DebugTlsControlTransport(
             validateBounds(b.size, off, len)
             requireReady(len)
             val encrypted = ByteBuffer.allocate(engine.session.packetBufferSize)
-            val result = engine.wrap(ByteBuffer.wrap(b, off, len), encrypted)
-            if (result.status != SSLEngineResult.Status.OK ||
-                result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
-                result.bytesConsumed() != len ||
-                result.bytesProduced() !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET
-            ) throw SSLException("Unexpected TLS control encryption result")
-            encrypted.flip()
-            val record = ByteArray(encrypted.remaining())
             try {
-                encrypted.get(record)
-                wireOutput.write(record)
-                wireOutput.flush()
+                val result = engine.wrap(ByteBuffer.wrap(b, off, len), encrypted)
+                if (result.status != SSLEngineResult.Status.OK ||
+                    result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
+                    result.bytesConsumed() != len ||
+                    result.bytesProduced() !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET
+                ) throw SSLException("Unexpected TLS control encryption result")
+                encrypted.flip()
+                val record = ByteArray(encrypted.remaining())
+                try {
+                    encrypted.get(record)
+                    // Never put an unrecognized or multi-record provider result
+                    // onto the RFCOMM wire as a supposedly atomic control.
+                    DebugTlsRecordBoundary.requireSingleCiphertext(record)
+                    wireOutput.write(record)
+                    wireOutput.flush()
+                } finally {
+                    record.fill(0)
+                }
             } finally {
-                record.fill(0)
+                // Also clear buffers when wrap/validation/write throws early.
                 encrypted.array().fill(0)
             }
         }
