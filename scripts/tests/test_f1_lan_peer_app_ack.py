@@ -58,7 +58,8 @@ class F1LanPeerAppAck(unittest.TestCase):
     def test_ack_codec_is_empty_and_not_the_approval_gate(self):
         self.assertIn("fun debugAck(messageId: Long): Packet", self.codec)
         self.assertIn("ProposedChatWireCodec.Packet.Ack(packet.messageId)", self.codec)
-        self.assertIn("Packet(Type.DEBUG_ACK, messageId = candidate.messageId)", self.codec)
+        self.assertIn("is ProposedChatWireCodec.Packet.Ack -> Packet(", self.codec)
+        self.assertIn("Type.DEBUG_ACK, messageId = candidate.messageId", self.codec)
         self.assertIn("packet.sessionCommitment.isEmpty()", self.codec)
         self.assertIn("packet.text.isEmpty()", self.codec)
         self.assertNotIn("ProductionSessionAuthorization", self.codec)
