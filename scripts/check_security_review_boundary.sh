@@ -521,6 +521,35 @@ if grep -REn '(sendDebugText\(|TestPacketCodec|BluetoothSocket\(|SharedPreferenc
   exit 1
 fi
 
+# F2-F: future-only Bluetooth TEXT/ACK codec and ledger must not be
+# wired to RFCOMM, release code, or credentials. The actual socket still
+# closes on completion. Only independently reviewed TLS may carry messages.
+BT_TEXT_FRAME="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothTextFrameCodec.kt"
+BT_TEXT_TEST="app/src/test/java/com/edenpractical/comms/bluetooth/DebugBluetoothTextFrameCodecTest.kt"
+test -f "$BT_TEXT_FRAME" && test -f "$BT_TEXT_TEST"
+grep -Fq 'MAX_TEXT_BYTES = 512' "$BT_TEXT_FRAME"
+grep -Fq 'MAX_MESSAGES_PER_DIRECTION = 128' "$BT_TEXT_FRAME"
+grep -Fq 'MAX_PENDING = 8' "$BT_TEXT_FRAME"
+grep -Fq 'bytes.size == HEADER_BYTES + bodyLength' "$BT_TEXT_FRAME"
+grep -Fq 'onMalformedInput(CodingErrorAction.REPORT)' "$BT_TEXT_FRAME"
+grep -Fq 'pending.remove(frame.messageId)' "$BT_TEXT_FRAME"
+grep -Fq 'frame.messageId == nextIncoming' "$BT_TEXT_FRAME"
+if grep -REn '(BluetoothSocket\(|SSLEngine|TestPacketCodec|sendDebugText\(|AudioRecord|SharedPreferences|openFileOutput\(|ProductionSessionAuthorization)' "$BT_TEXT_FRAME" | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(\*|//)'; then
+  echo "FAIL: F2-F future-only frame model gained live socket, trust, audio or persistence" >&2
+  exit 1
+fi
+if grep -Fq 'DebugBluetoothTextFrameCodec' "$BT_TLS_PROBE" ||
+   grep -Fq 'DebugBluetoothTextLedger' "$BT_TLS_PROBE" ||
+   grep -Fq 'DebugBluetoothTextFrameCodec' "$BT_RFCOMM" ||
+   grep -Fq 'DebugBluetoothTextLedger' "$BT_RFCOMM"; then
+  echo "FAIL: F2-F plaintext frames were wired into unreviewed live RFCOMM" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugBluetoothTextFrameCodec.kt' -print -quit | grep -q .; then
+  echo "FAIL: F2-F debug frame prototype entered release source" >&2
+  exit 1
+fi
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
