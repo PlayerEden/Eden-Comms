@@ -807,4 +807,27 @@ if grep -Fq 'android.permission.RECORD_AUDIO' app/src/main/AndroidManifest.xml; 
   echo "FAIL: debug mic permission entered release" >&2
   exit 1
 fi
+# F4-D4: future LAN PCM frame candidate stays a pure DEBUG-only lab.
+# This does not pass LAN QR/TLS/consent review or authorize network audio.
+VOICE_FUTURE="app/src/debug/java/com/edenpractical/comms/audio/DebugFutureLanVoiceFrameCodec.kt"
+VOICE_FUTURE_TEST="app/src/test/java/com/edenpractical/comms/audio/DebugFutureLanVoiceFrameCodecTest.kt"
+test -f "$VOICE_FUTURE" && test -f "$VOICE_FUTURE_TEST"
+grep -Fq 'const val PACKET_BYTES = HEADER_BYTES + PCM_BYTES' "$VOICE_FUTURE"
+grep -Fq 'decoded.sequence != nextSequence' "$VOICE_FUTURE"
+grep -Fq 'arbitraryOldFrameCanEnterFreshSyntheticReceiverSoNoSessionTrustIsClaimed' "$VOICE_FUTURE_TEST"
+if grep -REn '(Socket\(|java\.net\.|javax\.net\.|BluetoothSocket|WifiP2p|LanDemoSession|AudioRecord|AudioTrack|SharedPreferences|startService\(|openFileOutput\(|sendPacket\(|ProductionSessionAuthorization)' "$VOICE_FUTURE"; then
+  echo "FAIL: F4-D4 voice lab gained a live transport, capture, persistence or security authority" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugFutureLanVoiceFrameCodec.kt' -print -quit | grep -q .; then
+  echo "FAIL: unreviewed F4-D4 voice codec moved into release source" >&2
+  exit 1
+fi
+for forbidden in 'DebugFutureLanVoiceFrameCodec' 'DebugFutureLanVoiceSequenceRehearsal'; do
+  if grep -Rq "$forbidden" app/src/main/java app/src/debug/java/com/edenpractical/comms/bluetooth app/src/debug/java/com/edenpractical/comms/wifidirect app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt; then
+    echo "FAIL: unreviewed F4-D4 voice model wired into live app/radio/microphone" >&2
+    exit 1
+  fi
+done
+
 echo "PASS: reviewed Bluetooth diagnostic unchanged; D1 is local-only and debug-only"
