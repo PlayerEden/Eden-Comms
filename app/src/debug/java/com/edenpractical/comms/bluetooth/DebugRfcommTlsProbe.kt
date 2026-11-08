@@ -37,7 +37,7 @@ internal object DebugRfcommTlsProbe {
         socket: BluetoothSocket,
         request: DebugBluetoothTlsProbeInput,
         onConsentRequired: (DebugBluetoothConsentDecision) -> Unit
-    ) {
+    ): DebugBluetoothProbeCompletion {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             throw SSLException("TLS engine exporter requires Android 12 or newer")
         }
@@ -133,6 +133,15 @@ internal object DebugRfcommTlsProbe {
             // Fail if QR expired during the encrypted control and consent exchange.
             val atEnd = request.freshBinding()
             clearBinding(atEnd)
+            // This marker can be issued ONLY after the real TLS/QR/exporter/
+            // commitments and both encrypted human confirmations completed.
+            // It has no socket/engine/secret and cannot grant a chat session.
+            val nowSeconds = System.currentTimeMillis() / 1000
+            return DebugBluetoothProbeCompletion.afterVerifiedDiagnostic(
+                hostRole = request.hostRole,
+                issuedAtSeconds = nowSeconds,
+                qrExpiresAtSeconds = request.expiresAtSeconds
+            )
         } finally {
             transport?.clear()
             challenges?.clear()
