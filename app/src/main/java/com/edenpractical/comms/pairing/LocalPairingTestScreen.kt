@@ -89,6 +89,8 @@ internal fun LocalPairingTestScreen(
     // and queuing its one bounded voice turn.
     var voiceFinalizing by remember { mutableStateOf(false) }
     var liveVoiceHandle by remember { mutableStateOf<LanDemoSession.LiveVoiceHandle?>(null) }
+    // The separate AudioRecord worker must not queue a canceled tap clip.
+    var tapSendGate by remember { mutableStateOf<DebugTapVoiceSendGate?>(null) }
     var showTapVoiceControls by remember { mutableStateOf(false) }
     var voiceNote by remember { mutableStateOf("No voice burst sent yet.") }
     val micPermission = rememberLauncherForActivityResult(
@@ -182,6 +184,9 @@ internal fun LocalPairingTestScreen(
         if (startedSession.status != LanDemoSession.VoiceSendResult.QUEUED ||
             handle == null
         ) {
+            // Even when the microphone never starts, a successful host
+            // reservation or a just-received GRANT must be released.
+            session.cancelUnstartedVoiceFloor()
             voiceNote = when (startedSession.status) {
                 LanDemoSession.VoiceSendResult.BUSY ->
                     "Other phone may be speaking, or voice is busy. Wait and try again."
@@ -306,31 +311,42 @@ internal fun LocalPairingTestScreen(
         // Accessible two-tap fallback retains record-then-send, but both the
         // capture and queued burst require the same explicit floor ownership.
         val voiceAttempt = attemptVersion
+        val sendGate = DebugTapVoiceSendGate()
+        tapSendGate = sendGate
         val started = voiceAudio.startCapture(
             onNoAudio = {
+                sendGate.cancel()
+                // Always free an unused floor, even if the UI was hidden or
+                // the callback's composable session attempt is now stale.
+                live.cancelUnstartedVoiceFloor()
                 handler.post {
+                    if (tapSendGate === sendGate) tapSendGate = null
                     if (DebugSessionEventAdmission.current(
                             voiceAttempt, attemptVersion
-                        ) && stage == "demo"
+                        ) && stage == "demo" && !privacyHidden
                     ) {
                         talking = false
                         voiceFinalizing = false
-                        live.cancelUnstartedVoiceFloor()
                         voiceNote =
                             "No usable microphone audio. Speak a little longer and try again."
                     }
                 }
             },
             onComplete = { clip ->
-                val result = live.sendVoiceBurst(clip)
+                // This critical section orders the user's Cancel/Hide against
+                // the worker's short enqueue operation. A prior cancel wins
+                // and *never* sends. A prior enqueue cannot be recalled.
+                val result = sendGate.submitIfActive { live.sendVoiceBurst(clip) }
                 if (result != LanDemoSession.VoiceSendResult.QUEUED)
                     live.cancelUnstartedVoiceFloor()
                 handler.post {
+                    if (tapSendGate === sendGate) tapSendGate = null
                     if (DebugSessionEventAdmission.current(
                             voiceAttempt, attemptVersion
-                        ) && stage == "demo"
+                        ) && stage == "demo" && !privacyHidden
                     ) {
                         voiceNote = when (result) {
+                            null -> "Recording cancelled before its voice burst was queued."
                             LanDemoSession.VoiceSendResult.QUEUED ->
                                 "Sending short encrypted voice burst…"
                             LanDemoSession.VoiceSendResult.BUSY ->
@@ -353,6 +369,8 @@ internal fun LocalPairingTestScreen(
             voiceFinalizing = false
             voiceNote = "Microphone recording now • max 3 seconds"
         } else {
+            sendGate.cancel()
+            if (tapSendGate === sendGate) tapSendGate = null
             live.cancelUnstartedVoiceFloor()
             voiceNote = "Microphone or speaker busy. Try again."
         }
@@ -413,13 +431,16 @@ internal fun LocalPairingTestScreen(
             return
         }
         if (stage != "demo" || (!talking && !voiceFinalizing)) return
+        val cancelledBeforeSend = tapSendGate?.cancel() ?: false
+        tapSendGate = null
         probe?.cancelUnstartedVoiceFloor()
-        // A cancelled gesture is not permission to send an unfinished burst.
-        // Generation invalidation also suppresses the old recording callback.
+        // Generation invalidation also suppresses old AudioRecord callbacks.
         voiceAudio.cancelAll()
         talking = false
         voiceFinalizing = false
-        voiceNote = "Recording cancelled. Hold again when ready."
+        voiceNote = if (cancelledBeforeSend)
+            "Recording cancelled before sending. Hold again when ready."
+        else "A voice burst may already be queued and cannot be recalled."
     }
 
     fun tapVoiceCapture() {
@@ -433,6 +454,8 @@ internal fun LocalPairingTestScreen(
         attemptVersion += 1
         liveVoiceHandle?.cancel()
         liveVoiceHandle = null
+        tapSendGate?.cancel()
+        tapSendGate = null
         probe?.close()
         probe = null
         voiceAudio.cancelAll()
@@ -998,6 +1021,8 @@ internal fun LocalPairingTestScreen(
             lifecycleOwner?.lifecycle?.removeObserver(observer)
             // Invalidate already posted callbacks before closing the socket.
             attemptVersion += 1
+            tapSendGate?.cancel()
+            tapSendGate = null
             latestProbe?.close()
             voiceAudio.cancelAll()
             clearTemporaryPairing()
@@ -1356,6 +1381,8 @@ internal fun LocalPairingTestScreen(
                                 // recording/playback. The peer can still send
                                 // over TLS: hidden is not a network block.
                                 val activeLiveStream = liveVoiceHandle != null
+                                tapSendGate?.cancel()
+                                tapSendGate = null
                                 liveVoiceHandle?.cancel()
                                 liveVoiceHandle = null
                                 pendingFloorMode = null
