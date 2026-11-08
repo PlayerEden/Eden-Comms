@@ -67,8 +67,8 @@ internal class DebugTlsControlTransport(
                     try {
                         val result = engine.unwrap(ByteBuffer.wrap(encoded), clear)
                         if (result.bytesProduced() == 0) {
-                            DebugTlsProviderReadiness.requireExactControlResult(
-                                result, consumed = encoded.size, produced = 0
+                            DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(
+                                result, consumed = encoded.size
                             )
                             DebugTlsProviderReadiness.requireControlReady(engine)
                             if (skipped == MAX_NO_PLAINTEXT_RECORDS)
