@@ -1137,7 +1137,27 @@ internal fun LocalPairingTestScreen(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         ) { Text("Check this phone's Wi-Fi again") }
                     }
-                    Button(
+                    // Convenience only: the previous role is not a peer/session.
+                    // The reset closes the old socket, invalidates all callbacks,
+                    // removes QR material and clears approval before startRole
+                    // creates entirely new codes or opens the scanner.
+                    val retryChoice = PairingFreshRetry.forLastRole(qaRole)
+                    if (retryChoice != null && wifi != null) {
+                        Button(
+                            onClick = {
+                                reset()
+                                startRole(retryChoice.role)
+                            },
+                            enabled = !loading,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text(retryChoice.buttonLabel) }
+                        Text(
+                            "Use a fresh code on both phones. Both people must approve again.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    OutlinedButton(
                         onClick = { reset() },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                     ) { Text("Start over with fresh QR codes") }
