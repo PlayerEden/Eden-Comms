@@ -514,7 +514,15 @@ internal class LanDemoSession(
                         !approvalGate.maySendPreset()) return@execute
                     sendVoiceFrame(DebugLanVoiceWireCodec.start(turn))
                     val count = clip.size / DebugLanVoiceWireCodec.PCM_BYTES
+                    // F4-D receiver plays early on a tiny 240ms queue.
+                    // Legacy record-then-send must now pace each buffered
+                    // 20ms frame near real time instead of dumping up to 3s
+                    // instantly and overflowing the bounded speaker queue.
+                    val burstStartMs = SystemClock.elapsedRealtime()
                     repeat(count) { sequence ->
+                        val dueMs = burstStartMs + sequence * 20L
+                        val waitMs = dueMs - SystemClock.elapsedRealtime()
+                        if (waitMs > 0L) Thread.sleep(waitMs)
                         if (!ready || ending.get() || stopped.get() ||
                             !approvalGate.maySendPreset()) throw SocketException("Voice test ended")
                         val pcm = clip.copyOfRange(
