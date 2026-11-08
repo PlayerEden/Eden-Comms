@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F4-A actual local PCM packetized audio (debug only):** the existing one-phone microphone/speaker screen now sends real 16 kHz PCM through strict ordered 20 ms in-memory frames, validates/reassembles before local playback, and clears packets on discard/background. **No audio travels to another phone and no live LAN/Bluetooth/Wi-Fi Direct PTT is enabled.** [F4-A tests and future remote voice gates](docs/F4_A_LOCAL_PCM_PACKETIZED_PTT_QA.md).
+
 - **F3-B3-A P2P interface-bound two-phone reachability (debug only):** host and joiner TCP tests now use the exact current Android Wi-Fi Direct group interface, reject unsuitable local/subnet routes, and bind sockets to that interface. This also handles Android anonymizing the host owner address. **Zero user data; no P2P TLS, authenticated peer, consent or chat yet.** [F3-B3-A physical QA and security gates](docs/F3_B3_A_P2P_INTERFACE_BOUND_TWO_PHONE_QA.md).
 
 - **F3-B2 same-TLS Wi-Fi Direct QR proof lab:** on two real JVM-loopback TLS sockets with mutually pinned peer certificates, both sides now exchange fresh QR nonce challenges and encrypted full-QR transcript commitments on the **same** connection. A wrong nonce or changed QR timestamp fails. **Still no live radio TLS, human approval, user text or PTT.** [F3-B2 technical handoff](docs/F3_B2_SAME_TLS_QR_PROOF_AND_TRANSCRIPT.md).
