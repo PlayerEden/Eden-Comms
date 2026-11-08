@@ -1355,10 +1355,14 @@ internal fun LocalPairingTestScreen(
                                 // Hiding the conversation also stops local
                                 // recording/playback. The peer can still send
                                 // over TLS: hidden is not a network block.
+                                val activeLiveStream = liveVoiceHandle != null
                                 liveVoiceHandle?.cancel()
                                 liveVoiceHandle = null
                                 pendingFloorMode = null
-                                probe?.cancelUnstartedVoiceFloor()
+                                // A LIVE writer must send its END before it
+                                // sends RELEASE. Only an unstarted floor is
+                                // released directly from the UI.
+                                if (!activeLiveStream) probe?.cancelUnstartedVoiceFloor()
                                 voiceAudio.cancelAll()
                                 talking = false
                                 voiceFinalizing = false
