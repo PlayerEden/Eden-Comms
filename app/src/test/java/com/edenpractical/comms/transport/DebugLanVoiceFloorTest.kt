@@ -55,6 +55,35 @@ class DebugLanVoiceFloorTest {
         assertEquals(DebugLanVoiceFloor.Ask.GRANTED, host.requestLocal(14).status)
     }
 
+    @Test fun lateAbandonedGrantDoesNotCorruptANewerPendingRequest() {
+        val host = DebugLanVoiceFloor(true)
+        val joiner = DebugLanVoiceFloor(false)
+        val first = joiner.requestLocal(10).packet!!
+        val oldGrant = host.incoming(first, 11).outbound!!
+        val cancel = joiner.cancelPending()!!
+        host.incoming(cancel, 12)
+        val second = joiner.requestLocal(13).packet!!
+        val newGrant = host.incoming(second, 14).outbound!!
+        assertEquals(DebugLanVoiceFloor.Signal.NONE,
+            joiner.incoming(oldGrant, 15).signal)
+        assertFalse(joiner.maySendAudio())
+        assertEquals(DebugLanVoiceFloor.Signal.GRANTED,
+            joiner.incoming(newGrant, 16).signal)
+        assertTrue(joiner.maySendAudio())
+    }
+
+    @Test fun hostRejectsTwoVoiceTurnsOnOneJoinerGrant() {
+        val host = DebugLanVoiceFloor(true)
+        host.incoming(packet(DebugLanVoiceFloorCodec.Kind.REQUEST, 1), 10)
+        host.remoteAudioStart()
+        host.remoteAudioEnd()
+        assertThrows(TestPacketException::class.java) { host.remoteAudioStart() }
+        host.incoming(packet(DebugLanVoiceFloorCodec.Kind.RELEASE, 1), 20)
+        host.incoming(packet(DebugLanVoiceFloorCodec.Kind.REQUEST, 2), 21)
+        host.remoteAudioStart()
+        host.remoteAudioEnd()
+    }
+
     @Test fun replayWrongRoleAndUnapprovedRemotePcmAreRejected() {
         val host = DebugLanVoiceFloor(true)
         val joiner = DebugLanVoiceFloor(false)
