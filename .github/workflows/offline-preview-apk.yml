@@ -107,6 +107,21 @@ jobs:
           echo "Not a reviewed secure messenger. Not a Google Play signing identity." >> "$GITHUB_STEP_SUMMARY"
           echo "This APK updates only earlier *matching preview package + signer* installations." >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Include test quick start alongside APK
+        run: |
+          set -euo pipefail
+          test -s docs/TEST_BUILD_QUICKSTART.md
+          cp docs/TEST_BUILD_QUICKSTART.md dist/START-HERE-TEST.md
+          {
+            printf '\n---\n'
+            printf 'Build versionCode: %s\n' "$EDEN_PREVIEW_CODE"
+            printf 'Exact source revision: %s\n' "$GITHUB_SHA"
+            printf 'Package: com.edenpractical.comms.preview\n'
+          } >> dist/START-HERE-TEST.md
+          echo "### This build: what to test" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open START-HERE-TEST.md in the downloaded artifact for one-phone" >> "$GITHUB_STEP_SUMMARY"
+          echo "and two-phone LAN instructions. No production or security acceptance." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload installable Preview APK
         uses: actions/upload-artifact@v4
         with:
@@ -116,6 +131,7 @@ jobs:
             dist/eden-comms-preview-*.apk.sha256
             dist/evidence/apk-identity.json
             dist/evidence/apk-identity.md
+            dist/START-HERE-TEST.md
           if-no-files-found: error
           retention-days: 14
 
