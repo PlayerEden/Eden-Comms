@@ -47,7 +47,11 @@ measured low latency, no glitching, acoustic quality or device compatibility.
 - The older **USE TAP CONTROLS INSTEAD** route intentionally retains
   record-then-send as a fallback for accessibility / device problems.
   Because the F4-D receiver plays validated frames progressively,
-  fallback bursts also use the bounded streaming speaker path.
+  the pre-recorded burst is **paced at approximately 20ms per frame**
+  through that same bounded streaming speaker path instead of dumping the
+  whole clip at once and overwhelming the 240ms receiver queue. The fallback
+  therefore starts playback only AFTER recording, but may itself take up to
+  three seconds to send.
 - Microphone permission is still requested on demand in debug builds.
   Neither debug microphone capture nor speaker playback continues
   after app background, leaving the chat or closing the test session.
