@@ -79,6 +79,9 @@ internal fun LocalPairingTestScreen(
     val handler = remember { Handler(Looper.getMainLooper()) }
     val voiceAudio = remember(context) { DebugLanVoiceAudio(context.applicationContext) }
     var talking by remember { mutableStateOf(false) }
+    // F4-E: only validated START/END frames from this active TLS reader
+    // change the remote-radio indicator, never a local timer or permission.
+    var peerTalking by remember { mutableStateOf(false) }
     // Block another capture while an ended recording is still finalizing
     // and queuing its one bounded voice turn.
     var voiceFinalizing by remember { mutableStateOf(false) }
@@ -169,8 +172,8 @@ internal fun LocalPairingTestScreen(
      * The UI never creates a socket, unverified session or background service.
      */
     fun startLiveVoiceCapture(): Boolean {
-        if (stage != "demo" || privacyHidden || talking || voiceFinalizing)
-            return false
+        if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||
+            peerTalking) return false
         if (context.checkSelfPermission(
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
@@ -259,7 +262,8 @@ internal fun LocalPairingTestScreen(
     // optional visible tap controls. This still records, THEN sends one bounded
     // burst on the same debug-only, already-approved TLS session.
     fun startVoiceCapture(): Boolean {
-        if (stage != "demo" || privacyHidden || talking || voiceFinalizing) return false
+        if (stage != "demo" || privacyHidden || talking || voiceFinalizing ||
+            peerTalking) return false
         if (context.checkSelfPermission(
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
@@ -353,6 +357,7 @@ internal fun LocalPairingTestScreen(
         probe = null
         voiceAudio.cancelAll()
         talking = false
+        peerTalking = false
         voiceFinalizing = false
         voiceNote = "No voice burst sent yet."
         debugText = debugText.finish()
@@ -634,6 +639,7 @@ internal fun LocalPairingTestScreen(
                             transcript = transcript.ready()
                             debugText = debugText.ready()
                             privacyHidden = false
+                            peerTalking = false
                             showClearConfirmation = false
                             stage = "demo"
                             status = "Debug session confirmed. Presets and short test text available."
@@ -667,15 +673,23 @@ internal fun LocalPairingTestScreen(
                                 messageId, text
                             )
                         }
+                        LanDemoSession.Phase.VOICE_STARTED -> {
+                            // Only an approved, decoded START from the real peer
+                            // marks this radio as receiving. It may be muted or
+                            // inaudible on this handset.
+                            if (stage == "demo") peerTalking = true
+                        }
+                        LanDemoSession.Phase.VOICE_FINISHED -> {
+                            if (stage == "demo") peerTalking = false
+                        }
                         LanDemoSession.Phase.VOICE_RECEIVED -> {
-                            // The actual local speaker outcome is reported by
-                            // the AudioTrack callback below. Network reception
-                            // alone never claims playback on this phone.
-                            Unit
+                            // Network completion is not proof of audible sound.
+                            // Clear even if the display skipped a START event.
+                            if (stage == "demo") peerTalking = false
                         }
                         LanDemoSession.Phase.VOICE_WRITTEN -> {
                             if (stage == "demo") voiceNote =
-                                "Voice burst written to encrypted link (peer playback not confirmed)."
+                                "Voice frames written to encrypted link (peer playback not confirmed)."
                         }
                         LanDemoSession.Phase.TEXT_PEER_ACK -> {
                             if (!DebugSessionEventAdmission.canRecord(
@@ -1280,11 +1294,27 @@ internal fun LocalPairingTestScreen(
                                 "older record-then-send mode.",
                             style = MaterialTheme.typography.bodySmall
                         )
-                        // F4-D: microphone PCM is sent over the existing
-                        // approved TLS session while held. Release sends END;
-                        // the old record-then-send tap mode stays available.
+                        // F4-E: observation-only receiving state, not a
+                        // negotiated floor. Simultaneous presses may collide.
+                        Text(
+                            when {
+                                privacyHidden -> "VOICE MUTED ON THIS PHONE"
+                                peerTalking -> "RECEIVING • OTHER PHONE IS TALKING"
+                                talking -> "TRANSMITTING • LIVE TEST AUDIO"
+                                voiceFinalizing -> "STOPPING TRANSMISSION…"
+                                else -> "READY TO TALK • TEST CONNECTION"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            }
+                        )
+                        // F4-D: real live PCM goes over the approved TLS
+                        // session while held. A remote START temporarily
+                        // disables a new hold, but is not floor arbitration.
                         DebugHoldToTalkControl(
-                            enabled = !voiceFinalizing && !privacyHidden,
+                            enabled = !voiceFinalizing && !privacyHidden && !peerTalking,
                             recording = talking,
                             onPressStart = { startLiveVoiceCapture() },
                             onRelease = { finishLiveVoiceCapture() },
@@ -1302,7 +1332,10 @@ internal fun LocalPairingTestScreen(
                         if (showTapVoiceControls) {
                             Button(
                                 onClick = { tapVoiceCapture() },
-                                enabled = !voiceFinalizing && !privacyHidden,
+                                // Keep Stop available if a tap-mode capture
+                                // and remote START race each other.
+                                enabled = !voiceFinalizing && !privacyHidden &&
+                                    (!peerTalking || talking),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
                                 shape = CutCornerShape(6.dp)
                             ) {
@@ -1313,8 +1346,10 @@ internal fun LocalPairingTestScreen(
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                         Text(
-                            "Only records on this phone after you tap. Disconnecting " +
-                                "or backgrounding stops the microphone and speaker. " +
+                            "Audio is transmitted during a held press; already-sent " +
+                                "sound cannot be recalled. The remote talk indicator " +
+                                "helps avoid overlap but does not reserve the channel. " +
+                                "Backgrounding or disconnecting stops local audio. " +
                                 "No recording is saved. Use harmless test speech.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
