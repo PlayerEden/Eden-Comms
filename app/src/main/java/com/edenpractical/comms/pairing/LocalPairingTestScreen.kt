@@ -181,7 +181,11 @@ internal fun LocalPairingTestScreen(
         showPairingHelp = false
         showBuildEvidence = false
         showResultDetails = false
+        showIdentityConsent = false
+        showUpgradeConfirmation = false
         cameraError = false
+        // A stale camera callback must not be accepted by the next QR scan.
+        scanRevision += 1
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
         textDraft = ""
@@ -259,9 +263,21 @@ internal fun LocalPairingTestScreen(
         val invite = hostInvite
         val reply = joinReply
         if (own == null || expected == null || invite == null || reply == null) {
+            // This is a failed preflight, not a resumable QR flow. Do not
+            // retain a partial invite, peer pin or old debug transcript.
+            stopTest()
+            clearTemporaryPairing()
+            qaFinish = LocalQaReport.Finish.CONNECTION_FAILED
+            qaEndCode = null
+            qaFailureCode = null
+            qaTlsReady = false
+            approvalStage = DebugApprovalGate.State.WAITING
+            approvalSending = false
+            transcript = transcript.finish()
+            debugText = debugText.finish()
+            details = "Pairing was incomplete; no test connection was started."
             stage = "result"
             status = "Pairing was incomplete. Start again with fresh codes."
-            transcript = transcript.finish()
             return
         }
         try {
@@ -521,6 +537,15 @@ internal fun LocalPairingTestScreen(
                         else "Choose how to begin."
                 }
             }
+            if (event == Lifecycle.Event.ON_STOP && stage == "choose") {
+                // Consent/identity work can finish off the main thread after
+                // the app is backgrounded. It may update the local identity,
+                // but must never resume the old role or open QR setup.
+                attemptVersion += 1
+                pendingRole = null
+                showIdentityConsent = false
+                showUpgradeConfirmation = false
+            }
             if (event == Lifecycle.Event.ON_STOP &&
                 stage !in listOf("checking", "choose", "result", "identityError")
             ) {
@@ -707,9 +732,16 @@ internal fun LocalPairingTestScreen(
                 }
                 "scanHost", "scanReply" -> {
                     key(scanRevision) {
+                        // Scanner callbacks can be delivered after a camera
+                        // revision or pairing attempt has already been replaced.
+                        val scanAttempt = attemptVersion
+                        val scannerRevision = scanRevision
                         LocalPairingQrScanner(
                             onPayload = { payload ->
-                                try {
+                                if (PairingRestartAdmission.mayAcceptScan(
+                                        scanAttempt, attemptVersion,
+                                        scannerRevision, scanRevision, stage
+                                    )) try {
                                     if (stage == "scanHost") {
                                         if (!wifiIsOriginalPairingLink()) throw LanWifiChangedException()
                                         val invite = LocalPairingQrCodec.decodeHost(payload)
@@ -750,7 +782,10 @@ internal fun LocalPairingTestScreen(
                             onCameraError = {
                                 // CameraX may report a late failure after a
                                 // user cancels; never overwrite another screen.
-                                if (stage == "scanHost" || stage == "scanReply") {
+                                if (PairingRestartAdmission.mayAcceptScan(
+                                        scanAttempt, attemptVersion,
+                                        scannerRevision, scanRevision, stage
+                                    )) {
                                     cameraError = true
                                     status = it
                                 }
@@ -1267,6 +1302,7 @@ internal fun LocalPairingTestScreen(
                 TextButton(onClick = {
                     showIdentityConsent = false
                     val chosen = pendingRole
+                    val consentAttempt = attemptVersion
                     scope.launch {
                         loading = true
                         try {
@@ -1275,6 +1311,15 @@ internal fun LocalPairingTestScreen(
                             }
                             identity = created.first
                             signingStatus = created.second
+                            if (!PairingRestartAdmission.mayContinueConsent(
+                                    consentAttempt, attemptVersion,
+                                    chosen, pendingRole, stage,
+                                    (context as? LifecycleOwner)?.lifecycle?.currentState
+                                        ?.isAtLeast(Lifecycle.State.RESUMED) == true
+                                )) {
+                                pendingRole = null
+                                return@launch
+                            }
                             if (created.second ==
                                 AndroidKeystoreIdentity.TlsSigningStatus.LEGACY_SHA256_ONLY
                             ) {
@@ -1312,6 +1357,7 @@ internal fun LocalPairingTestScreen(
                 TextButton(onClick = {
                     showUpgradeConfirmation = false
                     val chosen = pendingRole
+                    val consentAttempt = attemptVersion
                     scope.launch {
                         loading = true
                         try {
@@ -1321,6 +1367,15 @@ internal fun LocalPairingTestScreen(
                             }
                             identity = updated.first
                             signingStatus = updated.second
+                            if (!PairingRestartAdmission.mayContinueConsent(
+                                    consentAttempt, attemptVersion,
+                                    chosen, pendingRole, stage,
+                                    (context as? LifecycleOwner)?.lifecycle?.currentState
+                                        ?.isAtLeast(Lifecycle.State.RESUMED) == true
+                                )) {
+                                pendingRole = null
+                                return@launch
+                            }
                             if (chosen != null) startRole(chosen)
                         } catch (_: Exception) {
                             status = "Couldn't update the test key. The old key should still exist."
