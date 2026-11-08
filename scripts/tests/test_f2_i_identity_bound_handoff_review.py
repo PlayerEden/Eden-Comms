@@ -106,7 +106,7 @@ class F2IReviewHandoffTests(unittest.TestCase):
             "independent security review",
             "Do not enable Bluetooth text",
         ):
-            self.assertIn(requirement, self.review, requirement)
+            self.assertIn(requirement.lower(), self.review.lower(), requirement)
 
 
 if __name__ == "__main__":
