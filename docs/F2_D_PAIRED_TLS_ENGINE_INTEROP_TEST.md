@@ -48,9 +48,39 @@ the adapter. All key files, sockets/pipes, executor threads and test-only
 working material are cleaned up after tests. Java's memory model does
 not guarantee removing every historical copy of a key.
 
+## First CI feedback and bounded debug-only adapter refinement
+
+The first paired test run (CI run `42450874742`) successfully completed
+both actual TLS 1.3 handshakes and reciprocal certificate pin checks, but
+failed on the **first received encrypted protocol control** at the JVM
+provider. This exposes a provider compatibility issue that isolated
+record-envelope tests did not exercise. The CI output reported an
+`SSLException` at the first `DebugTlsControlTransport.input.read`;
+it did not print the precise underlying reason. TLS 1.3 post-handshake
+no-application-data records (such as NewSessionTicket) are a plausible
+explanation, not yet a confirmed diagnosis.
+
+The follow-up patch modifies **only the debug transport**: before each
+mandatory fixed-width control, it may discard **at most two** complete TLS
+1.3 encrypted records that the live `SSLEngine` has already processed
+successfully and authenticated while producing **zero application bytes**.
+These are never delivered as control data. Each such record must meet
+the existing single-ciphertext envelope, exact `SSLEngineResult`
+consumption, `Status.OK`, `NOT_HANDSHAKING`, live inbound/outbound and
+buffer bounds. Any record yielding nonzero but incorrect application
+bytes is rejected immediately; a third no-plaintext record also fails
+closed. All ciphertext and scratch buffers are wiped through existing
+`finally` paths. No retransmission, plaintext recovery or fallback.
+This is an interoperability experiment, **not authorization for chat**.
+
+**Follow-up test evidence is required:** the actual paired TLS engines
+must be run again under CI, with separate post-merge confirmation; a
+regression guard asserts the maximum skip count and no nonzero data
+can be ignored. Android TLS/Conscrypt compatibility remains unknown.
+
 ## Important limitations
 
-- A successful OpenJDK/SunJSSE test is **not** evidence that the Android
+- A successful OpenJDK/SunJSSE test, including the bounded TLS-only skip, is **not** evidence that the Android
   Conscrypt provider, `android.net.ssl.SSLEngines` exporter, a specific
   Bluetooth stack, RFCOMM timeouts, Android Keystore-backed identities
   or physical phones behave the same way. Android 12+ two-phone test
@@ -85,7 +115,7 @@ Bluetooth user data and release capabilities disabled until the gates
 above are satisfied. The earlier F2-C future observation budget is
 not a cryptographic proof and is still unwired.
 
-**Rollback:** revert F2-D PR. There is no on-device behavior,
+**Rollback:** revert F2-D PR. The debug TLS control adapter has only a bounded post-handshake record-tolerance change; no on-device messaging is enabled. There is no persistent data,
 database, saved trust or APK update migration.
 
 Primary context:
