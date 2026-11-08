@@ -473,9 +473,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             enabled = active != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP AND REMOVE TEST GROUP") }
-                        Text("No device selection or invitations, network addresses, " +
-                            "group passwords, app sockets, messages or microphone access. " +
-                            "Android cleanup is best effort; inspect system Wi-Fi Direct " +
+                        Text("No peer identities, IP addresses or group passwords are shown " +
+                            "or stored. The optional TCP reachability probe transfers zero " +
+                            "application bytes; no text, microphone or trust is enabled. " +
+                            "Group cleanup is best effort; inspect system Wi-Fi Direct " +
                             "settings if removal cannot be confirmed.")
                     }
                 }
