@@ -558,6 +558,39 @@ if find "$MAIN" -name 'DebugBluetoothTextFrameCodec.kt' -print -quit | grep -q .
   exit 1
 fi
 
+# F2-G: real paired TLS TEXT/ACK lab MUST remain isolated from live RFCOMM
+# and release. Actual user chat still requires independently reviewed owned
+# post-consent TLS session and physical Android provider QA.
+BT_TLS_TEXT_LAB="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothFutureTlsTextLab.kt"
+BT_TLS_PAIRS="app/src/test/java/com/edenpractical/comms/bluetooth/DebugPairedTlsEngineInteropTest.kt"
+test -f "$BT_TLS_TEXT_LAB" && test -f "$BT_TLS_PAIRS"
+grep -Fq 'engine.wrap(ByteBuffer.wrap(frame), encrypted)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'engine.unwrap(ByteBuffer.wrap(record), plaintext)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'DebugTlsRecordBoundary.requireSingleCiphertext(record)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'DebugTlsProviderReadiness.requireControlReady(engine)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'DebugBluetoothTextFrameCodec.decode(frame)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'DebugTlsControlTransport.MAX_NO_PLAINTEXT_RECORDS' "$BT_TLS_TEXT_LAB"
+grep -Fq 'pairedTlsEnginesExchangeEncryptedTextAndPeerAppAckBothDirections()' "$BT_TLS_PAIRS"
+grep -Fq 'pairedTlsLabRejectsMalformedEncryptedRecordAndClosesItself()' "$BT_TLS_PAIRS"
+if grep -Fq 'DebugBluetoothFutureTlsTextLab' "$BT_TLS_PROBE" ||
+   grep -Fq 'DebugBluetoothFutureTlsTextLab' "$BT_RFCOMM"; then
+  echo "FAIL: F2-G future encrypted TEXT lab entered live RFCOMM diagnostic" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugBluetoothFutureTlsTextLab.kt' -print -quit | grep -q .; then
+  echo "FAIL: F2-G future encrypted TEXT lab entered release code" >&2
+  exit 1
+fi
+for forbidden in 'import android.bluetooth.' 'import android.net.' \
+  'import java.net.' 'BluetoothSocket(' 'TestPacketCodec' \
+  'sendDebugText(' 'ProductionSessionAuthorization' 'SharedPreferences' \
+  'openFileOutput(' 'AudioRecord'; do
+  if grep -Fq "$forbidden" "$BT_TLS_TEXT_LAB"; then
+    echo "FAIL: F2-G lab acquired radio, production text, storage or audio privileges" >&2
+    exit 1
+  fi
+done
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
