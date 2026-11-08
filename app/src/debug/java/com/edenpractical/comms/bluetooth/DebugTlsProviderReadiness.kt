@@ -52,6 +52,11 @@ internal object DebugTlsProviderReadiness {
             result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING ||
             result.bytesConsumed() != consumed ||
             result.bytesProduced() != produced
-        ) throw SSLException("Unsupported Bluetooth TLS control engine result")
+        ) throw SSLException(
+            "Unsupported Bluetooth TLS control engine result: " +
+                "status=${result.status}, handshake=${result.handshakeStatus}, " +
+                "consumed=${result.bytesConsumed()}/$consumed, " +
+                "produced=${result.bytesProduced()}/$produced"
+        )
     }
 }
