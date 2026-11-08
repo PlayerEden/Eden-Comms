@@ -1,4 +1,4 @@
-"""F4-C: actual Compose hold/release debug voice UX, not fake streaming.
+"""F4-C/F4-D: real hold/release debug LAN voice, now live during hold.
 
 Source guards complement Gradle's Android compilation. No physical speaker
 or touch-device acceptance is claimed by these checks.
@@ -20,8 +20,8 @@ class HoldToTalkSourceContract(unittest.TestCase):
             "rememberUpdatedState(onPressStart)", "rememberUpdatedState(onRelease)",
             "rememberUpdatedState(onCancel)", "onAccessibilityClick",
             "currentAccessibility()", "role = Role.Button",
-            "Hold to record a short test voice burst", "HOLD TO TALK",
-            "RELEASE TO SEND"
+            "Hold to transmit live test voice", "HOLD TO TALK",
+            "RELEASE TO STOP"
         ):
             self.assertIn(required, control, required)
         # This control must not open a second transport, microphone or TLS
@@ -36,9 +36,9 @@ class HoldToTalkSourceContract(unittest.TestCase):
     def test_approved_lan_voice_session_is_reused_with_tap_fallback(self):
         screen = (MAIN / "pairing/LocalPairingTestScreen.kt").read_text()
         for required in (
-            "DebugHoldToTalkControl(", "onPressStart = { startVoiceCapture() }",
-            "onRelease = { finishVoiceCapture() }",
-            "onCancel = { cancelVoiceCapture() }",
+            "DebugHoldToTalkControl(", "onPressStart = { startLiveVoiceCapture() }",
+            "onRelease = { finishLiveVoiceCapture() }",
+            "onCancel = { cancelLiveVoiceCapture() }",
             "onAccessibilityClick = { tapVoiceCapture() }",
             "USE TAP CONTROLS INSTEAD", "HIDE TAP CONTROLS",
             "Text(if (talking) \"SEND VOICE BURST\" else \"START TALKING\")",
@@ -46,9 +46,11 @@ class HoldToTalkSourceContract(unittest.TestCase):
             'if (stage != "demo" || privacyHidden || talking || voiceFinalizing)',
             "micPermission.launch(Manifest.permission.RECORD_AUDIO)",
             "voiceAudio.startCapture(", "live.sendVoiceBurst(clip)",
+            "voiceAudio.startLiveCapture(", "session.startLiveVoice()",
+            "onFrame = { pcm -> handle.offerPcm(pcm) }",
             "voiceAudio.finishCapture()", "voiceAudio.cancelAll()",
             "DebugSessionEventAdmission.current(", "No usable microphone audio",
-            "Sound is sent AFTER release,"
+            "transmit short audio frames over"
         ):
             self.assertIn(required, screen, required)
         self.assertIn("showTapVoiceControls by remember { mutableStateOf(false) }", screen)
@@ -63,8 +65,8 @@ class HoldToTalkSourceContract(unittest.TestCase):
         self.assertIn("TestPacketCodec.debugVoice(frame)", lan)
         self.assertIn("socket.startHandshake()", lan)
         self.assertIn("PinnedTlsPeer.requirePinnedTls13", lan)
-        self.assertIn("not continuously while held", screen)
-        self.assertIn("does NOT stream while held", control)
+        self.assertIn("Three seconds maximum", screen)
+        self.assertIn("Already transmitted live audio cannot be retracted", control)
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn(f"const val {flag} = false", release)
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
