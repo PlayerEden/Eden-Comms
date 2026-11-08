@@ -60,6 +60,19 @@ class DebugBluetoothContinuationBudgetTest {
         assertFalse(budget.beginObservation(7, 501, observations()))
     }
 
+    @Test fun rollbackAfterMultipleValidObservationsAlsoTerminatesPermanently() {
+        val budget = DebugBluetoothContinuationBudget(maxLifetimeMs = 100)
+        assertTrue(budget.beginObservation(77, 500, observations()))
+        assertTrue(budget.stillObserved(77, 540, true, true))
+        assertTrue(budget.stillObserved(77, 565, true, true))
+        // A rollback to 555 is still after the original 500 start, but is
+        // BEFORE the last valid observation and must fail closed.
+        assertFalse(budget.stillObserved(77, 555, true, true))
+        assertEquals(DebugBluetoothContinuationBudget.Phase.TERMINATED, budget.snapshot())
+        assertFalse(budget.stillObserved(77, 570, true, true))
+        assertFalse(budget.beginObservation(78, 590, observations()))
+    }
+
     @Test fun backgroundPermissionLossAndUserEndAreTerminal() {
         val budget = DebugBluetoothContinuationBudget()
         assertTrue(budget.beginObservation(3, 10, observations()))
