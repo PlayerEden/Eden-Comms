@@ -67,7 +67,7 @@ class F3AReachabilityBoundary(unittest.TestCase):
             "DebugWifiDirectTcpProbe.Role.JOIN",
             "gate.snapshot().phase == DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED",
             "current !== token", "tcpAttempted = true", "tcpProbe?.close()",
-            "No user text, voice or identity is transmitted."
+            "No text, QR, voice or identity is transmitted."
         ):
             self.assertIn(marker, self.join, marker)
         for marker in (
