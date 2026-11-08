@@ -497,6 +497,12 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         ) { Text("REQUEST 18-SECOND UNVERIFIED LINK TEST") }
                         Text(targetNotice)
                         OutlinedButton(
+                            onClick = { targetController?.requestTcpJoinReachability() },
+                            enabled = foreground &&
+                                targetController?.canAttemptTcp() == true,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("TEST ONE TCP CONNECTION — NO DATA OR TRUST") }
+                        OutlinedButton(
                             onClick = {
                                 targetController?.stop(
                                     DebugWifiDirectTargetLinkGate.End.USER_STOP

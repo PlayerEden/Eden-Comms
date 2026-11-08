@@ -88,7 +88,7 @@ class M3sC1TargetLinkBoundary(unittest.TestCase):
                 "TestPacketCodec", "sendDebugText(", "sendPacket(",
                 "ServerSocket(", "DatagramSocket(", "Socket(",
                 "openFileOutput(", "SharedPreferences", "getLastKnownLocation(",
-                "latitude", "longitude", "groupOwnerAddress", "getPassphrase(",
+                "latitude", "longitude", "getPassphrase(",
                 "getNetworkName(", "getClientList(", "ClipboardManager",
                 "Log.d(", "Log.i(", "Log.e("
             ):

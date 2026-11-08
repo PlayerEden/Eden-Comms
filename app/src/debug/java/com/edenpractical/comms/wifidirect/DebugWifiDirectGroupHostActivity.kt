@@ -42,8 +42,10 @@ import java.security.SecureRandom
 /**
  * M3s debug only: this device may briefly host a local P2P group by an
  * explicit user tap, but NEVER initiates connection to M3r candidates.
- * No credentials, device IDs, IPs, passphrase, peer data, sockets or text
- * are exposed/saved. OS removal is best effort, NOT a shutdown guarantee.
+ * No credentials, device IDs, IPs, passphrase, peer data or text are
+ * exposed/saved. F3-A allows one explicit TCP handshake-only listener on
+ * the OS-reported private group-owner interface, exchanging ZERO data.
+ * OS removal is best effort, NOT a shutdown guarantee.
  */
 class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val gate = DebugWifiDirectGroupHostGate()
@@ -56,6 +58,9 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private var timeout: Runnable? = null
     private var poll: Runnable? = null
     private var cleanupDeadline: Runnable? = null
+    private var tcpProbe: DebugWifiDirectTcpProbe? = null
+    private var tcpAttempted = false
+    private var tcpNotice by mutableStateOf("No TCP reachability test has been attempted.")
     private var phase by mutableStateOf(DebugWifiDirectGroupHostGate.Phase.IDLE)
     private var notice by mutableStateOf(
         "No group has been requested. This is a development radio test only."
@@ -95,6 +100,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     ) {
         if (active !== current || gate.snapshot().creationSubmitted) return
         gate.stop(current, reason)
+        tcpProbe?.close()
+        tcpProbe = null
         active = null
         timeout?.let(handler::removeCallbacks)
         poll?.let(handler::removeCallbacks)
@@ -115,6 +122,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         if (active !== current || !gate.active(current)) return
         val submitted = gate.snapshot().creationSubmitted
         gate.stop(current, why)
+        tcpProbe?.close()
+        tcpProbe = null
         active = null // no stale callback may resume radio work
         timeout?.let(handler::removeCallbacks)
         poll?.let(handler::removeCallbacks)
@@ -278,6 +287,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         val current = gate.start(humanTap = true, foreground = foreground,
             ready = ready(), api = Build.VERSION.SDK_INT) ?: return
         active = current
+        tcpAttempted = false
+        tcpNotice = "No TCP reachability test has been attempted."
         refreshPhase()
         notice = "Checking for an existing P2P group. Existing groups are not touched."
         val m = getSystemService(Context.WIFI_P2P_SERVICE) as? WifiP2pManager
@@ -339,6 +350,62 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         }
     }
 
+    /** F3-A: second user action on formed group; zero application data. */
+    private fun requestTcpHostReachability() {
+        val token = active ?: return
+        if (tcpAttempted || tcpProbe != null || !foreground || !ready() ||
+            gate.snapshot().phase != DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED
+        ) return
+        val m = manager ?: return
+        val c = channel ?: return
+        tcpAttempted = true
+        tcpNotice = "Inspecting the untrusted Wi-Fi Direct group-owner endpoint."
+        try {
+            m.requestConnectionInfo(c) { info ->
+                if (active !== token || !foreground || !ready() ||
+                    gate.snapshot().phase != DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED
+                ) return@requestConnectionInfo
+                val address = info.groupOwnerAddress
+                if (!info.groupFormed || !info.isGroupOwner || address == null) {
+                    tcpNotice = "OS did not confirm a group-owner endpoint. No listener opened."
+                    return@requestConnectionInfo
+                }
+                val probe = DebugWifiDirectTcpProbe()
+                tcpProbe = probe
+                if (!probe.start(
+                        DebugWifiDirectTcpProbe.Role.HOST, address,
+                        onCompleted = { reached ->
+                            handler.post {
+                                if (active !== token || tcpProbe !== probe || !foreground)
+                                    return@post
+                                tcpProbe = null
+                                tcpNotice = if (reached)
+                                    "A TCP connection reached the group listener. " +
+                                        "Peer UNVERIFIED. No data sent."
+                                else "TCP handshake timed out or failed. No data sent."
+                            }
+                        },
+                        onListening = {
+                            handler.post {
+                                if (active === token && tcpProbe === probe && foreground)
+                                    tcpNotice = "Listener active briefly. Tap CONNECTIVITY TEST " +
+                                        "on joining phone now. No data is exchanged."
+                            }
+                        }
+                    )
+                ) {
+                    probe.close()
+                    tcpProbe = null
+                    tcpNotice = "Owner endpoint failed private-IPv4 validation; no listener."
+                } else {
+                    tcpNotice = "Opening 5-second listener on the temporary P2P interface."
+                }
+            }
+        } catch (_: RuntimeException) {
+            tcpNotice = "Cannot inspect Wi-Fi Direct endpoint; no listener started."
+        }
+    }
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (!foreground) return
@@ -383,6 +450,13 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             "verified identity or private conversation.")
                         Text("State: $phase")
                         Text(notice)
+                        Text(tcpNotice)
+                        OutlinedButton(
+                            onClick = { requestTcpHostReachability() },
+                            enabled = foreground && active != null && !tcpAttempted &&
+                                phase == DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("RUN 5-SECOND TCP LISTENER TEST — NO DATA") }
                         Button(
                             onClick = { startHost() },
                             enabled = foreground && registered && active == null &&
@@ -399,9 +473,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             enabled = active != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP AND REMOVE TEST GROUP") }
-                        Text("No device selection or invitations, network addresses, " +
-                            "group passwords, app sockets, messages or microphone access. " +
-                            "Android cleanup is best effort; inspect system Wi-Fi Direct " +
+                        Text("No peer identities, IP addresses or group passwords are shown " +
+                            "or stored. The optional TCP reachability probe transfers zero " +
+                            "application bytes; no text, microphone or trust is enabled. " +
+                            "Group cleanup is best effort; inspect system Wi-Fi Direct " +
                             "settings if removal cannot be confirmed.")
                     }
                 }

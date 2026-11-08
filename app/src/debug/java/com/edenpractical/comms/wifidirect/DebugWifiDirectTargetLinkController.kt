@@ -12,7 +12,9 @@ import android.os.Looper
 
 /**
  * M3s-C1 DEBUG-ONLY targeted Android radio negotiation. It deliberately knows
- * nothing about QR identities, TLS, user messages, IP addresses or voice.
+ * nothing about QR identities, TLS, user messages or voice. F3-A adds one
+ * opt-in TCP handshake-only test to Android's OS-reported group owner address.
+ * An address or successful TCP handshake is not peer identity or consent.
  *
  * The selected opaque Android device is used just once to produce an in-RAM
  * nonpersistent P2P config. A group formed flag is NOT a verified peer.
@@ -35,6 +37,8 @@ internal class DebugWifiDirectTargetLinkController(
     private var cleaned = false
     private var inspectedInitialGroup = false
     private var connectionInfoOutstanding = false
+    private var tcpProbe: DebugWifiDirectTcpProbe? = null
+    private var tcpAttempted = false
 
     fun busy(): Boolean = current != null ||
         gate.snapshot().phase == DebugWifiDirectTargetLinkGate.Phase.CLEANING
@@ -49,6 +53,7 @@ internal class DebugWifiDirectTargetLinkController(
         current = token
         cleaned = false
         inspectedInitialGroup = false
+        tcpAttempted = false
         onReport("Checking for a pre-existing Wi-Fi Direct group. " +
             "The selected device is NOT verified.")
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
@@ -210,7 +215,8 @@ internal class DebugWifiDirectTargetLinkController(
                 }
                 if (gate.observedGroup(token, info.groupFormed)) {
                     onReport("Android reports a Wi-Fi Direct group FORMED. " +
-                        "Device identity remains UNVERIFIED. No sockets or messages.")
+                        "Device identity remains UNVERIFIED. No sockets or messages " +
+                        "were created by group formation; optional TCP test is separate.")
                 } else if (gate.snapshot().phase ==
                     DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED &&
                     !info.groupFormed
@@ -224,6 +230,60 @@ internal class DebugWifiDirectTargetLinkController(
         }
     }
 
+    /** F3-A: user requests one TCP handshake to Android's group owner.
+     * No QR/TLS identity or content transfers; a positive result is not trust.
+     */
+    fun canAttemptTcp(): Boolean = current != null && !tcpAttempted &&
+        gate.snapshot().phase == DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED &&
+        readyAndForeground()
+
+    fun requestTcpJoinReachability(): Boolean {
+        val token = current ?: return false
+        if (!canAttemptTcp() || tcpProbe != null) return false
+        val m = manager ?: return false
+        val c = channel ?: return false
+        tcpAttempted = true
+        onReport("Requesting Android's unverified group-owner endpoint for a " +
+            "single TCP handshake. No messages.")
+        try {
+            m.requestConnectionInfo(c) { info ->
+                if (current !== token || !readyAndForeground() ||
+                    gate.snapshot().phase != DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED
+                ) return@requestConnectionInfo
+                val address = info.groupOwnerAddress
+                if (!info.groupFormed || info.isGroupOwner || address == null) {
+                    onReport("This phone is not a confirmed P2P joiner with an " +
+                        "OS-reported owner endpoint. No TCP connection attempted.")
+                    return@requestConnectionInfo
+                }
+                val probe = DebugWifiDirectTcpProbe()
+                tcpProbe = probe
+                if (!probe.start(DebugWifiDirectTcpProbe.Role.JOIN, address,
+                        onCompleted = { reached ->
+                            handler.post {
+                                if (current !== token || tcpProbe !== probe) return@post
+                                tcpProbe = null
+                                onReport(if (reached)
+                                    "TCP handshake completed with a private group endpoint. " +
+                                        "The remote app/peer is UNVERIFIED; no data sent."
+                                else "TCP handshake failed or timed out. No data sent.")
+                            }
+                        }
+                    )
+                ) {
+                    probe.close()
+                    tcpProbe = null
+                    onReport("The unverified group endpoint failed private-IPv4 " +
+                        "validation; no TCP connection.")
+                } else onReport("Attempting one bounded TCP handshake. " +
+                    "No user text, voice or identity is transmitted.")
+            }
+        } catch (_: RuntimeException) {
+            onReport("Unable to inspect Wi-Fi Direct endpoint. No TCP handshake.")
+        }
+        return true
+    }
+
     /**
      * The controller owns cancellation; it is safe to call from Stop/exit.
      * A late connect success/connection-info callback is always ignored.
@@ -233,6 +293,8 @@ internal class DebugWifiDirectTargetLinkController(
         val submitted = gate.snapshot().submitted
         if (gate.active(token)) gate.stop(token, reason)
         current = null
+        tcpProbe?.close()
+        tcpProbe = null
         connectionInfoOutstanding = false
         deadline?.let(handler::removeCallbacks)
         monitor?.let(handler::removeCallbacks)
@@ -304,6 +366,8 @@ internal class DebugWifiDirectTargetLinkController(
         manager = null
         channel = null
         current = null
+        tcpProbe?.close()
+        tcpProbe = null
         deadline?.let(handler::removeCallbacks)
         monitor?.let(handler::removeCallbacks)
         deadline = null

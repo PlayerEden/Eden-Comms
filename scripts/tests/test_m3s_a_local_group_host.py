@@ -50,7 +50,7 @@ class GroupHostSafetyBoundary(unittest.TestCase):
         for bad in (
             "requestPeers(", "deviceAddress", "deviceName", "EXTRA_P2P_DEVICE_LIST",
             "connect(", "cancelConnect(", "getConnectionInfo(",
-            "requestConnectionInfo(", "groupOwnerAddress", "passphrase",
+            "passphrase",
             "getPassphrase(", "getNetworkName(", "getClientList(",
             "Socket(", "DatagramSocket(", "ServerSocket(", "openFileOutput(",
             "SharedPreferences", "Log.d(", "Log.i(", "Log.e(",
