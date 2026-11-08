@@ -62,7 +62,14 @@ class F2DInteropBoundary(unittest.TestCase):
         self.assertIn("MAX_NO_PLAINTEXT_RECORDS = 2", self.control)
         self.assertIn("for (skipped in 0..MAX_NO_PLAINTEXT_RECORDS)", self.control)
         self.assertIn("if (result.bytesProduced() == 0)", self.control)
-        self.assertIn("result, consumed = encoded.size, produced = 0", self.control)
+        self.assertIn("DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(", self.control)
+        self.assertIn("result, consumed = encoded.size", self.control)
+        readiness = (DEBUG / "DebugTlsProviderReadiness.kt").read_text()
+        self.assertIn("fun requireEmptyTlsOnlyResult(", readiness)
+        self.assertIn("result.bytesProduced() != 0", readiness)
+        self.assertIn("result.bytesConsumed() != consumed", readiness)
+        self.assertIn("result.handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED", readiness)
+        self.assertIn("result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING", readiness)
         self.assertIn("result, consumed = encoded.size, produced = phase.bytes", self.control)
         self.assertIn("DebugTlsProviderReadiness.requireControlReady(engine)", self.control)
         self.assertIn("DebugTlsRecordBoundary.requireSingleCiphertext(encoded)", self.control)
@@ -72,7 +79,7 @@ class F2DInteropBoundary(unittest.TestCase):
         # No decrypted data may be silently treated as a provider-only record.
         self.assertLess(
             self.control.index("if (result.bytesProduced() == 0)"),
-            self.control.index("result, consumed = encoded.size, produced = 0")
+            self.control.index("DebugTlsProviderReadiness.requireEmptyTlsOnlyResult(")
         )
 
     def test_failure_coverage_and_disposable_key_cleanup(self):
