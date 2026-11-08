@@ -13,7 +13,9 @@ import java.io.OutputStream
  * FrameCodec bounds the outer envelope. Control packets accept only fixed
  * versions, known phrase IDs and session-bound 32-byte approval commitments.
  * Debug TEXT reuses the independently *unreviewed* ECTX candidate parser.
- * ACK is deliberately still REJECTED: no false receipt semantics.
+ * A debug peer-app ACK is a bounded application observation, NOT read or delivery
+ * certification. It is accepted only on the separately authenticated live
+ * LanDemoSession channel after both peers confirm.
  * Old 3-byte approvals fail closed.
  * Never use on plaintext sockets.
  */
@@ -37,7 +39,7 @@ internal object TestPacketCodec {
         Phrase(4, "Can you read this?")
     )
 
-    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT }
+    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT, DEBUG_ACK }
     // List makes byte-wise data class equality work in JVM wire tests.
     // Consent commitments are debug-only, never a transport secret.
     data class Packet(
@@ -72,6 +74,13 @@ internal object TestPacketCodec {
         return packet
     }
 
+    /** Peer app parsed this debug TEXT frame; not a human-read receipt. */
+    fun debugAck(messageId: Long): Packet {
+        val packet = Packet(Type.DEBUG_ACK, messageId = messageId)
+        encode(packet)
+        return packet
+    }
+
     private fun boundControl(type: Type, commitment: ByteArray): Packet {
         require(commitment.size == COMMITMENT_BYTES &&
             commitment.any { it != 0.toByte() }) { "Invalid debug session commitment" }
@@ -79,6 +88,13 @@ internal object TestPacketCodec {
     }
 
     fun encode(packet: Packet): ByteArray {
+        if (packet.type == Type.DEBUG_ACK) {
+            require(packet.phraseId == 0 && packet.sessionCommitment.isEmpty() &&
+                packet.text.isEmpty()) { "Debug ACK cannot carry text or consent fields" }
+            return ProposedChatWireCodec.encode(
+                ProposedChatWireCodec.Packet.Ack(packet.messageId)
+            )
+        }
         if (packet.type == Type.DEBUG_TEXT) {
             require(packet.phraseId == 0 && packet.sessionCommitment.isEmpty()) {
                 "Debug typed text cannot carry approval fields"
@@ -98,7 +114,8 @@ internal object TestPacketCodec {
             Type.APPROVE -> APPROVE
             Type.DECLINE -> DECLINE
             Type.CONFIRM -> CONFIRM
-            Type.DEBUG_TEXT -> error("Debug text handled before controls")
+            Type.DEBUG_TEXT, Type.DEBUG_ACK ->
+                error("Debug text and ACK handled before controls")
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
@@ -121,18 +138,23 @@ internal object TestPacketCodec {
     }
 
     fun decode(bytes: ByteArray): Packet {
-        // The opaque candidate inner payload is accepted ONLY for a TEXT
-        // shape. Peer ACK cannot imply delivered/read, and is rejected here.
+        // ECTX frames are accepted only for bounded TEXT and zero-body ACK.
+        // LanDemoSession separately requires live mutual approval and a
+        // tracked message ID; an ACK does NOT prove human receipt/read.
         if (bytes.size >= 4 && bytes[0] == 0x45.toByte() &&
             bytes[1] == 0x43.toByte() && bytes[2] == 0x54.toByte() &&
             bytes[3] == 0x58.toByte()
         ) {
             val candidate = ProposedChatWireCodec.decode(bytes)
-            if (candidate !is ProposedChatWireCodec.Packet.Text) throw TestPacketException()
-            return Packet(
-                Type.DEBUG_TEXT, messageId = candidate.messageId,
-                text = candidate.content
-            )
+            return when (candidate) {
+                is ProposedChatWireCodec.Packet.Text -> Packet(
+                    Type.DEBUG_TEXT, messageId = candidate.messageId,
+                    text = candidate.content
+                )
+                is ProposedChatWireCodec.Packet.Ack -> Packet(
+                    Type.DEBUG_ACK, messageId = candidate.messageId
+                )
+            }
         }
         if (bytes.size < 3 || (bytes[0].toInt() and 0xFF) != VERSION)
             throw TestPacketException()
