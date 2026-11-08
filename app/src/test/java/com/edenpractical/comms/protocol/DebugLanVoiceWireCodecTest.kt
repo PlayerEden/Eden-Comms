@@ -1,0 +1,76 @@
+package com.edenpractical.comms.protocol
+
+import org.junit.Assert.*
+import org.junit.Test
+import java.io.IOException
+
+class DebugLanVoiceWireCodecTest {
+    private val wire = DebugLanVoiceWireCodec
+
+    @Test fun shortPcmBurstRoundTripsWithoutPersistentAudio() {
+        val incoming = DebugLanVoiceAssembler()
+        val begin = wire.decode(wire.encode(wire.start(91L)))
+        assertNull(incoming.accept(begin))
+        for (sequence in 0..7) {
+            val pcm = ByteArray(wire.PCM_BYTES) { (sequence + it).toByte() }
+            val local = wire.data(91, sequence, pcm)
+            pcm.fill(0)
+            val encoded = wire.encode(local)
+            local.clear()
+            val decoded = wire.decode(encoded)
+            assertEquals(wire.Kind.DATA, decoded.kind)
+            assertEquals(sequence, decoded.sequence)
+            assertNull(incoming.accept(decoded))
+            decoded.clear()
+            encoded.fill(0)
+        }
+        val result = incoming.accept(wire.decode(wire.encode(wire.end(91, 8))))
+        assertNotNull(result)
+        assertEquals(wire.PCM_BYTES * 8, result!!.size)
+        assertEquals(0, result[0].toInt())
+        result.fill(0)
+        assertNull(incoming.accept(wire.start(92)))
+    }
+
+    @Test fun rejectsWrongWireAndOutOfOrderWithoutOfferingClip() {
+        val b = wire.encode(wire.start(1))
+        val malformed = b.clone()
+        malformed[0] = 0
+        assertThrows(IOException::class.java) { wire.decode(malformed) }
+        assertThrows(IOException::class.java) { wire.decode(b + byteArrayOf(3)) }
+        assertThrows(IllegalArgumentException::class.java) {
+            wire.data(1, 0, ByteArray(10))
+        }
+        val received = DebugLanVoiceAssembler()
+        assertNull(received.accept(wire.start(1)))
+        val bad = wire.data(1, 1, ByteArray(wire.PCM_BYTES))
+        assertThrows(IOException::class.java) { received.accept(bad) }
+        assertThrows(IOException::class.java) {
+            received.accept(wire.data(1, 0, ByteArray(wire.PCM_BYTES)))
+        }
+        bad.clear()
+    }
+
+    @Test fun finishBeforeAnyPcmOrWrongTurnNeverGeneratesAudio() {
+        val received = DebugLanVoiceAssembler()
+        received.accept(wire.start(4))
+        assertThrows(IOException::class.java) { received.accept(wire.end(4, 1)) }
+        val second = DebugLanVoiceAssembler()
+        second.accept(wire.start(2))
+        assertThrows(IOException::class.java) {
+            second.accept(wire.data(3, 0, ByteArray(wire.PCM_BYTES)))
+        }
+        assertThrows(IllegalArgumentException::class.java) { wire.start(0) }
+        assertThrows(IllegalArgumentException::class.java) { wire.end(1, wire.MAX_FRAMES + 1) }
+    }
+
+    @Test fun rejectsUnknownVersionKindAndControlFlags() {
+        val b = wire.encode(wire.start(1))
+        for ((index, value) in listOf(4 to 2, 5 to 99, 6 to 1, 7 to 1,
+            18 to 1, 19 to 1)) {
+            val broken = b.copyOf()
+            broken[index] = value.toByte()
+            assertThrows(IOException::class.java) { wire.decode(broken) }
+        }
+    }
+}
