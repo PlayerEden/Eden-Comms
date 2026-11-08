@@ -36,6 +36,7 @@ import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
 import com.edenpractical.comms.protocol.TestPacketCodec
+import com.edenpractical.comms.protocol.DebugLanVoiceWireCodec
 import com.edenpractical.comms.transport.DebugApprovalGate
 import com.edenpractical.comms.transport.LanDemoStatus
 import com.edenpractical.comms.transport.LanProbeDiagnostics
@@ -81,12 +82,13 @@ internal fun LocalPairingTestScreen(
     // Block another capture while an ended recording is still finalizing
     // and queuing its one bounded voice turn.
     var voiceFinalizing by remember { mutableStateOf(false) }
+    var liveVoiceHandle by remember { mutableStateOf<LanDemoSession.LiveVoiceHandle?>(null) }
     var showTapVoiceControls by remember { mutableStateOf(false) }
     var voiceNote by remember { mutableStateOf("No voice burst sent yet.") }
     val micPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        voiceNote = if (granted) "Microphone allowed. Tap Start talking again."
+        voiceNote = if (granted) "Microphone allowed. Hold to talk again."
             else "Microphone denied. Voice remains off; text still works."
     }
 
@@ -159,6 +161,98 @@ internal fun LocalPairingTestScreen(
         // Observational UI only: do not pass peer identity, messages or pins
         // into app-level navigation state.
         onStageChanged(stage)
+    }
+
+    /**
+     * Live hold-to-talk uses the same proven QR / TLS / bilateral approvals
+     * and existing ECVP frames, but sends each 20ms frame DURING the hold.
+     * The UI never creates a socket, unverified session or background service.
+     */
+    fun startLiveVoiceCapture(): Boolean {
+        if (stage != "demo" || privacyHidden || talking || voiceFinalizing)
+            return false
+        if (context.checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return false
+        }
+        val session = probe
+        if (session == null) {
+            voiceNote = "No active nearby test connection."
+            return false
+        }
+        val startedSession = session.startLiveVoice()
+        val handle = startedSession.handle
+        if (startedSession.status != LanDemoSession.VoiceSendResult.QUEUED ||
+            handle == null
+        ) {
+            voiceNote = when (startedSession.status) {
+                LanDemoSession.VoiceSendResult.BUSY ->
+                    "Other phone may be speaking, or voice is busy. Wait and try again."
+                LanDemoSession.VoiceSendResult.AWAITING_APPROVAL ->
+                    "Both phones must approve this session first."
+                LanDemoSession.VoiceSendResult.NOT_CONNECTED ->
+                    "Connection ended. Start again with fresh QR codes."
+                LanDemoSession.VoiceSendResult.INVALID_AUDIO ->
+                    "Voice test unavailable. Try again."
+                LanDemoSession.VoiceSendResult.QUEUED ->
+                    "Couldn't start voice. Try again."
+            }
+            return false
+        }
+        liveVoiceHandle = handle
+        val voiceAttempt = attemptVersion
+        val startedAudio = voiceAudio.startLiveCapture(
+            onFrame = { pcm -> handle.offerPcm(pcm) },
+            onStopped = { hadPcm ->
+                handle.finish()
+                handler.post {
+                    if (DebugSessionEventAdmission.current(
+                            voiceAttempt, attemptVersion
+                        ) && stage == "demo" && liveVoiceHandle === handle
+                    ) {
+                        liveVoiceHandle = null
+                        talking = false
+                        voiceFinalizing = false
+                        voiceNote = if (hadPcm)
+                            "Live voice frames sent while held (other phone's sound not verified)."
+                        else "No usable microphone audio. Hold a little longer and try again."
+                    }
+                }
+            }
+        )
+        if (!startedAudio) {
+            handle.cancel()
+            liveVoiceHandle = null
+            voiceNote = "Microphone or speaker busy. Wait and try again."
+            return false
+        }
+        talking = true
+        voiceFinalizing = false
+        voiceNote = "Transmitting live test frames while held • max 3 seconds"
+        return true
+    }
+
+    fun finishLiveVoiceCapture() {
+        if (!talking || stage != "demo" || liveVoiceHandle == null) return
+        talking = false
+        voiceFinalizing = true
+        voiceNote = "Stopping voice transmission…"
+        voiceAudio.finishCapture()
+        // The mic worker owns sending END after its last valid PCM frame.
+    }
+
+    fun cancelLiveVoiceCapture() {
+        val handle = liveVoiceHandle ?: return
+        handle.cancel()
+        liveVoiceHandle = null
+        voiceAudio.cancelAll()
+        talking = false
+        voiceFinalizing = false
+        // Unlike record-then-send, earlier frames have ALREADY traveled.
+        voiceNote = "Transmission stopped. Earlier live audio cannot be unsent."
     }
 
     // One shared capture path for hold gestures, TalkBack activation and
@@ -253,6 +347,8 @@ internal fun LocalPairingTestScreen(
     fun stopTest() {
         // Ignore messages posted by previous or cancelled attempts.
         attemptVersion += 1
+        liveVoiceHandle?.cancel()
+        liveVoiceHandle = null
         probe?.close()
         probe = null
         voiceAudio.cancelAll()
@@ -662,6 +758,38 @@ internal fun LocalPairingTestScreen(
                     ) voiceNote =
                         "Voice arrived while your microphone/speaker was busy. Ask to repeat."
                 }
+                }
+            }
+            connection.setLiveVoicePlayback { kind, pcm ->
+                // The LAN reader has already validated packet order and
+                // approval; this callback only queues audio on this handset.
+                // Privacy-hidden locally mutes playback without blocking
+                // the other phone's encrypted stream.
+                if (privacyHidden) {
+                    if (kind == DebugLanVoiceWireCodec.Kind.START) handler.post {
+                        if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
+                            stage == "demo"
+                        ) voiceNote = "Conversation hidden: live voice will not play here."
+                    }
+                } else {
+                    val accepted = voiceAudio.acceptLiveFrame(kind, pcm) { started ->
+                        handler.post {
+                            if (DebugSessionEventAdmission.current(
+                                    thisAttempt, attemptVersion
+                                ) && stage == "demo"
+                            ) voiceNote = if (started)
+                                "Live speaker playback started (sound not verified)."
+                            else "Live voice arrived, but speaker playback failed."
+                        }
+                    }
+                    if (!accepted && kind == DebugLanVoiceWireCodec.Kind.START)
+                        handler.post {
+                            if (DebugSessionEventAdmission.current(
+                                    thisAttempt, attemptVersion
+                                ) && stage == "demo"
+                            ) voiceNote =
+                                "Incoming live voice was busy or muted on this phone."
+                        }
                 }
             }
             probe = connection
@@ -1112,6 +1240,8 @@ internal fun LocalPairingTestScreen(
                                 // Hiding the conversation also stops local
                                 // recording/playback. The peer can still send
                                 // over TLS: hidden is not a network block.
+                                liveVoiceHandle?.cancel()
+                                liveVoiceHandle = null
                                 voiceAudio.cancelAll()
                                 talking = false
                                 voiceFinalizing = false
@@ -1144,21 +1274,21 @@ internal fun LocalPairingTestScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Hold the button to record a short phrase, then release " +
-                                "to send it on the same approved Wi-Fi link. " +
-                                "Three seconds maximum. Sound is sent AFTER release, " +
-                                "not continuously while held.",
+                            "Hold the button to transmit short audio frames over " +
+                                "the approved Wi-Fi link as you speak. Release to stop. " +
+                                "Three seconds maximum. Use tap controls for the " +
+                                "older record-then-send mode.",
                             style = MaterialTheme.typography.bodySmall
                         )
-                        // F4-C: actual touch-down starts the local microphone.
-                        // Release sends the same encrypted 3-second MAX burst.
-                        // This is not low-latency audio while the finger is down.
+                        // F4-D: microphone PCM is sent over the existing
+                        // approved TLS session while held. Release sends END;
+                        // the old record-then-send tap mode stays available.
                         DebugHoldToTalkControl(
                             enabled = !voiceFinalizing && !privacyHidden,
                             recording = talking,
-                            onPressStart = { startVoiceCapture() },
-                            onRelease = { finishVoiceCapture() },
-                            onCancel = { cancelVoiceCapture() },
+                            onPressStart = { startLiveVoiceCapture() },
+                            onRelease = { finishLiveVoiceCapture() },
+                            onCancel = { cancelLiveVoiceCapture() },
                             onAccessibilityClick = { tapVoiceCapture() }
                         )
                         TextButton(
@@ -1197,6 +1327,8 @@ internal fun LocalPairingTestScreen(
                             probe = null
                             attemptVersion += 1
                             ending?.endByUser()
+                            liveVoiceHandle?.cancel()
+                            liveVoiceHandle = null
                             voiceAudio.cancelAll()
                             talking = false
                             voiceFinalizing = false
