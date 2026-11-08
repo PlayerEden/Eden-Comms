@@ -50,8 +50,11 @@ NOT a reviewed secure messenger. Use only harmless sample text.
    human read receipt or a guarantee someone saw the message.
 6. Confirm **Hide conversation / Clear my screen**, then disconnect from
    one phone. The other should also end the session. Check fresh QR codes
-   are required on restart. When convenient, try WAN-off and Wi-Fi-change
-   negative tests.
+   are required on restart. The end screen now offers **Try again • Show a
+   new code** or **Try again • Scan a new code** using only your prior role.
+   Both phones still exchange **fresh** QR codes and both approve again. Use
+   **Start over with fresh QR codes** to choose the other role. When
+   convenient, try WAN-off and Wi-Fi-change negative tests.
 7. A connected test link now has a **30-minute maximum counted from READY**
    (including time spent approving). It also closes if the other phone
    stops responding; you do not have to wait the full 30 minutes.
