@@ -55,13 +55,13 @@ class DebugPairedTlsEngineInteropTest {
         fun wipeEphemeralFiles() {
             if (!::directory.isInitialized) return
             for (alias in listOf("host", "join")) {
-                Files.deleteIfExists(directory.resolve("$"+"alias.p12"))
+                Files.deleteIfExists(directory.resolve("${alias}.p12"))
             }
             Files.deleteIfExists(directory)
         }
 
         private fun createIdentity(alias: String): Identity {
-            val storePath = directory.resolve("$"+"alias.p12")
+            val storePath = directory.resolve("${alias}.p12")
             val keytool = Path.of(
                 System.getProperty("java.home"), "bin",
                 if (System.getProperty("os.name").startsWith("Windows")) "keytool.exe" else "keytool"
@@ -69,7 +69,7 @@ class DebugPairedTlsEngineInteropTest {
             val command = listOf(
                 keytool, "-genkeypair", "-noprompt", "-alias", alias,
                 "-keyalg", "EC", "-keysize", "256", "-validity", "2",
-                "-dname", "CN=Eden Comms F2-D $"+"alias TEST ONLY",
+                "-dname", "CN=Eden Comms F2-D ${alias} TEST ONLY",
                 "-keystore", storePath.toString(), "-storetype", "PKCS12",
                 "-storepass", TEST_PASSWORD, "-keypass", TEST_PASSWORD
             )
