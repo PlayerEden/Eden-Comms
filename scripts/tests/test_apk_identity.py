@@ -82,7 +82,7 @@ class ApkIdentityEvidenceTests(unittest.TestCase):
             apk.write_bytes(b"synthetic test APK")
             aapt = ("package: name='com.edenpractical.comms.preview' "
                     "versionCode='200001' versionName='0.2.12-preview-200001'")
-            cert = "Signer #1 certificate SHA-256 digest: " + FINGERPRINT + "\\n"
+            cert = "Signer #1 certificate SHA-256 digest: " + FINGERPRINT + "\n"
             with patch.object(mod, "tool_output", side_effect=[aapt, cert]):
                 with patch.object(mod, "sdk_tool", return_value="fake"):
                     report = mod.inspect(
