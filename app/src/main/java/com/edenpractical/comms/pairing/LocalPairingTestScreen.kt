@@ -81,6 +81,7 @@ internal fun LocalPairingTestScreen(
     // Block another capture while an ended recording is still finalizing
     // and queuing its one bounded voice turn.
     var voiceFinalizing by remember { mutableStateOf(false) }
+    var showTapVoiceControls by remember { mutableStateOf(false) }
     var voiceNote by remember { mutableStateOf("No voice burst sent yet.") }
     val micPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -158,6 +159,95 @@ internal fun LocalPairingTestScreen(
         // Observational UI only: do not pass peer identity, messages or pins
         // into app-level navigation state.
         onStageChanged(stage)
+    }
+
+    // One shared capture path for hold gestures, TalkBack activation and
+    // optional visible tap controls. This still records, THEN sends one bounded
+    // burst on the same debug-only, already-approved TLS session.
+    fun startVoiceCapture(): Boolean {
+        if (stage != "demo" || privacyHidden || talking || voiceFinalizing) return false
+        if (context.checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return false
+        }
+        val live = probe
+        if (live == null) {
+            voiceNote = "No active nearby test connection."
+            return false
+        }
+        val voiceAttempt = attemptVersion
+        val started = voiceAudio.startCapture(
+            onNoAudio = {
+                handler.post {
+                    if (DebugSessionEventAdmission.current(
+                            voiceAttempt, attemptVersion
+                        ) && stage == "demo"
+                    ) {
+                        talking = false
+                        voiceFinalizing = false
+                        voiceNote =
+                            "No usable microphone audio. Speak a little longer and try again."
+                    }
+                }
+            },
+            onComplete = { clip ->
+                val result = live.sendVoiceBurst(clip)
+                handler.post {
+                    if (DebugSessionEventAdmission.current(
+                            voiceAttempt, attemptVersion
+                        ) && stage == "demo"
+                    ) {
+                        voiceNote = when (result) {
+                            LanDemoSession.VoiceSendResult.QUEUED ->
+                                "Sending short encrypted voice burst…"
+                            LanDemoSession.VoiceSendResult.BUSY ->
+                                "Voice sender busy. Try again."
+                            LanDemoSession.VoiceSendResult.INVALID_AUDIO ->
+                                "Too short or microphone unavailable. Try again."
+                            LanDemoSession.VoiceSendResult.AWAITING_APPROVAL ->
+                                "Both phones must approve before voice testing."
+                            LanDemoSession.VoiceSendResult.NOT_CONNECTED ->
+                                "Test session ended. Reconnect with fresh codes."
+                        }
+                        talking = false
+                        voiceFinalizing = false
+                    }
+                }
+            }
+        )
+        if (started) {
+            talking = true
+            voiceFinalizing = false
+            voiceNote = "Microphone recording now • max 3 seconds"
+        } else {
+            voiceNote = "Microphone or speaker busy. Try again."
+        }
+        return started
+    }
+
+    fun finishVoiceCapture() {
+        if (!talking || stage != "demo") return
+        talking = false
+        voiceFinalizing = true
+        voiceNote = "Finishing voice capture and sending…"
+        voiceAudio.finishCapture()
+    }
+
+    fun cancelVoiceCapture() {
+        if (stage != "demo" || (!talking && !voiceFinalizing)) return
+        // A cancelled gesture is not permission to send an unfinished burst.
+        // Generation invalidation also suppresses the old recording callback.
+        voiceAudio.cancelAll()
+        talking = false
+        voiceFinalizing = false
+        voiceNote = "Recording cancelled. Hold again when ready."
+    }
+
+    fun tapVoiceCapture() {
+        if (talking) finishVoiceCapture() else startVoiceCapture()
     }
 
     fun stopTest() {
@@ -1046,100 +1136,48 @@ internal fun LocalPairingTestScreen(
                             }
                         }
                     )
-                    // F4 voice burst test: no second connection, account or IP.
-                    // Tap once to record for at most three seconds and tap again
-                    // to send after releasing the microphone. Do not transmit
-                    // private conversations in this unreviewed development app.
+                    // F4-C: touch-and-hold voice capture, release to send via
+                    // the same approved LAN TLS session. Accessible two-tap
+                    // control remains available, with no new radio or account.
                     FieldFrame(accent = true) {
                         Text("WALKIE-TALKIE • DEVELOPMENT TEST",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Same approved Wi-Fi connection. Tap Start talking, say a " +
-                                "short test phrase, then tap Send voice. The other " +
-                                "phone attempts speaker playback when received. Up to " +
-                                "3 seconds; not continuous live voice.",
+                            "Hold the button to record a short phrase, then release " +
+                                "to send it on the same approved Wi-Fi link. " +
+                                "Three seconds maximum. Sound is sent AFTER release, " +
+                                "not continuously while held.",
                             style = MaterialTheme.typography.bodySmall
                         )
-                        Button(
-                            onClick = {
-                                if (talking) {
-                                    // Do not let an ultra-short press leave the
-                                    // screen indefinitely saying "Finishing".
-                                    voiceFinalizing = true
-                                    talking = false
-                                    voiceAudio.finishCapture()
-                                    voiceNote = "Finishing voice capture and sending…"
-                                } else if (context.checkSelfPermission(
-                                        Manifest.permission.RECORD_AUDIO
-                                    ) != PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
-                                } else {
-                                    val live = probe
-                                    if (live == null) {
-                                        voiceNote = "No active nearby test connection."
-                                    } else {
-                                        // Only the current active, approved
-                                        // chat can receive this worker result.
-                                        val voiceAttempt = attemptVersion
-                                        val started = voiceAudio.startCapture(
-                                            onNoAudio = {
-                                                handler.post {
-                                                    if (DebugSessionEventAdmission.current(
-                                                            voiceAttempt, attemptVersion
-                                                        ) && stage == "demo"
-                                                    ) {
-                                                        talking = false
-                                                        voiceFinalizing = false
-                                                        voiceNote =
-                                                            "No usable microphone audio. Speak a little longer and try again."
-                                                    }
-                                                }
-                                            },
-                                            onComplete = { clip ->
-                                                val result = live.sendVoiceBurst(clip)
-                                                handler.post {
-                                                    if (DebugSessionEventAdmission.current(
-                                                            voiceAttempt, attemptVersion
-                                                        ) && stage == "demo"
-                                                    ) {
-                                                        voiceNote = when (result) {
-                                                            LanDemoSession.VoiceSendResult.QUEUED ->
-                                                                "Sending short encrypted voice burst…"
-                                                            LanDemoSession.VoiceSendResult.BUSY ->
-                                                                "Voice sender busy. Try again."
-                                                            LanDemoSession.VoiceSendResult.INVALID_AUDIO ->
-                                                                "Too short or microphone unavailable. Try again."
-                                                            LanDemoSession.VoiceSendResult.AWAITING_APPROVAL ->
-                                                                "Both phones must approve before voice testing."
-                                                            LanDemoSession.VoiceSendResult.NOT_CONNECTED ->
-                                                                "Test session ended. Reconnect with fresh codes."
-                                                        }
-                                                        talking = false
-                                                        voiceFinalizing = false
-                                                    }
-                                                }
-                                            }
-                                        )
-                                        if (started) {
-                                            talking = true
-                                            voiceFinalizing = false
-                                            voiceNote = "Microphone recording now • max 3 seconds"
-                                        } else {
-                                            voiceNote = "Microphone or speaker busy. Try again."
-                                        }
-                                    }
-                                    // F4-B: end recording always produces a
-                                    // validated send OR an explicit no-audio
-                                    // result, never an indefinite finish state.
-                                }
-                            },
-                            enabled = !voiceFinalizing,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-                            shape = CutCornerShape(6.dp)
+                        // F4-C: actual touch-down starts the local microphone.
+                        // Release sends the same encrypted 3-second MAX burst.
+                        // This is not low-latency audio while the finger is down.
+                        DebugHoldToTalkControl(
+                            enabled = !voiceFinalizing && !privacyHidden,
+                            recording = talking,
+                            onPressStart = { startVoiceCapture() },
+                            onRelease = { finishVoiceCapture() },
+                            onCancel = { cancelVoiceCapture() },
+                            onAccessibilityClick = { tapVoiceCapture() }
+                        )
+                        TextButton(
+                            onClick = { showTapVoiceControls = !showTapVoiceControls },
+                            enabled = !talking && !voiceFinalizing,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         ) {
-                            Text(if (talking) "SEND VOICE BURST" else "START TALKING")
+                            Text(if (showTapVoiceControls) "HIDE TAP CONTROLS"
+                                else "USE TAP CONTROLS INSTEAD")
+                        }
+                        if (showTapVoiceControls) {
+                            Button(
+                                onClick = { tapVoiceCapture() },
+                                enabled = !voiceFinalizing && !privacyHidden,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
+                                shape = CutCornerShape(6.dp)
+                            ) {
+                                Text(if (talking) "SEND VOICE BURST" else "START TALKING")
+                            }
                         }
                         Text(voiceNote,
                             style = MaterialTheme.typography.bodySmall,
