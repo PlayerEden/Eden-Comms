@@ -99,7 +99,11 @@ class F2FFrameSafetyBoundary(unittest.TestCase):
                        'F3 — Wi-Fi Direct', 'F4 — PTT',
                        'F5 — optional privacy', 'F6 + F7'):
             self.assertIn(marker, self.roadmap)
-        self.assertIn('pending this PR\'s CI', self.roadmap)
+        self.assertIn('F2-F — Bluetooth text/ACK format — SOURCE/CI VERIFIED',
+                      self.roadmap)
+        self.assertIn('F2-G — encrypted frame interoperability lab',
+                      self.roadmap)
+        self.assertIn('PR #99, merged-main commit', self.roadmap)
         self.assertIn('without representing them as functional radios', self.roadmap)
 
 
