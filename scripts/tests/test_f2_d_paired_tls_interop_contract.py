@@ -19,6 +19,7 @@ class F2DInteropBoundary(unittest.TestCase):
         cls.code = TEST.read_text()
         cls.probe = (DEBUG / "DebugRfcommTlsProbe.kt").read_text()
         cls.controller = (DEBUG / "DebugRfcommLinkController.kt").read_text()
+        cls.control = (DEBUG / "DebugTlsControlTransport.kt").read_text()
         cls.release = RELEASE.read_text()
 
     def test_two_real_engines_and_ephemeral_keytool_not_stubbed_mocks(self):
@@ -47,6 +48,23 @@ class F2DInteropBoundary(unittest.TestCase):
                               (DEBUG / "DebugTlsControlTransport.kt").read_text())
             else:
                 self.assertIn(marker, self.code, marker)
+
+    def test_zero_plaintext_tls_records_are_strictly_bounded(self):
+        self.assertIn("MAX_NO_PLAINTEXT_RECORDS = 2", self.control)
+        self.assertIn("for (skipped in 0..MAX_NO_PLAINTEXT_RECORDS)", self.control)
+        self.assertIn("if (result.bytesProduced() == 0)", self.control)
+        self.assertIn("result, consumed = encoded.size, produced = 0", self.control)
+        self.assertIn("result, consumed = encoded.size, produced = phase.bytes", self.control)
+        self.assertIn("DebugTlsProviderReadiness.requireControlReady(engine)", self.control)
+        self.assertIn("DebugTlsRecordBoundary.requireSingleCiphertext(encoded)", self.control)
+        self.assertIn("if (skipped == MAX_NO_PLAINTEXT_RECORDS)", self.control)
+        self.assertIn('throw SSLException("Too many TLS-only control-prefix records")',
+                      self.control)
+        # No decrypted data may be silently treated as a provider-only record.
+        self.assertLess(
+            self.control.index("if (result.bytesProduced() == 0)"),
+            self.control.index("result, consumed = encoded.size, produced = 0")
+        )
 
     def test_failure_coverage_and_disposable_key_cleanup(self):
         for marker in (
