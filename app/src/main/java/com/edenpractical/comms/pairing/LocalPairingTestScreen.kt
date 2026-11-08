@@ -3,6 +3,10 @@ package com.edenpractical.comms.pairing
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.provider.Settings
 import android.content.pm.ApplicationInfo
 import android.os.Build
@@ -53,7 +57,8 @@ import kotlinx.coroutines.withContext
  * No manual listener, remembered peers, cloud, background discovery or
  * plaintext fallback. Debug builds can exchange four presets and bounded
  * ephemeral typed text on an authenticated test socket ONLY after both QR
- * proofs, matching TLS binding, approvals and confirmations. No voice.
+ * proofs, matching TLS binding, approvals and confirmations. Bounded voice
+ * bursts are experimental only after both final confirmations.
  * This is unreviewed development functionality, not safe private messaging.
  */
 @Composable
@@ -71,6 +76,15 @@ internal fun LocalPairingTestScreen(
     val repository = remember { AndroidKeystoreIdentity() }
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
+    val voiceAudio = remember(context) { DebugLanVoiceAudio(context.applicationContext) }
+    var talking by remember { mutableStateOf(false) }
+    var voiceNote by remember { mutableStateOf("No voice burst sent yet.") }
+    val micPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        voiceNote = if (granted) "Microphone allowed. Tap Start talking again."
+            else "Microphone denied. Voice remains off; text still works."
+    }
 
     var identity by remember { mutableStateOf<LocalTlsIdentity?>(null) }
     var signingStatus by remember {
@@ -148,6 +162,9 @@ internal fun LocalPairingTestScreen(
         attemptVersion += 1
         probe?.close()
         probe = null
+        voiceAudio.cancelAll()
+        talking = false
+        voiceNote = "No voice burst sent yet."
         debugText = debugText.finish()
         ackedTextIds = emptySet()
         textDraft = ""
@@ -460,6 +477,13 @@ internal fun LocalPairingTestScreen(
                                 messageId, text
                             )
                         }
+                        LanDemoSession.Phase.VOICE_RECEIVED -> {
+                            if (stage == "demo") voiceNote = "Received a short encrypted voice test burst."
+                        }
+                        LanDemoSession.Phase.VOICE_WRITTEN -> {
+                            if (stage == "demo") voiceNote =
+                                "Voice burst written to encrypted link (peer playback not confirmed)."
+                        }
                         LanDemoSession.Phase.TEXT_PEER_ACK -> {
                             if (!DebugSessionEventAdmission.canRecord(
                                     thisAttempt, attemptVersion, stage, transcript
@@ -512,6 +536,17 @@ internal fun LocalPairingTestScreen(
                             stage = "result"
                         }
                     }
+                }
+            }
+            // Same session, same pinned TLS and bilateral approval gates;
+            // the receiver copies audio immediately and wipes the source.
+            connection.setVoicePlayback { pcm ->
+                val played = voiceAudio.playReceived(pcm)
+                handler.post {
+                    if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
+                        stage == "demo"
+                    ) voiceNote = if (played) "Playing a short voice burst from the other phone."
+                        else "Received voice, but playback was unavailable or already in use."
                 }
             }
             probe = connection
@@ -606,6 +641,7 @@ internal fun LocalPairingTestScreen(
             // Invalidate already posted callbacks before closing the socket.
             attemptVersion += 1
             latestProbe?.close()
+            voiceAudio.cancelAll()
             clearTemporaryPairing()
             transcript = transcript.finish()
             debugText = debugText.finish()
@@ -867,7 +903,7 @@ internal fun LocalPairingTestScreen(
                     Text(
                         "UNREVIEWED DEBUG TEST • After both phones approve and confirm, " +
                             "short typed TEST messages and preset phrases can be exchanged. " +
-                            "Never send secrets. Voice stays disabled.",
+                            "Never send secrets. After approval, short voice bursts are a debug-only option.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -974,6 +1010,78 @@ internal fun LocalPairingTestScreen(
                             }
                         }
                     )
+                    // F4 voice burst test: no second connection, account or IP.
+                    // Tap once to record for at most three seconds and tap again
+                    // to send after releasing the microphone. Do not transmit
+                    // private conversations in this unreviewed development app.
+                    FieldFrame(accent = true) {
+                        Text("WALKIE-TALKIE • DEVELOPMENT TEST",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Same approved Wi-Fi connection. Tap Start talking, say a " +
+                                "short test phrase, then tap Send voice. The other " +
+                                "phone plays it when received. Up to 3 seconds; " +
+                                "not continuous live voice.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Button(
+                            onClick = {
+                                if (talking) {
+                                    voiceAudio.finishCapture()
+                                    talking = false
+                                    voiceNote = "Finishing voice capture and sending…"
+                                } else if (context.checkSelfPermission(
+                                        Manifest.permission.RECORD_AUDIO
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                                } else {
+                                    val live = probe
+                                    if (live == null) {
+                                        voiceNote = "No active nearby test connection."
+                                    } else if (voiceAudio.startCapture { clip ->
+                                            val result = live.sendVoiceBurst(clip)
+                                            handler.post {
+                                                if (stage == "demo") voiceNote = when (result) {
+                                                    LanDemoSession.VoiceSendResult.QUEUED ->
+                                                        "Sending short encrypted voice burst…"
+                                                    LanDemoSession.VoiceSendResult.BUSY ->
+                                                        "Voice sender busy. Try again."
+                                                    LanDemoSession.VoiceSendResult.INVALID_AUDIO ->
+                                                        "Too short or microphone unavailable. Try again."
+                                                    LanDemoSession.VoiceSendResult.AWAITING_APPROVAL ->
+                                                        "Both phones must approve before voice testing."
+                                                    LanDemoSession.VoiceSendResult.NOT_CONNECTED ->
+                                                        "Test session ended. Reconnect with fresh codes."
+                                                }
+                                                talking = false
+                                            }
+                                        }
+                                    ) {
+                                        talking = true
+                                        voiceNote = "Microphone recording now • max 3 seconds"
+                                    } else {
+                                        voiceNote = "Microphone or speaker busy. Try again."
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
+                            shape = CutCornerShape(6.dp)
+                        ) {
+                            Text(if (talking) "SEND VOICE BURST" else "START TALKING")
+                        }
+                        Text(voiceNote,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                        Text(
+                            "Only records on this phone after you tap. Disconnecting " +
+                                "or backgrounding stops the microphone and speaker. " +
+                                "No recording is saved. Use harmless test speech.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Button(
                         onClick = {
                             val ending = probe
@@ -981,6 +1089,8 @@ internal fun LocalPairingTestScreen(
                             probe = null
                             attemptVersion += 1
                             ending?.endByUser()
+                            voiceAudio.cancelAll()
+                            talking = false
                             clearTemporaryPairing()
                             details = "Test ended on this phone."
                             status = "Test ended."

@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import com.edenpractical.comms.protocol.TestPacketCodec
+import com.edenpractical.comms.protocol.DebugLanVoiceWireCodec
+import com.edenpractical.comms.protocol.DebugLanVoiceAssembler
 import com.edenpractical.comms.protocol.TestPacketException
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.PinnedTlsPeer
@@ -44,11 +46,13 @@ internal class LanDemoSession(
 ) : AutoCloseable {
     enum class Phase {
         LISTENING, CONNECTING, PROGRESS, READY, APPROVAL_UPDATE, APPROVAL_COMPLETE,
-        SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, TEXT_PEER_ACK, ENDED, FAILED
+        SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, TEXT_PEER_ACK,
+        VOICE_WRITTEN, VOICE_RECEIVED, ENDED, FAILED
     }
     enum class SendResult { QUEUED, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     enum class ApprovalResult { QUEUED, ALREADY_PENDING, NOT_CONNECTED }
     enum class TextSendResult { QUEUED, INVALID_TEXT, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
+    enum class VoiceSendResult { QUEUED, INVALID_AUDIO, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     data class Event(
         val phase: Phase,
         val description: String,
@@ -101,6 +105,11 @@ internal class LanDemoSession(
     private val nextDebugTextId = AtomicLong(1L)
     // Reader-thread-only replay/sequence gate, reset per connected socket.
     private val debugTextReceive = DebugTextReceiveGuard()
+    private val incomingVoice = DebugLanVoiceAssembler()
+    private val voiceQueued = AtomicBoolean(false)
+    private val nextVoiceTurn = AtomicLong(1L)
+    // In-memory playback consumer only. No file, history or export.
+    @Volatile private var voicePlayback: ((ByteArray) -> Unit)? = null
     private val heartbeatQueued = AtomicBoolean(false)
     private val approvalQueued = AtomicBoolean(false)
     private val confirmationQueued = AtomicBoolean(false)
@@ -312,6 +321,23 @@ internal class LanDemoSession(
                                 DebugPeerAckLedger.Result.REJECT -> throw TestPacketException()
                             }
                         }
+                        TestPacketCodec.Type.DEBUG_VOICE_START,
+                        TestPacketCodec.Type.DEBUG_VOICE_PCM,
+                        TestPacketCodec.Type.DEBUG_VOICE_END -> {
+                            if (!approvalGate.maySendPreset()) throw TestPacketException()
+                            val voiceFrame = packet.voice ?: throw TestPacketException()
+                            try {
+                                val completed = incomingVoice.accept(voiceFrame)
+                                if (completed != null) {
+                                    try { voicePlayback?.invoke(completed) }
+                                    finally { completed.fill(0) }
+                                    emit(Event(
+                                        Phase.VOICE_RECEIVED,
+                                        "Encrypted test voice burst received by this app"
+                                    ))
+                                }
+                            } finally { voiceFrame.clear() }
+                        }
                         TestPacketCodec.Type.HEARTBEAT -> Unit
                         TestPacketCodec.Type.CLOSE -> {
                             emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.PEER_ENDED)
@@ -443,6 +469,74 @@ internal class LanDemoSession(
             sendBudget.release()
             TextSendResult.NOT_CONNECTED
         }
+    }
+
+    /**
+     * Debug-only, mutually approved 16kHz mono voice burst over this SAME
+     * TLS session. A bounded 3-second clip is queued as 20ms PCM frames.
+     * The writer owns an independent copy and erases it after send/abort.
+     * This is NOT live full-duplex or reviewed secure audio.
+     */
+    fun sendVoiceBurst(input: ByteArray): VoiceSendResult {
+        if (!ready || stopped.get() || ending.get()) return VoiceSendResult.NOT_CONNECTED
+        if (!approvalGate.maySendPreset()) return VoiceSendResult.AWAITING_APPROVAL
+        if (input.isEmpty() || input.size > DebugLanVoiceWireCodec.MAX_PCM_BYTES ||
+            input.size % DebugLanVoiceWireCodec.PCM_BYTES != 0
+        ) return VoiceSendResult.INVALID_AUDIO
+        if (!voiceQueued.compareAndSet(false, true)) return VoiceSendResult.BUSY
+        val turn = nextVoiceTurn.getAndIncrement()
+        if (turn <= 0L) {
+            voiceQueued.set(false)
+            return VoiceSendResult.INVALID_AUDIO
+        }
+        val clip = input.copyOf()
+        return try {
+            writer.execute {
+                try {
+                    if (!ready || stopped.get() || ending.get() ||
+                        !approvalGate.maySendPreset()) return@execute
+                    sendVoiceFrame(DebugLanVoiceWireCodec.start(turn))
+                    val count = clip.size / DebugLanVoiceWireCodec.PCM_BYTES
+                    repeat(count) { sequence ->
+                        if (!ready || ending.get() || stopped.get() ||
+                            !approvalGate.maySendPreset()) throw SocketException("Voice test ended")
+                        val pcm = clip.copyOfRange(
+                            sequence * DebugLanVoiceWireCodec.PCM_BYTES,
+                            (sequence + 1) * DebugLanVoiceWireCodec.PCM_BYTES
+                        )
+                        try {
+                            sendVoiceFrame(DebugLanVoiceWireCodec.data(turn, sequence, pcm))
+                        } finally { pcm.fill(0) }
+                    }
+                    sendVoiceFrame(DebugLanVoiceWireCodec.end(turn, count))
+                    emit(Event(
+                        Phase.VOICE_WRITTEN,
+                        "Test voice burst written to local TLS; peer playback not confirmed"
+                    ))
+                } catch (_: Exception) {
+                    emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+                    close()
+                } finally {
+                    clip.fill(0)
+                    voiceQueued.set(false)
+                }
+            }
+            VoiceSendResult.QUEUED
+        } catch (_: RuntimeException) {
+            clip.fill(0)
+            voiceQueued.set(false)
+            VoiceSendResult.NOT_CONNECTED
+        }
+    }
+
+    private fun sendVoiceFrame(frame: DebugLanVoiceWireCodec.Frame) {
+        try { sendPacket(TestPacketCodec.debugVoice(frame)) }
+        finally { frame.clear() }
+    }
+
+    /** The receiver must COPY before returning; source bytes are wiped. */
+    fun setVoicePlayback(listener: ((ByteArray) -> Unit)?) {
+        voicePlayback = if (!stopped.get()) listener else null
     }
 
     /**
@@ -817,6 +911,8 @@ internal class LanDemoSession(
         debugConsentCommitment?.fill(0)
         debugConsentCommitment = null
         peerAckLedger.close()
+        incomingVoice.clear()
+        voicePlayback = null
         sockets.close()
         preReadyWifiMonitor?.cancel(false)
         pulses.shutdownNow()

@@ -121,6 +121,9 @@ jobs:
           echo "### This build: what to test" >> "$GITHUB_STEP_SUMMARY"
           echo "Open START-HERE-TEST.md in the downloaded artifact for one-phone" >> "$GITHUB_STEP_SUMMARY"
           echo "and two-phone LAN instructions. No production or security acceptance." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4 voice milestone: on two approved same-Wi-Fi phones, tap START TALKING" >> "$GITHUB_STEP_SUMMARY"
+          echo "then SEND VOICE BURST. Maximum 3 seconds; record-then-send, NOT" >> "$GITHUB_STEP_SUMMARY"
+          echo "continuous walkie-talkie streaming. Test with harmless speech only." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload installable Preview APK
         uses: actions/upload-artifact@v4

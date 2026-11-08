@@ -63,6 +63,25 @@ NOT a reviewed secure messenger. Use only harmless sample text.
    (including time spent approving). It also closes if the other phone
    stops responding; you do not have to wait the full 30 minutes.
 
+## New two-phone voice burst (Preview newer than 200002)
+
+After both phones complete QR, TLS and individual approvals, open the
+**WALKIE-TALKIE • DEVELOPMENT TEST** area below nearby chat.
+
+1. On A, tap **START TALKING**. Grant the mic permission on demand and tap
+   **START TALKING** again. Say a short, harmless test phrase.
+2. Tap **SEND VOICE BURST**, or allow the automatic 3-second end. On B,
+   listen for actual speaker playback, and then test B → A.
+3. Keep the audio trivial: this feature is unreviewed and not suitable for
+   private speech or emergencies. It records a short burst THEN sends it;
+   it is not yet true live push-to-talk.
+4. Repeat after both sides agree, try permission denial, then disconnect or
+   background while recording. The microphone/playback should stop.
+5. Record whether the sound really played and what you heard. A written-to-TLS
+   status alone is NOT proof that the other person received or heard it.
+
+For exact coverage, see [F4 hands-on tests](F4_LIVE_LAN_VOICE_BURST_TEST_2026_11_08.md).
+
 ## What to report (do not post private material)
 
 - Which APK `versionCode` and public `source revision` were installed;
@@ -78,7 +97,7 @@ Do not paste peer QRs, private keys, actual message content, IPs, raw
 certificates or personally identifying device details into an issue.
 
 **Still experimental:** LAN physical QA and independent security review
-are open; actual Bluetooth and Wi-Fi Direct messaging, remote push-to-talk,
+are open; actual Bluetooth and Wi-Fi Direct messaging, **continuous** push-to-talk,
 public release and production credentials remain unfinished.
 
 See the canonical [two-phone field test issue #26](https://github.com/PlayerEden/Eden-Comms/issues/26)

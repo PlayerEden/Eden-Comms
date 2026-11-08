@@ -39,7 +39,7 @@ internal object TestPacketCodec {
         Phrase(4, "Can you read this?")
     )
 
-    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT, DEBUG_ACK }
+    enum class Type { READY, PRESET, HEARTBEAT, CLOSE, APPROVE, DECLINE, CONFIRM, DEBUG_TEXT, DEBUG_ACK, DEBUG_VOICE_START, DEBUG_VOICE_PCM, DEBUG_VOICE_END }
     // List makes byte-wise data class equality work in JVM wire tests.
     // Consent commitments are debug-only, never a transport secret.
     data class Packet(
@@ -47,7 +47,8 @@ internal object TestPacketCodec {
         val phraseId: Int = 0,
         val sessionCommitment: List<Byte> = emptyList(),
         val messageId: Long = 0,
-        val text: String = ""
+        val text: String = "",
+        val voice: DebugLanVoiceWireCodec.Frame? = null
     )
 
     fun phrase(id: Int): String = phrases.firstOrNull { it.id == id }?.label
@@ -81,6 +82,18 @@ internal object TestPacketCodec {
         return packet
     }
 
+    /** Audio is only valid inside the existing debug, approved LAN TLS channel. */
+    fun debugVoice(frame: DebugLanVoiceWireCodec.Frame): Packet {
+        val type = when (frame.kind) {
+            DebugLanVoiceWireCodec.Kind.START -> Type.DEBUG_VOICE_START
+            DebugLanVoiceWireCodec.Kind.DATA -> Type.DEBUG_VOICE_PCM
+            DebugLanVoiceWireCodec.Kind.END -> Type.DEBUG_VOICE_END
+        }
+        val packet = Packet(type, voice = frame)
+        encode(packet)
+        return packet
+    }
+
     private fun boundControl(type: Type, commitment: ByteArray): Packet {
         require(commitment.size == COMMITMENT_BYTES &&
             commitment.any { it != 0.toByte() }) { "Invalid debug session commitment" }
@@ -88,6 +101,21 @@ internal object TestPacketCodec {
     }
 
     fun encode(packet: Packet): ByteArray {
+        if (packet.voice != null) {
+            require(packet.type in setOf(Type.DEBUG_VOICE_START, Type.DEBUG_VOICE_PCM,
+                Type.DEBUG_VOICE_END) && packet.phraseId == 0 &&
+                packet.sessionCommitment.isEmpty() && packet.messageId == 0L &&
+                packet.text.isEmpty()) { "Voice must never include text or consent" }
+            val expectedKind = when (packet.type) {
+                Type.DEBUG_VOICE_START -> DebugLanVoiceWireCodec.Kind.START
+                Type.DEBUG_VOICE_PCM -> DebugLanVoiceWireCodec.Kind.DATA
+                else -> DebugLanVoiceWireCodec.Kind.END
+            }
+            require(packet.voice.kind == expectedKind)
+            return DebugLanVoiceWireCodec.encode(packet.voice)
+        }
+        require(packet.type !in setOf(Type.DEBUG_VOICE_START, Type.DEBUG_VOICE_PCM,
+            Type.DEBUG_VOICE_END)) { "Missing debug voice frame" }
         if (packet.type == Type.DEBUG_ACK) {
             require(packet.phraseId == 0 && packet.sessionCommitment.isEmpty() &&
                 packet.text.isEmpty()) { "Debug ACK cannot carry text or consent fields" }
@@ -114,8 +142,9 @@ internal object TestPacketCodec {
             Type.APPROVE -> APPROVE
             Type.DECLINE -> DECLINE
             Type.CONFIRM -> CONFIRM
-            Type.DEBUG_TEXT, Type.DEBUG_ACK ->
-                error("Debug text and ACK handled before controls")
+            Type.DEBUG_TEXT, Type.DEBUG_ACK, Type.DEBUG_VOICE_START,
+            Type.DEBUG_VOICE_PCM, Type.DEBUG_VOICE_END ->
+                error("Debug-only text, voice and ACK handled before controls")
         }
         if (packet.type == Type.PRESET) phrase(packet.phraseId)
         else require(packet.phraseId == 0) { "Control packets have no text" }
@@ -138,6 +167,12 @@ internal object TestPacketCodec {
     }
 
     fun decode(bytes: ByteArray): Packet {
+        // Only the live debug LAN session may accept ECVP packets, after
+        // bilateral approval. This decoder is never a send authorization.
+        if (bytes.size >= 4 && bytes[0] == 0x45.toByte() &&
+            bytes[1] == 0x43.toByte() && bytes[2] == 0x56.toByte() &&
+            bytes[3] == 0x50.toByte()
+        ) return debugVoice(DebugLanVoiceWireCodec.decode(bytes))
         // ECTX frames are accepted only for bounded TEXT and zero-body ACK.
         // LanDemoSession separately requires live mutual approval and a
         // tracked message ID; an ACK does NOT prove human receipt/read.
