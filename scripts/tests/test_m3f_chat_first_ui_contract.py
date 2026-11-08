@@ -66,7 +66,13 @@ class ChatFirstUiContractTests(unittest.TestCase):
                        'ending?.declineForTest()',
                        'ending?.endByUser()',
                        'onDispose {'):
-            region = self.pairing.split(marker, 1)[1][:1000]
+            region = self.pairing.split(marker, 1)[1]
+            if marker.startswith("LanDemoSession.Phase."):
+                # Check the entire terminal branch, not an arbitrary fixed
+                # character count that breaks when the guard gains comments.
+                region = region.split("\n                        }", 1)[0]
+            else:
+                region = region[:1000]
             self.assertIn("debugText = debugText.finish()", region, marker)
             self.assertIn('textDraft = ""', region, marker)
 
