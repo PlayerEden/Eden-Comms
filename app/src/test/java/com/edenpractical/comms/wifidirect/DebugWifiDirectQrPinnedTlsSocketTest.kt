@@ -172,6 +172,135 @@ class DebugWifiDirectQrPinnedTlsSocketTest {
         }
     }
 
+    /**
+     * F3-B2 keeps the fresh challenge + full QR transcript exchange on
+     * the SAME two real, mutually authenticated TCP TLS 1.3 sockets.
+     * Not a physical Wi-Fi Direct, exporter or two-person approval test.
+     */
+    private fun proveOverRealTcp(
+        hostExpected: DebugWifiDirectFutureQrTlsExpectation,
+        joinExpected: DebugWifiDirectFutureQrTlsExpectation,
+        shouldPass: Boolean
+    ) {
+        val port = unusedPort()
+        val ready = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val server = pool.submit(Callable {
+                DebugWifiDirectFutureQrProofSocketLab.hostOnce(
+                    loopback, port, hostIdentity.manager, hostExpected,
+                    onListening = { ready.countDown() }
+                )
+            })
+            assertTrue("F3-B2 proof host never listened", ready.await(3, TimeUnit.SECONDS))
+            val client = pool.submit(Callable {
+                DebugWifiDirectFutureQrProofSocketLab.joinOnce(
+                    loopback, port, joinIdentity.manager, joinExpected
+                )
+            })
+            if (shouldPass) {
+                server.get(10, TimeUnit.SECONDS)
+                client.get(10, TimeUnit.SECONDS)
+            } else {
+                assertThrows(ExecutionException::class.java) {
+                    client.get(10, TimeUnit.SECONDS)
+                }
+                assertThrows(ExecutionException::class.java) {
+                    server.get(10, TimeUnit.SECONDS)
+                }
+            }
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
+    @Test fun realTcpTlsSameSocketCompletesQrChallengesAndFullTranscriptTwice() {
+        exchange().use { qrs ->
+            host(qrs).use { expectedHost ->
+                join(qrs).use { expectedJoin ->
+                    assertArrayEquals(expectedHost.copyTranscriptForReview(),
+                        expectedJoin.copyTranscriptForReview())
+                    proveOverRealTcp(expectedHost, expectedJoin, shouldPass = true)
+                    // New TLS connections must exchange fresh proof challenges,
+                    // not inherit a previous connection's proof or socket.
+                    proveOverRealTcp(expectedHost, expectedJoin, shouldPass = true)
+                }
+            }
+        }
+    }
+
+    @Test fun realTcpTlsRejectsDifferentQrNoncesDespiteMatchingCertificatePins() {
+        exchange().use { hostQrs ->
+            exchange().use { joinQrs ->
+                host(hostQrs).use { expectedHost ->
+                    join(joinQrs).use { expectedJoin ->
+                        assertArrayEquals(joinIdentity.pin, expectedHost.copyPeerPinForTls())
+                        assertArrayEquals(hostIdentity.pin, expectedJoin.copyPeerPinForTls())
+                        assertFalse(expectedHost.copyTranscriptForReview().contentEquals(
+                            expectedJoin.copyTranscriptForReview()))
+                        // The exact certificate pinning succeeds; the four
+                        // *encrypted* QR nonce challenges must fail closed.
+                        proveOverRealTcp(expectedHost, expectedJoin, shouldPass = false)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun realTcpTlsRejectsAlteredQrTimestampAtFullTranscriptCommitment() {
+        exchange().use { original ->
+            val alternateHost = DebugWifiDirectQrCodec.Host(
+                original.host.pin, original.host.nonce, original.host.issuedAt + 1
+            )
+            val alternateReply = DebugWifiDirectQrCodec.Reply(
+                original.reply.hostNonce, original.reply.pin, original.reply.nonce
+            )
+            val alternateAck = DebugWifiDirectQrCodec.makeAck(
+                alternateHost, alternateReply, now + 5
+            )
+            Qrs(alternateHost, alternateReply, alternateAck).use { differentTranscript ->
+                host(original).use { expectedHost ->
+                    join(differentTranscript).use { expectedJoin ->
+                        // Same certificate pins and BOTH QR nonces. The proof
+                        // challenge exchange can complete, but complete QR
+                        // transcript bytes still differ (issuedAt changed).
+                        assertArrayEquals(original.host.nonce, differentTranscript.host.nonce)
+                        assertArrayEquals(original.reply.nonce, differentTranscript.reply.nonce)
+                        assertArrayEquals(expectedHost.copyPeerPinForTls(), joinIdentity.pin)
+                        assertArrayEquals(expectedJoin.copyPeerPinForTls(), hostIdentity.pin)
+                        assertFalse(expectedHost.copyTranscriptForReview().contentEquals(
+                            expectedJoin.copyTranscriptForReview()))
+                        proveOverRealTcp(expectedHost, expectedJoin, shouldPass = false)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun qrProofLabCannotTouchActualPrivateWifiDirectRadioOrWrongRole() {
+        exchange().use { qrs ->
+            host(qrs).use { expectedHost ->
+                val privateP2p = InetAddress.getByAddress(
+                    byteArrayOf(192.toByte(), 168.toByte(), 49, 1)
+                )
+                assertThrows(IllegalArgumentException::class.java) {
+                    DebugWifiDirectFutureQrProofSocketLab.hostOnce(
+                        privateP2p, 39761, hostIdentity.manager, expectedHost
+                    )
+                }
+                assertThrows(IllegalArgumentException::class.java) {
+                    DebugWifiDirectFutureQrProofSocketLab.joinOnce(
+                        loopback, 39761, joinIdentity.manager, expectedHost
+                    )
+                }
+                expectedHost.close()
+                assertThrows(IllegalStateException::class.java) {
+                    expectedHost.copyQrProofBindingForLab()
+                }
+            }
+        }
+    }
+
     @Test fun alteredAckWrongOwnPinAndExpiredQrFailBeforeTcp() {
         exchange().use { qrs ->
             val altered = DebugWifiDirectQrCodec.Ack(
