@@ -50,7 +50,7 @@ class DebugBluetoothFutureOwnedSessionTest {
     ): Boolean {
         val context = reviewContext()
         return try {
-            start(owner,generation, elapsedMs, observations, resource, context)
+            owner.begin(generation, elapsedMs, observations, resource, context)
         } finally {
             context.close()
         }
@@ -65,7 +65,7 @@ class DebugBluetoothFutureOwnedSessionTest {
     ): Boolean {
         val context = reviewContext()
         return try {
-            checkObservation(owner,generation, elapsedMs, foreground, connectPermission, context)
+            owner.observe(generation, elapsedMs, foreground, connectPermission, context)
         } finally {
             context.close()
         }
