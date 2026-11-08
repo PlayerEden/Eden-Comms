@@ -41,6 +41,10 @@ A matching certificate/version is a **static preflight**, not proof Android acce
 
 **Do not uninstall automatically.** Investigate whether (a) you downloaded the wrong APK; (b) a disposable CI signer differs from the chosen long-lived internal signer; (c) the new code is not greater; (d) you selected the wrong phone/profile; or (e) that device cannot expose the APK to ADB without elevated access. Never root a phone or disable Android signature checks to satisfy this test. A legitimate unavoidable signer transition needs a **separate informed clean-install decision**, acknowledging identity reset.
 
+### Optional F6-U1 owner-approved install-over helper (newer source only)
+
+After this **read-only** preflight passes, the owner may instead use [F6-U1's separate explicit-consent installation script](F6_U1_EXPLICIT_SAFE_INSTALL_OVER.md). That script repeats the signer/version/hash preflight after a full literal confirmation, then runs a single `adb install -r` and reads back installed **public** APK metadata. It **never uninstalls** or clears data. The original preflight stays read-only. Identity/preferences preservation, durable signer setup and physical device acceptance remain manual gates.
+
 ### After PASS (manual hardware acceptance remains required)
 
 Keep the previous APK and its evidence. Confirm the same phone is still selected. Then, with explicit tester approval, use Android Studio's normal install-over-existing process or:
