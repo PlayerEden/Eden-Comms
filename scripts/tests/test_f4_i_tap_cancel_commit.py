@@ -45,9 +45,14 @@ class TapSendCancellationContract(unittest.TestCase):
         cancel_start = ui.index("fun cancelVoiceCapture()")
         cancel_end = ui.index("fun tapVoiceCapture()", cancel_start)
         cancel = ui[cancel_start:cancel_end]
+        # Waiting-for-GRANT has no tap gate yet; inspect the *active*
+        # recording branch rather than the earlier pending request branch.
+        active_cancel = cancel.split(
+            'if (stage != "demo" || (!talking && !voiceFinalizing)) return', 1
+        )[1]
         self.assertLess(
-            cancel.index("tapSendGate?.cancel()"),
-            cancel.index("probe?.cancelUnstartedVoiceFloor()"),
+            active_cancel.index("tapSendGate?.cancel()"),
+            active_cancel.index("probe?.cancelUnstartedVoiceFloor()"),
         )
         stop = ui[ui.index("fun stopTest()"):ui.index("fun wifiIsOriginalPairingLink()")]
         self.assertLess(stop.index("tapSendGate?.cancel()"), stop.index("probe?.close()"))
