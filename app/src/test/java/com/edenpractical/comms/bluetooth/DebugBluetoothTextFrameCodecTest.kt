@@ -20,13 +20,13 @@ class DebugBluetoothTextFrameCodecTest {
         val bytes = codec.text(17, msg)
         assertEquals(codec.HEADER_BYTES + msg.toByteArray(Charsets.UTF_8).size, bytes.size)
         val parsed = codec.decode(bytes)
-        assertEquals(codec.Kind.TEXT, parsed.kind)
+        assertEquals(DebugBluetoothTextFrameCodec.Kind.TEXT, parsed.kind)
         assertEquals(17L, parsed.messageId)
         assertEquals(msg, parsed.text)
 
         val ack = codec.acknowledgment(17)
         assertEquals(codec.HEADER_BYTES, ack.size)
-        assertEquals(codec.Kind.ACK, codec.decode(ack).kind)
+        assertEquals(DebugBluetoothTextFrameCodec.Kind.ACK, codec.decode(ack).kind)
         assertEquals(17L, codec.decode(ack).messageId)
         assertEquals(null, codec.decode(ack).text)
 
