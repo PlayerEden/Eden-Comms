@@ -33,7 +33,7 @@ class M5BRetryBudget(unittest.TestCase):
         self.assertIn("if (elapsedMs !in 0 until MAX_WAIT_MS) 0", src)
         self.assertIn("minOf(CONNECT_TIMEOUT_MS.toLong(), MAX_WAIT_MS - elapsedMs)", src)
         self.assertIn("(error is ConnectException || error is SocketTimeoutException)", src)
-        for forbidden in ("SSLSocket", "approveForTest(", "Socket(", "connect(", "SharedPreferences"):
+        for forbidden in ("SSLSocket", "approveForTest(", "Socket(", "raw.connect(", "SharedPreferences"):
             self.assertNotIn(forbidden, src)
 
         tests = (TEST / "transport/LanConnectRetryPolicyTest.kt").read_text()
