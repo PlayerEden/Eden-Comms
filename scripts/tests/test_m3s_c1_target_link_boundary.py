@@ -114,6 +114,7 @@ class M3sC1TargetLinkBoundary(unittest.TestCase):
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.CHANGE_WIFI_STATE",
             "android.permission.CHANGE_NETWORK_STATE",
+            "android.permission.RECORD_AUDIO",
         })
         self.assertEqual(len(permission_names(debug)), len(set(permission_names(debug))))
         self.assertFalse((MAIN / "java/com/edenpractical/comms/wifidirect").exists())

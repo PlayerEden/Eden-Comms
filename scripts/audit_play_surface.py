@@ -30,8 +30,9 @@ GENERATED_MERGED_ONLY_PERMISSIONS = frozenset({
 })
 # Android 12+ experimental Classic inquiry and one-time secure RFCOMM link
 # (CONNECT and explicit discoverability ADVERTISE) exist in debug ONLY.
-# M3p adds only debug Wi-Fi state and version-scoped Wi-Fi Direct permission.
-# Production main manifest remains at the original LAN+QR permissions.
+# M3p adds debug Wi-Fi state and version-scoped Wi-Fi Direct permission.
+# M6-D1 adds only debug RECORD_AUDIO for explicit local mic/speaker playback;
+# production main manifest remains at original LAN+QR permissions.
 DEBUG_ONLY_PERMISSIONS = frozenset({
     "android.permission.BLUETOOTH_SCAN",
     "android.permission.BLUETOOTH_CONNECT",
@@ -41,6 +42,7 @@ DEBUG_ONLY_PERMISSIONS = frozenset({
     "android.permission.ACCESS_FINE_LOCATION",
     "android.permission.CHANGE_WIFI_STATE",
     "android.permission.CHANGE_NETWORK_STATE",
+    "android.permission.RECORD_AUDIO",
 })
 EXPECTED_APK_PERMISSIONS = (
     ALLOWED_PERMISSIONS | DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS
@@ -176,7 +178,7 @@ def build_report(repo, apk):
     if declared != ALLOWED_PERMISSIONS:
         problems.append("Release/main manifest permissions differ from approved set")
     if debug_declared != DEBUG_ONLY_PERMISSIONS or debug_exported:
-        problems.append("Debug-only Bluetooth/Wi-Fi Direct manifest differs from approved set")
+        problems.append("Debug-only radio/local microphone manifest differs from approved set")
     if binary != EXPECTED_APK_PERMISSIONS:
         problems.append("Packaged debug APK permissions differ from approved merged set")
     if binary - declared != (DEBUG_ONLY_PERMISSIONS | GENERATED_MERGED_ONLY_PERMISSIONS):

@@ -77,7 +77,8 @@ class GroupHostSafetyBoundary(unittest.TestCase):
             "android.permission.INTERNET",
             "android.permission.ACCESS_NETWORK_STATE"
         })
-        self.assertEqual(len(perms(debug)), 8)
+        self.assertEqual(len(perms(debug)), 9)
+        self.assertIn("android.permission.RECORD_AUDIO", perms(debug))
         activities = debug.findall("application/activity")
         group_activities = [a for a in activities
             if "DebugWifiDirectGroupHostActivity" in a.get(NS + "name", "")]

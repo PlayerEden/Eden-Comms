@@ -609,6 +609,8 @@ private fun NearbyScreen(onLocalWifi: () -> Unit) {
 
 @Composable
 private fun PushToTalkScreen() {
+    val context = LocalContext.current
+    val debugBuild = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
     FieldSectionHeader("VOICE / PTT", "Push-to-talk")
     ConnectionStatus("Not connected", "No active voice session")
     FieldFrame(accent = true) {
@@ -664,6 +666,28 @@ private fun PushToTalkScreen() {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    if (debugBuild) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
+        SectionLabel("ONE-PHONE AUDIO CHECK")
+        Text(
+            "Test your microphone, hold-to-talk controls and speaker here. " +
+                "A recording plays only on this phone; nothing is transmitted. " +
+                "This is not a voice call.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(
+            onClick = {
+                context.startActivity(
+                    Intent().setClassName(
+                        context,
+                        "com.edenpractical.comms.audio.DebugLocalPttActivity"
+                    )
+                )
+            },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+        ) { Text("Try local microphone and speaker") }
+    }
 }
 
 @Composable
