@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F2-B TLS record boundary hardening:** Debug Bluetooth controls now require exactly one bounded TLS 1.3 ciphertext envelope after the pinned handshake, with best-effort cleanup on error. **Still no Bluetooth user messages, no device proof and no independent security signoff.** [F2-B handoff](docs/F2_B_TLS_RECORD_BOUNDARY_REVIEW.md).
+
 - **Full-function development roadmap (active):** [F0–F7 implementation, dependencies, and consolidated physical test plan](docs/FULL_FUNCTION_DEVELOPMENT_TEST_ROADMAP_2026_11_07.md). First integration: app-level LAN text ACK after both phones explicitly confirm; Bluetooth/Wi-Fi Direct chat and remote PTT remain unfinished.
 
 ## Product goal
