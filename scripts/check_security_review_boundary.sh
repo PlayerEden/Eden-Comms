@@ -791,15 +791,34 @@ grep -Fq 'Manifest.permission.RECORD_AUDIO' "$LOCAL_AUDIO"
 grep -Fq 'override fun onPause()' "$LOCAL_AUDIO"
 grep -Fq 'terminateAndDiscard()' "$LOCAL_AUDIO"
 grep -Fq 'DebugLocalPttPolicy.MAX_PCM_BYTES' "$LOCAL_AUDIO"
-grep -Fq 'audioClip?.fill(0)' "$LOCAL_AUDIO"
+grep -Fq 'DebugPttPcmFrames.packetize(buffer, written - written % 2)' "$LOCAL_AUDIO"
+grep -Fq 'DebugPttPcmFrames.reassemble(packets)' "$LOCAL_AUDIO"
+grep -Fq 'DebugPttPcmFrames.wipe(audioClip)' "$LOCAL_AUDIO"
+PCM_FRAMES="app/src/debug/java/com/edenpractical/comms/audio/DebugPttPcmFrames.kt"
+PCM_FRAME_TEST="app/src/test/java/com/edenpractical/comms/audio/DebugPttPcmFramesTest.kt"
+test -f "$PCM_FRAMES" && test -f "$PCM_FRAME_TEST"
+grep -Fq 'const val FRAME_MS = 20' "$PCM_FRAMES"
+grep -Fq 'const val MAX_FRAMES = DebugLocalPttPolicy.MAX_SECONDS' "$PCM_FRAMES"
+grep -Fq 'if (seq != i + 1)' "$PCM_FRAMES"
+grep -Fq 'if (!last && n != PCM_BYTES_PER_FRAME)' "$PCM_FRAMES"
+grep -Fq 'fun wipe(frames: List<ByteArray>?)' "$PCM_FRAMES"
+for forbidden in 'java.net.' 'javax.net.' 'Socket(' 'BluetoothSocket' \
+  'WifiP2p' 'LanDemoSession' 'TestPacketCodec' 'SSLEngine' \
+  'openFileOutput(' 'SharedPreferences' 'Log.' 'println(' \
+  'AudioRecord(' 'AudioTrack(' 'startService('; do
+  if grep -Fq "$forbidden" "$PCM_FRAMES"; then
+    echo "FAIL: F4-A PCM frame codec gained transport, live mic or storage" >&2
+    exit 1
+  fi
+done
 grep -Fq 'android.permission.RECORD_AUDIO' app/src/debug/AndroidManifest.xml
 grep -Fq 'android:name=".audio.DebugLocalPttActivity"' app/src/debug/AndroidManifest.xml
 if grep -REn '(Socket\(|java\.net\.|javax\.net\.|BluetoothSocket|WifiP2p|LanDemoSession|startService\(|openFileOutput\(|SharedPreferences|MediaRecorder\.OutputFormat)' \
- "$LOCAL_AUDIO" "$LOCAL_POLICY"; then
+ "$LOCAL_AUDIO" "$LOCAL_POLICY" "$PCM_FRAMES"; then
   echo "FAIL: local microphone test gained transport, background or persistence" >&2
   exit 1
 fi
-if find "$MAIN" \( -name 'DebugLocalPttActivity.kt' -o -name 'DebugLocalPttPolicy.kt' \) -print -quit | grep -q .; then
+if find "$MAIN" \( -name 'DebugLocalPttActivity.kt' -o -name 'DebugLocalPttPolicy.kt' -o -name 'DebugPttPcmFrames.kt' \) -print -quit | grep -q .; then
   echo "FAIL: local audio code entered production source" >&2
   exit 1
 fi
