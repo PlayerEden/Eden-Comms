@@ -16,6 +16,8 @@
 
 - **M6-D1 local voice test:** Actually records and plays a short sample on one debug phone with user permission, accessible Start/Stop and best-effort privacy cleanup. **Not remote PTT or a secure voice call.** [Audio test](docs/M6_D1_LOCAL_PTT_AUDIO.md), [all-function test-build targets](docs/FUNCTIONAL_TEST_BUILD_TARGETS.md).
 
+- **F2-D paired TLS engine interoperability:** JVM-only test lab uses two ephemeral X.509 identities with real TLS 1.3 engines, opposite certificate pins, fixed encrypted control lengths and wrong-pin rejection. **Not Android radio QA or a security audit; Bluetooth chat remains disabled.** [F2-D test evidence and acceptance gates](docs/F2_D_PAIRED_TLS_ENGINE_INTEROP_TEST.md).
+
 - **F2-C Bluetooth provider readiness:** Live debug TLS control exchanges now fail closed on a closed/half-closed engine, new handshake state, unsupported buffer sizes or incorrect result counts. A 90-second future continuation-budget policy is **unwired**; diagnostic socket still closes after consent. [F2-C acceptance and limitations](docs/F2_C_PROVIDER_READINESS_AND_CONTINUATION_BUDGET.md).
 
 - **F2-B TLS record boundary hardening:** Debug Bluetooth controls now require exactly one bounded TLS 1.3 ciphertext envelope after the pinned handshake, with best-effort cleanup on error. **Still no Bluetooth user messages, no device proof and no independent security signoff.** [F2-B handoff](docs/F2_B_TLS_RECORD_BOUNDARY_REVIEW.md).
