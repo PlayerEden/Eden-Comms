@@ -92,7 +92,7 @@ class M4Ui02GuidedDeveloperTools(unittest.TestCase):
             "UNREVIEWED DEBUG TEST",
             "short typed TEST messages and preset phrases can be exchanged",
             "Never send secrets",
-            "Voice stays disabled",
+            "short voice bursts are a debug-only option",
             'question = "What did Eden Comms check?"',
             "pinned TLS",
             "Approve this debug test",
