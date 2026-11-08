@@ -72,7 +72,12 @@ After both phones complete QR, TLS and individual approvals, open the
    **START TALKING** again. Say a short, harmless test phrase.
 2. Tap **SEND VOICE BURST**, or allow the automatic 3-second end. On B,
    listen for actual speaker playback, and then test B → A.
-3. Keep the audio trivial: this feature is unreviewed and not suitable for
+3. If you release immediately or the mic fails to initialize, the app now
+   says **No usable microphone audio**; the button should not stay stuck
+   on **Finishing**. A receiving phone reports when local speaker playback
+   actually starts, not just when encrypted bytes arrive. **Hide conversation**
+   mutes this phone's microphone and speaker locally, not the peer's sender.
+4. Keep the audio trivial: this feature is unreviewed and not suitable for
    private speech or emergencies. It records a short burst THEN sends it;
    it is not yet true live push-to-talk.
 4. Repeat after both sides agree, try permission denial, then disconnect or
