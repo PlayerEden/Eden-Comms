@@ -26,7 +26,7 @@ class D1LocalPttBoundaries(unittest.TestCase):
             "Manifest.permission.RECORD_AUDIO", "requestPermissions(",
             "val token = currentGeneration.incrementAndGet()",
             "DebugLocalPttPolicy.acceptWorkerResult(",
-            "audioClip?.fill(0)", "pcm.fill(0)", "buffer.fill(0)",
+            "DebugPttPcmFrames.wipe(audioClip)", "pcm.fill(0)", "buffer.fill(0)",
             "startRecording()", "stopRecording()", "playLocally()",
             "stopPlayback()", "discardClip()"
         ):
