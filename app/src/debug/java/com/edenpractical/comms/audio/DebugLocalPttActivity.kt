@@ -39,7 +39,8 @@ internal class DebugLocalPttActivity : Activity() {
     @Volatile private var activeRecorder: AudioRecord? = null
     @Volatile private var activeTrack: AudioTrack? = null
     private var recordingThread: Thread? = null
-    private var audioClip: ByteArray? = null
+    // F4-A: hold only bounded in-memory 20 ms PCM packets, not a raw clip.
+    private var audioClip: List<ByteArray>? = null
 
     private lateinit var status: TextView
     private lateinit var hold: Button
@@ -69,8 +70,9 @@ internal class DebugLocalPttActivity : Activity() {
         })
         content.addView(TextView(this).apply {
             text = "ONE PHONE ONLY • DEVELOPMENT TEST\n" +
-                "This audio never goes to another phone. Normal Voice / PTT " +
-                "and production messaging remain disabled."
+                "Recording is divided into 20 ms audio packets and rebuilt for " +
+                "playback on THIS phone. No packets leave the app. Normal " +
+                "Voice / PTT and production messaging remain disabled."
             textSize = 15f
             setPadding(0, dp(12), 0, dp(12))
         })
@@ -110,7 +112,8 @@ internal class DebugLocalPttActivity : Activity() {
         discard = addButton(content, "Discard recording") { discardClip() }
         content.addView(TextView(this).apply {
             text = "Microphone access is requested only when you tap Record. " +
-                "Audio lasts at most five seconds and is held in app memory. " +
+                "Audio lasts at most five seconds and is held as ordered " +
+                "20 ms packets in app memory. " +
                 "Leaving this screen stops capture/playback and clears the " +
                 "recording as best effort. The OS and audio hardware have " +
                 "independent buffers; guaranteed erasure is not claimed."
@@ -218,9 +221,16 @@ internal class DebugLocalPttActivity : Activity() {
             val clip = if (!hadError &&
                 DebugLocalPttPolicy.acceptWorkerResult(
                     token, currentGeneration.get(), foreground
-                ) &&
-                written >= DebugLocalPttPolicy.MIN_PCM_BYTES
-            ) buffer.copyOf(written - written % 2) else null
+                ) && written >= DebugLocalPttPolicy.MIN_PCM_BYTES
+            ) {
+                try {
+                    // Produce bounded PCM frames, then clear the raw capture
+                    // buffer before handing anything to the UI.
+                    DebugPttPcmFrames.packetize(buffer, written - written % 2)
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
+            } else null
             buffer.fill(0)
             runOnUiThread {
                 if (DebugLocalPttPolicy.acceptWorkerResult(
@@ -228,16 +238,16 @@ internal class DebugLocalPttActivity : Activity() {
                     )
                 ) {
                     recordingThread = null
-                    audioClip?.fill(0)
+                    DebugPttPcmFrames.wipe(audioClip)
                     audioClip = clip
                     status.text = when {
                         hadError -> "Microphone unavailable. Try again or check Android audio settings."
                         clip == null -> "No usable recording. Hold Record a little longer."
-                        else -> "Recording ready. Tap Play to hear it on this phone."
+                        else -> "Packetized recording ready. Play to verify local reassembly."
                     }
                     refresh()
                 } else {
-                    clip?.fill(0)
+                    DebugPttPcmFrames.wipe(clip)
                 }
             }
         }
@@ -253,13 +263,21 @@ internal class DebugLocalPttActivity : Activity() {
     }
 
     private fun playLocally() {
-        val original = audioClip ?: return
-        if (!DebugLocalPttPolicy.mayPlay(
-                debugBuild, foreground, capturing.get(), playing.get(), original.size
-            )) return
+        val packets = audioClip ?: return
         if (recordingThread?.isAlive == true) return
+        val pcm = try {
+            DebugPttPcmFrames.reassemble(packets)
+        } catch (_: java.io.IOException) {
+            status.text = "Local PCM packet order/format rejected. Discard and record again."
+            return
+        }
+        if (!DebugLocalPttPolicy.mayPlay(
+                debugBuild, foreground, capturing.get(), playing.get(), pcm.size
+            )) {
+            pcm.fill(0)
+            return
+        }
         val token = currentGeneration.incrementAndGet()
-        val pcm = original.copyOf()
         playing.set(true)
         status.text = "Playing on this phone only…"
         refresh()
@@ -336,7 +354,7 @@ internal class DebugLocalPttActivity : Activity() {
     }
 
     private fun discardClip() {
-        audioClip?.fill(0)
+        DebugPttPcmFrames.wipe(audioClip)
         audioClip = null
         if (::status.isInitialized) {
             status.text = "Local recording discarded."
@@ -352,7 +370,7 @@ internal class DebugLocalPttActivity : Activity() {
             try { activeRecorder?.stop() } catch (_: Exception) {}
             try { activeTrack?.stop() } catch (_: Exception) {}
         }
-        audioClip?.fill(0)
+        DebugPttPcmFrames.wipe(audioClip)
         audioClip = null
         if (::status.isInitialized) {
             status.text = "Test stopped. Audio cleared as best effort."
