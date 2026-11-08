@@ -16,6 +16,7 @@ class EncryptedBluetoothTranscriptContract(unittest.TestCase):
     def setUpClass(cls):
         cls.probe = (DEBUG / "DebugRfcommTlsProbe.kt").read_text()
         cls.control = (DEBUG / "DebugTlsControlTransport.kt").read_text()
+        cls.provider = (DEBUG / "DebugTlsProviderReadiness.kt").read_text()
         cls.commit = (DEBUG / "DebugBluetoothCommitmentFrame.kt").read_text()
         cls.input = (DEBUG / "DebugBluetoothTlsProbeInput.kt").read_text()
         cls.qr = (DEBUG / "DebugBluetoothQrCoordinator.kt").read_text()
@@ -64,20 +65,22 @@ class EncryptedBluetoothTranscriptContract(unittest.TestCase):
             "DebugTlsEngineHandshake.readRecord(wireInput)",
             "engine.unwrap(ByteBuffer.wrap(encoded), clear)",
             "engine.wrap(ByteBuffer.wrap(b, off, len), encrypted)",
-            "result.handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING",
-            "result.bytesConsumed() != encoded.size",
-            "result.bytesProduced() != phase.bytes",
-            "result.bytesConsumed() != len",
+            "DebugTlsProviderReadiness.requireExactControlResult(",
+            "DebugTlsProviderReadiness.requireControlReady(engine)",
             "length != phase.bytes",
-            "engine.session.protocol != \"TLSv1.3\"",
+            "DebugTlsRecordBoundary.requireSingleCiphertext(record)",
             "wireOutput.write(record)",
             "record.fill(0)",
             "clear.array().fill(0)",
             "encrypted.array().fill(0)"
         ):
             self.assertIn(piece, self.control)
-        self.assertIn("val packetSize = engine.session.packetBufferSize", self.control)
-        self.assertIn("if (closed ||", self.control)
+        self.assertIn('protocol != "TLSv1.3"', self.provider)
+        self.assertIn("handshake != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING", self.provider)
+        self.assertIn("result.bytesConsumed() != consumed", self.provider)
+        self.assertIn("result.bytesProduced() != produced", self.provider)
+        self.assertIn("packetBytes !in 1..DebugTlsEngineHandshake.MAX_ENGINE_PACKET", self.provider)
+        self.assertIn("if (closed || length != phase.bytes)", self.control)
         self.assertIn("expected == Phase.QR_PROOF", self.control)
         self.assertIn("expected == Phase.EXPORTER", self.control)
         for forbidden in (
