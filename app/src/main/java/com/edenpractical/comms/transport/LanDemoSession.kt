@@ -92,6 +92,11 @@ internal class LanDemoSession(
     private val writer = Executors.newSingleThreadExecutor { action ->
         Thread(action, "eden-demo-sender").apply { isDaemon = true }
     }
+    // Audio can hold the ordinary writer for a full 3-second turn.
+    // Floor REQUEST/GRANT/DENY/CANCEL cannot safely queue behind it.
+    private val floorWriter = Executors.newSingleThreadExecutor { action ->
+        Thread(action, "eden-demo-floor").apply { isDaemon = true }
+    }
     private val pulses = Executors.newSingleThreadScheduledExecutor { action ->
         Thread(action, "eden-demo-heartbeat").apply { isDaemon = true }
     }
@@ -102,6 +107,20 @@ internal class LanDemoSession(
     }
     private val outputLock = Any()
     private val sockets = SessionSocketRegistry()
+    // These frames still use sendPacket() -> the same outputLock and mutual
+    // TLS output stream. Only the scheduling lane is independent of PCM.
+    private val floorControls = DebugLanFloorControlQueue(
+        executor = floorWriter,
+        write = { frame ->
+            if (!approvalGate.maySendPreset())
+                throw SocketException("Voice floor approval is no longer active")
+            sendPacket(TestPacketCodec.debugVoiceFloor(frame))
+        },
+        onFailure = {
+            emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+            close()
+        }
+    )
     private val sendBudget = DemoSendBudget(2)
     private val incomingAckBudget = DemoSendBudget(2)
     private val peerAckLedger = DebugPeerAckLedger(maxOutstanding = 16)
@@ -350,16 +369,10 @@ internal class LanDemoSession(
                             val decision = (voiceFloor ?: throw TestPacketException())
                                 .incoming(frame, SystemClock.elapsedRealtime())
                             decision.outbound?.let { response ->
-                                // Only the existing authenticated TLS writer
-                                // may respond. No independent radio control.
-                                writer.execute {
-                                    try { sendPacket(TestPacketCodec.debugVoiceFloor(response)) }
-                                    catch (_: Exception) {
-                                        emitTerminal(Phase.ENDED,
-                                            LanDemoStatus.EndCode.LINK_INTERRUPTED)
-                                        close()
-                                    }
-                                }
+                                // The response must not wait for a 3s PCM
+                                // writer loop; keep it inside the same TLS
+                                // socket's synchronized outputLock.
+                                queueFloorControl(response)
                             }
                             when (decision.signal) {
                                 DebugLanVoiceFloor.Signal.GRANTED ->
@@ -546,6 +559,24 @@ internal class LanDemoSession(
     }
 
     /**
+     * Queue an essential radio-floor control on its OWN bounded scheduler.
+     * All actual wire writes still use sendPacket's one approved TLS socket
+     * and outputLock, including the audio and writer-ordered RELEASE.
+     *
+     * Failing to enqueue a control closes the entire session; neither peer
+     * may silently assume a missing request/cancel/deny was delivered.
+     */
+    private fun queueFloorControl(frame: DebugLanVoiceFloorCodec.Frame): Boolean {
+        if (!ready || stopped.get() || ending.get() ||
+            !approvalGate.maySendPreset()
+        ) return false
+        if (floorControls.offer(frame)) return true
+        emitTerminal(Phase.ENDED, LanDemoStatus.EndCode.LINK_INTERRUPTED)
+        close()
+        return false
+    }
+
+    /**
      * Request the sole presenter's per-session voice floor, BEFORE microphone
      * startup. Host reserves locally; joiner waits for a correlated GRANT.
      * An unapproved/closed socket never sends REQUEST.
@@ -561,15 +592,8 @@ internal class LanDemoSession(
                 DebugLanVoiceFloor.Ask.PENDING -> {
                     val request = requested.packet ?: throw IllegalStateException()
                     try {
-                        writer.execute {
-                            try { sendPacket(TestPacketCodec.debugVoiceFloor(request)) }
-                            catch (_: Exception) {
-                                emitTerminal(Phase.ENDED,
-                                    LanDemoStatus.EndCode.LINK_INTERRUPTED)
-                                close()
-                            }
-                        }
-                        FloorRequestResult.PENDING
+                        if (queueFloorControl(request)) FloorRequestResult.PENDING
+                        else FloorRequestResult.NOT_CONNECTED
                     } catch (_: RuntimeException) {
                         floor.cancelPending()
                         FloorRequestResult.NOT_CONNECTED
@@ -582,18 +606,13 @@ internal class LanDemoSession(
     /** Cancel an unstarted hold/tap. A late GRANT is ignored by the joiner. */
     fun cancelUnstartedVoiceFloor() {
         val floor = voiceFloor ?: return
-        val control = floor.cancelPending() ?: floor.releaseLocal()
+        // If a record-then-send voice burst is ALREADY on the audio writer,
+        // its END must precede RELEASE. The PCM writer's finally block owns
+        // that release; never rush it through the separate control lane.
+        val control = floor.cancelPending()
+            ?: if (!voiceQueued.get()) floor.releaseLocal() else null
         if (control != null && ready && !stopped.get() && !ending.get()) {
-            try {
-                writer.execute {
-                    try { sendPacket(TestPacketCodec.debugVoiceFloor(control)) }
-                    catch (_: Exception) {
-                        emitTerminal(Phase.ENDED,
-                            LanDemoStatus.EndCode.LINK_INTERRUPTED)
-                        close()
-                    }
-                }
-            } catch (_: RuntimeException) { close() }
+            queueFloorControl(control)
         }
     }
 
@@ -1187,6 +1206,7 @@ internal class LanDemoSession(
         preReadyWifiMonitor?.cancel(false)
         pulses.shutdownNow()
         cancellationTimer.shutdownNow()
+        floorWriter.shutdownNow()
         writer.shutdownNow()
         worker.shutdownNow()
     }
