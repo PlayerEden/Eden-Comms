@@ -47,7 +47,7 @@ internal class LanDemoSession(
     enum class Phase {
         LISTENING, CONNECTING, PROGRESS, READY, APPROVAL_UPDATE, APPROVAL_COMPLETE,
         SENT, RECEIVED, TEXT_WRITTEN, TEXT_RECEIVED, TEXT_PEER_ACK,
-        VOICE_WRITTEN, VOICE_RECEIVED, ENDED, FAILED
+        VOICE_WRITTEN, VOICE_STARTED, VOICE_FINISHED, VOICE_RECEIVED, ENDED, FAILED
     }
     enum class SendResult { QUEUED, BUSY, NOT_CONNECTED, AWAITING_APPROVAL }
     enum class ApprovalResult { QUEUED, ALREADY_PENDING, NOT_CONNECTED }
@@ -338,8 +338,13 @@ internal class LanDemoSession(
                                 // ordering and replay rejection. With the F4-D
                                 // listener installed, dispatch each validated
                                 // frame BEFORE END (never double-play the clip).
-                                if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.START)
+                                if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.START) {
                                     peerVoiceActive.set(true)
+                                    emit(Event(
+                                        Phase.VOICE_STARTED,
+                                        "Other phone started a validated live voice turn"
+                                    ))
+                                }
                                 try {
                                     val live = liveVoicePlayback
                                     if (live != null) live(voiceFrame.kind, voiceFrame.pcm)
@@ -350,8 +355,13 @@ internal class LanDemoSession(
                                     ))
                                 } finally {
                                     completed?.fill(0)
-                                    if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.END)
+                                    if (voiceFrame.kind == DebugLanVoiceWireCodec.Kind.END) {
                                         peerVoiceActive.set(false)
+                                        emit(Event(
+                                            Phase.VOICE_FINISHED,
+                                            "Other phone finished a validated voice turn"
+                                        ))
+                                    }
                                 }
                             } finally { voiceFrame.clear() }
                         }
