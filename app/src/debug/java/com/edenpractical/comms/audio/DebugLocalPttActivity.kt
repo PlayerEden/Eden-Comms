@@ -296,13 +296,14 @@ internal class DebugLocalPttActivity : Activity() {
                 var sentSamples = 0
                 while (playing.get() && foreground && token == currentGeneration.get()) {
                     val frame = packets.poll() ?: break
+                    val pcm = frame.pcm
                     try {
                         var offset = 0
-                        while (offset < frame.pcm.size && playing.get() && foreground &&
+                        while (offset < pcm.size && playing.get() && foreground &&
                             token == currentGeneration.get()
                         ) {
                             val written = created.write(
-                                frame.pcm, offset, frame.pcm.size - offset,
+                                pcm, offset, pcm.size - offset,
                                 AudioTrack.WRITE_BLOCKING
                             )
                             if (written <= 0 || written % 2 != 0) {
@@ -310,10 +311,10 @@ internal class DebugLocalPttActivity : Activity() {
                             }
                             offset += written
                         }
-                        if (offset != frame.pcm.size) break
-                        sentSamples += frame.pcm.size / 2
+                        if (offset != pcm.size) break
+                        sentSamples += pcm.size / 2
                     } finally {
-                        frame.pcm.fill(0)
+                        pcm.fill(0)
                     }
                 }
                 if (packets.queuedCount == 0 && playing.get() && foreground &&
