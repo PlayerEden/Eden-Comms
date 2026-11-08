@@ -496,6 +496,31 @@ if grep -RFn --include='*.kt' 'DebugPairedTlsEngineInteropTest' app/src/main app
   exit 1
 fi
 
+# F2-E: completion of BOTH encrypted confirmations may create a one-use
+# diagnostic receipt. It is not a retained authenticated link or send grant.
+# The same controller token must consume it and immediately close the socket.
+BT_RECEIPT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothProbeCompletion.kt"
+test -f "$BT_RECEIPT"
+grep -Fq 'return DebugBluetoothProbeCompletion.afterVerifiedDiagnostic(' "$BT_TLS_PROBE"
+grep -Fq 'val atEnd = request.freshBinding()' "$BT_TLS_PROBE"
+grep -Fq 'val completion = DebugRfcommTlsProbe.run(created, request) { decision ->' "$BT_RFCOMM"
+grep -Fq 'active === token' "$BT_RFCOMM"
+grep -Fq 'gate.snapshot().phase == DebugRfcommAttemptGate.Phase.LINK_OPEN' "$BT_RFCOMM"
+grep -Fq 'completion.acknowledgeOnce(' "$BT_RFCOMM"
+grep -Fq 'completion.close()' "$BT_RFCOMM"
+grep -Fq 'MAX_HANDOFF_AGE_SECONDS = 3L' "$BT_RECEIPT"
+grep -Fq 'if (consumed || closed) return false' "$BT_RECEIPT"
+grep -Fq 'consumed = true' "$BT_RECEIPT"
+grep -Fq 'closeQuietly(oldSocket)' "$BT_RFCOMM"
+if find "$MAIN" -name 'DebugBluetoothProbeCompletion.kt' -print -quit | grep -q .; then
+  echo "FAIL: F2-E diagnostic-only receipt moved into release source" >&2
+  exit 1
+fi
+if grep -REn '(sendDebugText\(|TestPacketCodec|BluetoothSocket\(|SharedPreferences|openFileOutput\(|ProductionSessionAuthorization)' "$BT_RECEIPT"; then
+  echo "FAIL: F2-E receipt gained a socket, message, persistence or production authorization" >&2
+  exit 1
+fi
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
