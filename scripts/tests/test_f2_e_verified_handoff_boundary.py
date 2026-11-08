@@ -43,7 +43,7 @@ class F2ECompletionHandoffBoundary(unittest.TestCase):
 
     def test_only_live_current_socket_token_consumes_receipt_before_closure(self):
         for marker in (
-            "val completion = DebugRfcommTlsProbe.run(created, request) { decision ->",
+            "val completion = DebugRfcommTlsProbe.run(\n                created, request,",\n            "onVerifiedStage = { step -> verified(token, step) }",\n            ") { decision ->",
             "active === token",
             "gate.snapshot().phase == DebugRfcommAttemptGate.Phase.LINK_OPEN",
             "completion.acknowledgeOnce(",
