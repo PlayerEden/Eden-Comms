@@ -19,6 +19,9 @@ class BluetoothGuideSourceContract(unittest.TestCase):
         self.assertIn("DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED ||", activity)
         self.assertIn("showRawScanner", activity)
         self.assertIn("ADVANCED • RAW RADIO SCAN", activity)
+        self.assertIn("linkPhase !in setOf(", activity)
+        self.assertIn("DebugRfcommAttemptGate.Phase.STOPPED",
+                      (DIR / "DebugBluetoothJourneyCue.kt").read_text())
         self.assertIn('Text("HOST ONE-TIME BLUETOOTH TEST LINK")', activity)
         self.assertIn('Text("JOIN STAGED UNVERIFIED SIGNAL")', activity)
         self.assertEqual(1, activity.count("HOST ONE-TIME BLUETOOTH TEST LINK"))
