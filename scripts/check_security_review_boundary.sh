@@ -624,6 +624,36 @@ for forbidden in 'import android.bluetooth.' 'import javax.net.ssl.' \
   fi
 done
 
+# F2-I: role, peer-pin and transcript correlation is necessary, not
+# sufficient, for a future owned Bluetooth session. This copy-only context
+# must not become a credential, live-RFCOMM handoff or production capability.
+BT_FUTURE_CONTEXT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothFutureSessionContext.kt"
+test -f "$BT_FUTURE_CONTEXT"
+grep -Fq 'private val pin = expectedPeerPin.copyOf()' "$BT_FUTURE_CONTEXT"
+grep -Fq 'private val commitment = transcriptCommitment.copyOf()' "$BT_FUTURE_CONTEXT"
+grep -Fq 'MessageDigest.isEqual(local.first, remote.first)' "$BT_FUTURE_CONTEXT"
+grep -Fq 'MessageDigest.isEqual(local.second, remote.second)' "$BT_FUTURE_CONTEXT"
+grep -Fq 'context?.sameAs(claimedContext) == true' "$BT_FUTURE_OWNER"
+grep -Fq 'budget.terminate(generation)' "$BT_FUTURE_OWNER"
+grep -Fq 'releasedContext?.close()' "$BT_FUTURE_OWNER"
+if grep -Fq 'DebugBluetoothFutureSessionContext' "$BT_TLS_PROBE" ||
+   grep -Fq 'DebugBluetoothFutureSessionContext' "$BT_RFCOMM"; then
+  echo "FAIL: F2-I unreviewed context was wired into real Bluetooth diagnostic" >&2
+  exit 1
+fi
+if find "$MAIN" -name 'DebugBluetoothFutureSessionContext.kt' -print -quit | grep -q .; then
+  echo "FAIL: F2-I future context entered production source" >&2
+  exit 1
+fi
+for forbidden in 'import android.bluetooth.' 'import javax.net.ssl.' \
+  'BluetoothSocket' 'SSLEngine' 'sendDebugText(' 'TestPacketCodec' \
+  'AudioRecord' 'SharedPreferences' 'ProductionSessionAuthorization'; do
+  if grep -Fq "$forbidden" "$BT_FUTURE_CONTEXT"; then
+    echo "FAIL: F2-I review context acquired radio, message or authorization APIs" >&2
+    exit 1
+  fi
+done
+
 # D1: local microphone must be debug-only and must never acquire a socket.
 LOCAL_AUDIO="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttActivity.kt"
 LOCAL_POLICY="app/src/debug/java/com/edenpractical/comms/audio/DebugLocalPttPolicy.kt"
