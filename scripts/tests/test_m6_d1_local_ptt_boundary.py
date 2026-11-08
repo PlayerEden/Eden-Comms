@@ -20,7 +20,7 @@ class D1LocalPttBoundaries(unittest.TestCase):
         )[1].split("private fun SettingsScreen(", 1)[0]
         for symbol in (
             "AudioRecord(", "AudioTrack(", "MediaRecorder.AudioSource.MIC",
-            "AudioRecord.READ_BLOCKING", "MotionEvent.ACTION_DOWN",
+            "AudioRecord.READ_NON_BLOCKING", "MotionEvent.ACTION_DOWN",
             "MotionEvent.ACTION_UP", "MotionEvent.ACTION_CANCEL",
             "override fun onPause()", "terminateAndDiscard()",
             "Manifest.permission.RECORD_AUDIO", "requestPermissions(",
