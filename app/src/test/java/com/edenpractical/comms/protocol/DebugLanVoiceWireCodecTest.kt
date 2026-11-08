@@ -18,7 +18,7 @@ class DebugLanVoiceWireCodecTest {
             val encoded = wire.encode(local)
             local.clear()
             val decoded = wire.decode(encoded)
-            assertEquals(wire.Kind.DATA, decoded.kind)
+            assertEquals(DebugLanVoiceWireCodec.Kind.DATA, decoded.kind)
             assertEquals(sequence, decoded.sequence)
             assertNull(incoming.accept(decoded))
             decoded.clear()
