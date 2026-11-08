@@ -366,7 +366,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 showRawScanner
                         if (qrCoordinator.stage !=
                             DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED &&
-                            linkPhase == DebugRfcommAttemptGate.Phase.IDLE &&
+                            linkPhase !in setOf(
+                                DebugRfcommAttemptGate.Phase.CONNECTING,
+                                DebugRfcommAttemptGate.Phase.LINK_OPEN
+                            ) &&
                             !busy && candidateRows.isEmpty() && selectedOrdinal == null) {
                             OutlinedButton(
                                 onClick = { showRawScanner = !showRawScanner },

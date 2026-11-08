@@ -31,7 +31,11 @@ internal object DebugBluetoothJourneyCue {
             "Connecting to the selected Bluetooth radio",
             "Wait for QR-pinned TLS checks and a separate approval on BOTH phones."
         )
-        if (link == DebugRfcommAttemptGate.Phase.STOPPED) return Step(
+        // A previous stopped link is NOT the state of a new fresh QR attempt.
+        // Once the person explicitly starts new codes, show Step 1/2 again.
+        if (link == DebugRfcommAttemptGate.Phase.STOPPED &&
+            qr == DebugBluetoothQrCoordinator.Stage.CHOOSE
+        ) return Step(
             "TEST ENDED",
             "Start a new in-person QR exchange",
             "The test socket is closed. A new attempt needs fresh codes and both approvals."
