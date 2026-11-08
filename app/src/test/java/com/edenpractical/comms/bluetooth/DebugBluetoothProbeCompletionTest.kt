@@ -41,18 +41,18 @@ class DebugBluetoothProbeCompletionTest {
 
     @Test fun backgroundPermissionLossOrExpiryBurnsReceipt() {
         val invalid = listOf(
-            arrayOf(101L, false, true),
-            arrayOf(101L, true, false),
-            arrayOf(104L, true, true),
-            arrayOf(99L, true, true)
+            Triple(101L, false, true),
+            Triple(101L, true, false),
+            Triple(104L, true, true),
+            Triple(99L, true, true)
         )
-        for (case in invalid) {
+        for ((now, foreground, permitted) in invalid) {
             val receipt = completion()
             assertFalse(receipt.acknowledgeOnce(
                 expectedHostRole = true,
-                observedAtSeconds = case[0] as Long,
-                foreground = case[1] as Boolean,
-                connectPermission = case[2] as Boolean
+                observedAtSeconds = now,
+                foreground = foreground,
+                connectPermission = permitted
             ))
             assertFalse(receipt.acknowledgeOnce(true, 101, true, true))
         }
