@@ -51,6 +51,64 @@ class ApkIdentityEvidenceTests(unittest.TestCase):
                 with self.assertRaises(mod.IdentityAuditError):
                     mod.expected_identity(EXAMPLE_GRADLE, bad)
 
+    def test_offline_preview_is_isolated_and_strictly_versioned(self):
+        preview = mod.expected_identity(
+            EXAMPLE_GRADLE, offline_preview_version_code=200001
+        )
+        self.assertEqual(preview, {
+            "application_id": "com.edenpractical.comms.preview",
+            "version_code": 200001,
+            "version_name": "0.2.12-preview-200001",
+        })
+        self.assertEqual(
+            mod.expected_identity(EXAMPLE_GRADLE), mod.source_identity(EXAMPLE_GRADLE)
+        )
+        for bad in (-1, 0, 11, 200000, 2_100_000_001, True, "200001"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(mod.IdentityAuditError):
+                    mod.expected_identity(
+                        EXAMPLE_GRADLE, offline_preview_version_code=bad
+                    )
+        with self.assertRaises(mod.IdentityAuditError):
+            mod.expected_identity(
+                EXAMPLE_GRADLE, 10001, offline_preview_version_code=200001
+            )
+
+    def test_public_preview_signer_is_pinned_and_never_classified_as_private_signing(self):
+        from unittest.mock import patch
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            apk = Path(temp, "preview.apk")
+            apk.write_bytes(b"synthetic test APK")
+            aapt = ("package: name='com.edenpractical.comms.preview' "
+                    "versionCode='200001' versionName='0.2.12-preview-200001'")
+            cert = "Signer #1 certificate SHA-256 digest: " + FINGERPRINT + "\\n"
+            with patch.object(mod, "tool_output", side_effect=[aapt, cert]), \\
+                 patch.object(mod, "sdk_tool", return_value="fake"):
+                report = mod.inspect(
+                    apk, EXAMPLE_GRADLE, "f" * 40,
+                    offline_preview_version_code=200001,
+                    expected_signer_sha256=FINGERPRINT
+                )
+        self.assertEqual(report["signing_profile"], "public-offline-preview")
+        self.assertFalse(report["signer_continuity_verified"])
+        self.assertTrue(report["configured_signer_fingerprint_matched"])
+        self.assertEqual(report["application_id"], "com.edenpractical.comms.preview")
+
+        with tempfile.TemporaryDirectory() as temp:
+            apk = Path(temp, "wrong-package.apk")
+            apk.write_bytes(b"synthetic")
+            wrong_aapt = ("package: name='com.edenpractical.comms' "
+                          "versionCode='200001' versionName='0.2.12-preview-200001'")
+            with patch.object(mod, "tool_output", return_value=wrong_aapt), \\
+                 patch.object(mod, "sdk_tool", return_value="fake"):
+                with self.assertRaises(mod.IdentityAuditError):
+                    mod.inspect(
+                        apk, EXAMPLE_GRADLE, "f" * 40,
+                        offline_preview_version_code=200001,
+                        expected_signer_sha256=FINGERPRINT
+                    )
+
     def test_wrong_pinned_signer_rejected_before_any_report_is_written(self):
         from unittest.mock import patch
         from pathlib import Path
