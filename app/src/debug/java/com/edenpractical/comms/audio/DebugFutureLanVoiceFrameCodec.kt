@@ -10,7 +10,7 @@ import java.nio.ByteOrder
  * This strictly validates a fixed byte layout. IT DOES NOT provide encryption,
  * peer authentication, a secure session, freshness, replay protection across
  * sessions, microphone permission, human approval, or authorization to send.
- * It MUST NOT be wired to LanDemoSession, a socket, a radio or production UI.
+ * It MUST NOT be wired to the live LAN app, a socket, a radio or production UI.
  */
 internal object DebugFutureLanVoiceFrameCodec {
     private val MAGIC = byteArrayOf(0x45, 0x43, 0x56, 0x46) // "ECVF"
