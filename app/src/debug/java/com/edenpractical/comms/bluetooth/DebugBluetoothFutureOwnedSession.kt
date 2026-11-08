@@ -100,6 +100,9 @@ internal class DebugBluetoothFutureOwnedSession(
             ) {
                 true
             } else {
+                // A matching-generation context mismatch is terminal, too:
+                // never leave the underlying future budget observing.
+                budget.terminate(generation)
                 phase = Phase.CLOSED
                 end = End.INVALIDATED
                 released = resource
