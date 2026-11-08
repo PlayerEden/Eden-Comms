@@ -217,7 +217,7 @@ internal fun LocalPairingTestScreen(
                         talking = false
                         voiceFinalizing = false
                         voiceNote = if (hadPcm)
-                            "Live voice frames sent while held (other phone's sound not verified)."
+                            "Microphone stopped; live test frames were queued (peer sound not verified)."
                         else "No usable microphone audio. Hold a little longer and try again."
                     }
                 }
