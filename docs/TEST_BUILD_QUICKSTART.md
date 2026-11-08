@@ -68,10 +68,14 @@ NOT a reviewed secure messenger. Use only harmless sample text.
 After both phones complete QR, TLS and individual approvals, open the
 **WALKIE-TALKIE • DEVELOPMENT TEST** area below nearby chat.
 
-1. On A, tap **START TALKING**. Grant the mic permission on demand and tap
-   **START TALKING** again. Say a short, harmless test phrase.
-2. Tap **SEND VOICE BURST**, or allow the automatic 3-second end. On B,
-   listen for actual speaker playback, and then test B → A.
+1. On A, **HOLD TO TALK** and say a harmless phrase; **RELEASE TO SEND**.
+   Grant microphone permission if asked, then hold again. The recording
+   automatically ends after 3 seconds. This is record-then-send, not live
+   streaming while pressed.
+2. On B, listen for actual speaker playback, then test B → A. If holding
+   is difficult, choose **USE TAP CONTROLS INSTEAD**, then use the original
+   START TALKING / SEND VOICE BURST option. A cancelled press should NOT
+   send unintended audio.
 3. If you release immediately or the mic fails to initialize, the app now
    says **No usable microphone audio**; the button should not stay stuck
    on **Finishing**. A receiving phone reports when local speaker playback
