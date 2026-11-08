@@ -43,7 +43,8 @@ internal object LocalQaReport {
         val sourceRevision: String = "unavailable",
         val apkSignerSha256: String? = null,
         val testTextWrittenToTls: Int = 0,
-        val testTextReceivedHere: Int = 0
+        val testTextReceivedHere: Int = 0,
+        val testTextPeerAckEvents: Int = 0
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -52,7 +53,8 @@ internal object LocalQaReport {
             observation.receivedHere in 0..10_000) { "Invalid debug-only counters" }
         require(observation.androidApiLevel in 1..100) { "Invalid Android API level" }
         require(observation.testTextWrittenToTls in 0..10_000 &&
-            observation.testTextReceivedHere in 0..10_000
+            observation.testTextReceivedHere in 0..10_000 &&
+            observation.testTextPeerAckEvents in 0..10_000
         ) { "Invalid debug text counters" }
         return listOf(
             "EDEN COMMS — LOCAL TEST OBSERVATION",
@@ -79,6 +81,9 @@ internal object LocalQaReport {
             "Preset phrases received by this app: ${observation.receivedHere}",
             "Debug typed text written to local TLS: ${observation.testTextWrittenToTls}",
             "Debug typed text received by this app: ${observation.testTextReceivedHere}",
+            "Peer-app ACK events for debug text observed here: ${observation.testTextPeerAckEvents}",
+            "ACK means the other app responded; NOT message display, human reading or guaranteed delivery.",
+            "ACK counts can be incomplete if the link ended before events reached this screen.",
             "No debug typed text content, peer IDs or delivery/read receipts copied.",
             "Finish: ${observation.finish.label}",
             "Last connection operation STARTED: " +
