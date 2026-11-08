@@ -35,7 +35,10 @@ internal class DebugLanVoiceAudio(private val context: Context) {
         context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     @Suppress("MissingPermission")
-    fun startCapture(onComplete: (ByteArray) -> Unit): Boolean {
+    fun startCapture(
+        onNoAudio: () -> Unit = {},
+        onComplete: (ByteArray) -> Unit
+    ): Boolean {
         if (!permitted() ||
             context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
                 PackageManager.PERMISSION_GRANTED
@@ -97,9 +100,20 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                     if (recorder === own) recorder = null
                     if (token == generation) capturing = false
                 }
-                if (token == generation && used >= DebugLanVoiceWireCodec.PCM_BYTES) {
-                    val clip = recording.copyOf(used)
-                    try { onComplete(clip) } finally { clip.fill(0) }
+                if (token == generation) {
+                    if (used >= DebugLanVoiceWireCodec.PCM_BYTES) {
+                        val clip = recording.copyOf(used)
+                        try { onComplete(clip) }
+                        catch (_: Exception) {
+                            // Callback failure must also release the UI's
+                            // pending state; never retain or retry PCM.
+                            try { onNoAudio() } catch (_: Exception) { }
+                        } finally { clip.fill(0) }
+                    } else {
+                        // Even an immediate release, absent mic or failed start
+                        // must complete the UI's capture state. No fake packet.
+                        try { onNoAudio() } catch (_: Exception) { }
+                    }
                 }
                 chunk.fill(0)
                 recording.fill(0)
@@ -114,7 +128,10 @@ internal class DebugLanVoiceAudio(private val context: Context) {
     }
 
     /** Copy one bounded received clip before caller zeroes the source frame. */
-    fun playReceived(incoming: ByteArray): Boolean {
+    fun playReceived(
+        incoming: ByteArray,
+        onPlaybackStarted: (Boolean) -> Unit = {}
+    ): Boolean {
         if (!permitted() || incoming.isEmpty() ||
             incoming.size > DebugLanVoiceWireCodec.MAX_PCM_BYTES ||
             incoming.size % DebugLanVoiceWireCodec.PCM_BYTES != 0
@@ -129,6 +146,7 @@ internal class DebugLanVoiceAudio(private val context: Context) {
         val copy = incoming.copyOf()
         thread(name = "eden-debug-lan-voice-playback", isDaemon = true) {
             var own: AudioTrack? = null
+            var started = false
             try {
                 val min = AudioTrack.getMinBufferSize(
                     RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT
@@ -148,6 +166,12 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                 if (speaker.write(copy, 0, copy.size) != copy.size) return@thread
                 if (token != generation || !playing) return@thread
                 speaker.play()
+                started = true
+                if (token == generation && playing) {
+                    // Only say the local AudioTrack actually started, never
+                    // claim someone heard the audio on the other handset.
+                    try { onPlaybackStarted(true) } catch (_: Exception) { }
+                }
                 val endAt = SystemClock.elapsedRealtime() +
                     copy.size / (RATE * 2 / 1000) + 120
                 while (token == generation && playing &&
@@ -157,6 +181,9 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                 // Device-specific playback errors never save sound or enable
                 // a different transport.
             } finally {
+                if (!started && token == generation && playing) {
+                    try { onPlaybackStarted(false) } catch (_: Exception) { }
+                }
                 try { own?.stop() } catch (_: Exception) { }
                 try { own?.release() } catch (_: Exception) { }
                 synchronized(lock) {

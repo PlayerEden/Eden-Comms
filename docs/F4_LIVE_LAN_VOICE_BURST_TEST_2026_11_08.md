@@ -23,6 +23,32 @@ This design minimizes dependencies and CPU overhead but is **not streaming PTT**
 - `LocalPairingTestScreen.kt`: prompts on tap, shows start/send and accurate remote playback status, cancels on actual session exit. Text chat remains available.
 - The older `DebugFutureLanVoiceFrameCodec` stays separate, **unwired** from live Android app/transport.
 
+## F4-B pre-phone reliability improvements
+
+Source tests now cover two practical recording/display hazards before two-phone
+hardware testing:
+
+- Releasing the microphone too quickly or failing to initialize it produces a
+  visible **No usable microphone audio** result instead of an indefinite
+  **Finishing voice capture** state. The voice button cannot start another
+  capture until the prior one has finished. A brief test phrase remains better
+  than a split-second tap.
+- The receiving display says **speaker playback started** only after the
+  local Android `AudioTrack.play()` call succeeds. That does **not** prove a
+  person heard the sound, and actual OEM speaker QA remains open. If playback
+  cannot start or the microphone is busy, the app says so.
+- **Hide conversation** also stops this phone's microphone/speaker and
+  suppresses new inbound playback while hidden. It is **local privacy, not a
+  network block**: the other phone can still send to the active TLS session.
+- Temporary encoded voice/text/consent buffers owned by the test packet layer
+  are zeroed after synchronous TLS reads/writes and on parsing errors. This
+  is best-effort JVM cleanup, **not guaranteed heap/OS memory erasure** and
+  not an independent security endorsement.
+
+The underlying live LAN TLS/QR and bilateral human consent requirements are
+unchanged. All voice functionality remains debug-only, and the existing
+production voice flag and release microphone permission stay disabled.
+
 ## What to test with two phones
 
 Install the **same newly built Preview version** on both phones; Preview 200002 does NOT contain this feature. Use only harmless test words. On the same local Wi-Fi, show/scan the two QR codes and independently approve both test sessions.
