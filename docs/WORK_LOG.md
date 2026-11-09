@@ -4,6 +4,48 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-H: genuine single-use Wi-Fi Direct QR transport proof
+
+**Base:** M6-G merged `main` `bca8156d53806e0deb1d98b68770d198d22d3200`.
+[M6-G final PR CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42705244355),
+[independent merged-main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42705668476).
+**Branch:** `feature/m6-h-one-use-p2p-qr-transport-2026-11-09`.
+
+**Why:** The actual `DebugWifiDirectQrCoordinator` called its
+three-QR proof **one use** but allowed `newVerifiedTransportRequest`
+to construct another fresh TLS request from the same QR transcript,
+even if a previous real P2P/TLS connection had failed while the OS
+group remained active. This violated the intended fresh-proof
+per-attempt boundary and contradicted existing recovery copy.
+
+**What:** Debug-only `DebugWifiDirectVerifiedQrUseGate` atomically
+claims exactly one *successfully constructed* QR-bound TLS request.
+Duplicate concurrent requests are closed; UI readiness becomes false
+after one use. An explicit fresh QR exchange resets the gate via
+the coordinator's original clear QR route, while socket failure,
+expiry, timeout or declined approval does **not** reopen old codes.
+This gate grants no trust or connection and leaves the original
+Android P2P route selection, mutual pinned TLS, exporter, both user
+approvals, final encrypted CONFIRM, existing message/voice owners,
+and production release gates untouched. User-facing coordinator
+copy says to exchange all three new codes on a failed attempt.
+
+**Evidence:** [M6-H source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md),
+new JVM simultaneous 32-claimer and repeated one-use tests,
+Python QR/host/join/wipe/release-boundary tests. Exact final-head
+Android/JVM/Python/security PR CI and independent main CI pending.
+**NOT RUN:** real QR camera, TLS/TCP provider, P2P cleanup,
+actual two phones, large font/TalkBack, storage/privacy and
+independent cryptographic assessment.
+
+**Next:** resolve CI and merge, then use the **one consolidated**
+[two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md) including
+one-use failed/declined/timeout retry checks when hardware is
+available; real device success is distinct from automated builds.
+No APK teaser or production `CAN_*` unlock. Narrow rollback only
+after investigating an actual handset regression, never by
+silently restoring stale QR reuse.
+
 ## 2026-11-09 — M6-G: observed state recovery, clean explicit restart
 
 **Base:** M6-F merged `main` `ef155509e55125be11eef7e75c864c39594d29c6`.
