@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.WindowManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -50,6 +51,8 @@ import androidx.core.content.ContextCompat
  */
 class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private val gate = DebugWifiDirectDiscoveryGate()
+    private val preparation = DebugWifiDirectQrCoordinator()
+    private val verifiedChat = DebugWifiDirectChatUiState()
     private val handler = Handler(Looper.getMainLooper())
     private var foreground = false
     private var registered = false
@@ -273,7 +276,9 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private fun requestUnverifiedLink() {
         val active = token ?: return
         val selectedToken = candidateToken ?: return
-        if (targetController != null || !foreground || !registered || !prerequisites() ||
+        if (targetController != null ||
+            !preparation.readyForVerifiedTransport(hostRole = false) ||
+            !foreground || !registered || !prerequisites() ||
             Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !gate.active(active) ||
             gate.snapshot().phase != DebugWifiDirectDiscoveryGate.Phase.SCANNING ||
             candidateLedger.selectedOrdinal(selectedToken) == null
@@ -291,15 +296,45 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                 onReport = { message -> targetNotice = message },
                 onFinished = {
                     targetController = null
-                    targetNotice += " You can start a fresh discovery attempt."
-                }
+                    verifiedChat.clear()
+                    preparation.clear()
+                    targetNotice += " Fresh QR and discovery required for another session."
+                },
+                onVerifiedStatus = { phase, message ->
+                    verifiedChat.status(phase, message)
+                },
+                onVerifiedApproval = { verifiedChat.approval(it) },
+                onVerifiedText = { verifiedChat.event(it) }
             )
             targetController = controller
-            if (!controller.startSelected(selectedDevice)) {
+            if (!controller.startSelected(selectedDevice, verifiedQrPrepared = true)) {
                 targetController = null
                 targetNotice = "Link test could not start; nothing was connected."
             }
         }
+    }
+
+    private fun requestVerifiedP2pText() {
+        val controller = targetController ?: return
+        if (!foreground || !preparation.readyForVerifiedTransport(false) ||
+            !controller.canStartVerifiedText()
+        ) return
+        val request = preparation.newVerifiedTransportRequest(false)
+            ?: run {
+                targetNotice = "Three fresh QR codes required before authenticated text."
+                return
+            }
+        if (!controller.startVerifiedText(request)) {
+            targetNotice = "Encrypted P2P text couldn't start. Use fresh QR to retry."
+        }
+    }
+
+    private fun sendVerifiedText() {
+        if (verifiedChat.phase != DebugWifiDirectApprovedTcpSession.Phase.CHAT) return
+        val draft = verifiedChat.draft
+        if (draft.isBlank()) return
+        if (targetController?.offerVerifiedText(draft) == true)
+            verifiedChat.draft = ""
     }
 
     private val receiver = object : BroadcastReceiver() {
@@ -445,6 +480,8 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
             finish()
             return
         }
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        preparation.loadExistingIdentity()
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
@@ -452,10 +489,17 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text("Wi-Fi Direct — 30-second search test",
+                        Text("Wi-Fi Direct — connect to nearby person",
                             style = MaterialTheme.typography.titleLarge)
-                        Text("DEVELOPMENT ONLY • Nearby radio observations are NOT " +
-                            "Eden Comms identity, consent, a connection, or a conversation.")
+                        Text("DEBUG ONLY • No router required. " +
+                            "The radio candidate is NOT identity or consent.")
+                        if (verifiedChat.phase !in setOf(
+                                DebugWifiDirectApprovedTcpSession.Phase.CONNECTING,
+                                DebugWifiDirectApprovedTcpSession.Phase.AWAITING_APPROVAL,
+                                DebugWifiDirectApprovedTcpSession.Phase.CHAT
+                            )) {
+                            DebugWifiDirectInlineQrPanel(preparation, hostRole = false)
+                        } else Text("Fresh QR proof locked during the P2P connection.")
                         Text(explanation)
                         Text("Platform P2P radio observed: " + when (radioState) {
                             true -> "Enabled"
@@ -487,6 +531,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         Button(
                             onClick = { requestUnverifiedLink() },
                             enabled = foreground && token != null &&
+                                preparation.readyForVerifiedTransport(false) &&
                                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                                 phase == DebugWifiDirectDiscoveryGate.Phase.SCANNING &&
                                 candidateToken?.let {
@@ -496,6 +541,39 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("REQUEST 18-SECOND UNVERIFIED LINK TEST") }
                         Text(targetNotice)
+                        Text(verifiedChat.note)
+                        if (verifiedChat.approvalPending) {
+                            Text("Actual TLS/QR/exporter proofs passed. " +
+                                "Approve only when beside the intended person.")
+                            Button(
+                                onClick = {
+                                    if (targetController?.approveVerified() == true)
+                                        verifiedChat.approval(false)
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("APPROVE THIS P2P SESSION") }
+                            OutlinedButton(
+                                onClick = {
+                                    if (targetController?.declineVerified() == true)
+                                        verifiedChat.approval(false)
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                            ) { Text("DECLINE AND DISCONNECT") }
+                        }
+                        if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
+                            DebugWifiDirectTextPanel(
+                                lines = verifiedChat.lines, draft = verifiedChat.draft,
+                                onDraft = { verifiedChat.draft = it },
+                                onSend = { sendVerifiedText() }
+                            )
+                        }
+                        Button(
+                            onClick = { requestVerifiedP2pText() },
+                            enabled = foreground &&
+                                preparation.readyForVerifiedTransport(false) &&
+                                targetController?.canStartVerifiedText() == true,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("START VERIFIED P2P TEXT") }
                         OutlinedButton(
                             onClick = { targetController?.requestTcpJoinReachability() },
                             enabled = foreground &&
@@ -514,6 +592,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         Button(
                             onClick = { startUserSearch() },
                             enabled = foreground && registered && token == null &&
+                                preparation.readyForVerifiedTransport(false) &&
                                 targetController == null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("START 30-SECOND SEARCH") }
@@ -522,12 +601,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                             enabled = token != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP SEARCH") }
-                        Text("Android's peer objects stay in memory for this search only. " +
-                            "Device names and addresses are never displayed or saved. " +
-                            "The anonymous preview itself cannot create a group; a separate " +
-                            "confirmed debug link test may form an unverified Android group. " +
-                            "No user text, audio, or authenticated identity is available. " +
-                            "Leaving this screen stops the experiment.")
+                        Text("Android peer handles are temporary and not saved. " +
+                            "Real encrypted debug text requires the three in-person QR codes, " +
+                            "pinned TLS and both independently confirmed approvals. " +
+                            "No background connection, voice or production security claim.")
                     }
                 }
             }
