@@ -1,8 +1,14 @@
 package com.edenpractical.comms.bluetooth
 
+import com.edenpractical.comms.security.DebugApprovalCommitment
+import com.edenpractical.comms.security.DebugExporterBindingFrame
+import com.edenpractical.comms.security.SessionProofBinding
+import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.PinnedTlsPeer
 import com.edenpractical.comms.security.Tls13PeerContext
 import java.io.Closeable
+import java.io.InputStream
+import java.io.OutputStream
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
 import java.nio.file.Files
@@ -14,6 +20,7 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLEngine
 import javax.net.ssl.X509KeyManager
@@ -613,6 +620,281 @@ class DebugPairedTlsEngineInteropTest {
                 assertThrows(javax.net.ssl.SSLException::class.java) { future.receive() }
             } finally { future.clear() }
         } finally {
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
+
+    /**
+     * F2-O: Execute the actual control state machine, not just F2-N's
+     * synthetic five plaintext record sizes, on already-pinned JDK engines.
+     *
+     * The exporter is a prearranged TEST VALUE, not the Android
+     * SSLEngines.exportKeyingMaterial result. onApprovalRequired in these
+     * JVM tests auto-approves; NO human consent or Android pairing is proven.
+     */
+    private fun fullJvmControlSequence(
+        engine: SSLEngine,
+        input: InputStream,
+        output: OutputStream,
+        isHost: Boolean,
+        hostNonce: ByteArray,
+        joinNonce: ByteArray,
+        testOnlyExporter: ByteArray,
+        onTestApprovalPrompt: () -> Unit
+    ): ByteArray {
+        PinnedTlsPeer.requirePinnedTls13(
+            engine.session, if (isHost) joinIdentity.pin else hostIdentity.pin
+        )
+        DebugTlsProviderReadiness.requireControlReady(engine)
+        val binding = SessionProofBinding(
+            hostIdentity.pin, joinIdentity.pin, hostNonce, joinNonce
+        )
+        val control = DebugTlsControlTransport(engine, input, output)
+        try {
+            val challenges = if (isHost) {
+                SessionProofExchange.runHost(control.input, control.output, binding)
+            } else {
+                SessionProofExchange.runJoin(control.input, control.output, binding)
+            }
+            try {
+                control.advance(
+                    DebugTlsControlTransport.Phase.QR_PROOF,
+                    DebugTlsControlTransport.Phase.EXPORTER
+                )
+                // This checks the real role-ordered exporter comparison code,
+                // but the exporter BYTES are synthetic, not channel-derived.
+                DebugExporterBindingFrame.exchange(
+                    control.input, control.output, isHost, testOnlyExporter
+                )
+                control.advance(
+                    DebugTlsControlTransport.Phase.EXPORTER,
+                    DebugTlsControlTransport.Phase.COMMITMENT
+                )
+                val commitment = DebugApprovalCommitment.derive(
+                    binding, challenges, testOnlyExporter
+                )
+                try {
+                    DebugBluetoothCommitmentFrame.exchange(
+                        control.input, control.output, isHost, commitment
+                    )
+                    val localChoice = DebugBluetoothConsentDecision()
+                    try {
+                        DebugBluetoothConsentExchange.run(
+                            control, isHost, commitment, localChoice
+                        ) {
+                            // Test harness, NOT a person tapping APPROVE.
+                            onTestApprovalPrompt()
+                            assertTrue(localChoice.approve())
+                        }
+                    } finally {
+                        localChoice.close()
+                    }
+                    // Reached only after both actual encrypted CONFIRM
+                    // frames were strictly checked by the protocol.
+                    return commitment.copyOf()
+                } finally {
+                    commitment.fill(0)
+                }
+            } finally {
+                challenges.clear()
+            }
+        } finally {
+            control.clear()
+            binding.hostPin.fill(0)
+            binding.joinPin.fill(0)
+            binding.hostNonce.fill(0)
+            binding.joinNonce.fill(0)
+        }
+    }
+
+    @Test
+    fun actualQrExporterCommitmentAndDualConfirmThenTextAckOnSameJdkTlsEngine() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2o-actual-control-jvm-only").apply { isDaemon = true }
+        }
+        val approvals = AtomicInteger(0)
+        val hostNonce = ByteArray(16) { (it + 1).toByte() }
+        val joinNonce = ByteArray(16) { (it + 33).toByte() }
+        // JVM exporter is synthetic. No claim about Android TLS exporter.
+        val testExporterHost = ByteArray(32) { (it + 45).toByte() }
+        val testExporterJoin = testExporterHost.copyOf()
+        try {
+            val hostResult = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                fullJvmControlSequence(
+                    host, pipe.hostInput, pipe.hostOutput, true,
+                    hostNonce, joinNonce, testExporterHost
+                ) { approvals.incrementAndGet() }
+            })
+            val joinResult = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                fullJvmControlSequence(
+                    join, pipe.joinInput, pipe.joinOutput, false,
+                    hostNonce, joinNonce, testExporterJoin
+                ) { approvals.incrementAndGet() }
+            })
+            val hostTranscript = await(hostResult)
+            val joinTranscript = await(joinResult)
+            try {
+                assertEquals(2, approvals.get())
+                assertArrayEquals(hostTranscript, joinTranscript)
+                assertEquals("TLSv1.3", host.session.protocol)
+                assertEquals("TLSv1.3", join.session.protocol)
+
+                // No second connect()/negotiate(): both live engine objects
+                // and the exact same underlying byte streams continue here.
+                val hostText = DebugBluetoothFutureTlsTextLab(
+                    host, pipe.hostInput, pipe.hostOutput
+                )
+                val joinText = DebugBluetoothFutureTlsTextLab(
+                    join, pipe.joinInput, pipe.joinOutput
+                )
+                val hostLedger = DebugBluetoothTextLedger()
+                val joinLedger = DebugBluetoothTextLedger()
+                val hostBundle = DebugBluetoothFutureChannelBundle(
+                    Closeable { pipe.hostOutput.close(); pipe.hostInput.close() },
+                    host,
+                    AutoCloseable { hostText.clear(); hostLedger.close() }
+                )
+                val joinBundle = DebugBluetoothFutureChannelBundle(
+                    Closeable { pipe.joinOutput.close(); pipe.joinInput.close() },
+                    join,
+                    AutoCloseable { joinText.clear(); joinLedger.close() }
+                )
+                val hostOwner = DebugBluetoothFutureOwnedSession(
+                    DebugBluetoothContinuationBudget(maxLifetimeMs = 20)
+                )
+                val joinOwner = DebugBluetoothFutureOwnedSession(
+                    DebugBluetoothContinuationBudget(maxLifetimeMs = 20)
+                )
+                // These booleans remain TEST CLAIMS, not proof that the
+                // Android controller authorized a retained chat session.
+                val testClaims = DebugBluetoothContinuationBudget.Observations(
+                    peerPinChecked = true, qrChallengeChecked = true,
+                    exporterChecked = true, bilateralApprovals = true,
+                    bilateralConfirmations = true, foreground = true,
+                    connectPermission = true
+                )
+                val hostContext = DebugBluetoothFutureSessionContext(
+                    true, joinIdentity.pin, hostTranscript
+                )
+                val joinContext = DebugBluetoothFutureSessionContext(
+                    false, hostIdentity.pin, joinTranscript
+                )
+                try {
+                    assertTrue(hostOwner.begin(101, 500, testClaims, hostBundle, hostContext))
+                    assertTrue(joinOwner.begin(102, 500, testClaims, joinBundle, joinContext))
+                    assertTrue(hostOwner.observe(101, 501, true, true, hostContext))
+                    assertTrue(joinOwner.observe(102, 501, true, true, joinContext))
+
+                    val message = hostLedger.prepareText("QR and both confirms completed in JVM")
+                    try { hostText.transmit(message) } finally { message.fill(0) }
+                    val incoming = joinText.receive()
+                    val accepted = try { joinLedger.acceptText(incoming) }
+                        finally { incoming.fill(0) }
+                    assertEquals("QR and both confirms completed in JVM", accepted.text)
+                    try { joinText.transmit(accepted.ack) }
+                    finally { accepted.ack.fill(0) }
+                    val ack = hostText.receive()
+                    try { assertEquals(1L, hostLedger.acceptAck(ack)) }
+                    finally { ack.fill(0) }
+                    assertEquals(0, hostLedger.outstanding())
+
+                    val reverse = joinLedger.prepareText("Same channel, reverse peer ACK")
+                    try { joinText.transmit(reverse) } finally { reverse.fill(0) }
+                    val returning = hostText.receive()
+                    val received = try { hostLedger.acceptText(returning) }
+                        finally { returning.fill(0) }
+                    assertEquals("Same channel, reverse peer ACK", received.text)
+                    try { hostText.transmit(received.ack) }
+                    finally { received.ack.fill(0) }
+                    val reverseAck = joinText.receive()
+                    try { assertEquals(1L, joinLedger.acceptAck(reverseAck)) }
+                    finally { reverseAck.fill(0) }
+                    assertEquals(0, joinLedger.outstanding())
+
+                    assertTrue(hostOwner.stop(101))
+                    assertTrue(hostBundle.isClosed())
+                    assertTrue(!joinOwner.observe(102, 520, true, true, joinContext))
+                    assertTrue(joinBundle.isClosed())
+                    assertThrows(javax.net.ssl.SSLException::class.java) {
+                        hostText.transmit(DebugBluetoothTextFrameCodec.acknowledgment(2))
+                    }
+                    assertThrows(javax.net.ssl.SSLException::class.java) {
+                        joinText.transmit(DebugBluetoothTextFrameCodec.acknowledgment(2))
+                    }
+                } finally {
+                    hostOwner.close()
+                    joinOwner.close()
+                    hostContext.close()
+                    joinContext.close()
+                    hostBundle.close()
+                    joinBundle.close()
+                }
+            } finally {
+                hostTranscript.fill(0)
+                joinTranscript.fill(0)
+            }
+        } finally {
+            hostNonce.fill(0)
+            joinNonce.fill(0)
+            testExporterHost.fill(0)
+            testExporterJoin.fill(0)
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
+    /**
+     * Real challenge/exporter framing rejects mismatched values before
+     * any local auto-approval callback. Never fall through to TEXT or ACK.
+     */
+    @Test
+    fun mismatchedTestExporterAbortsActualControlBeforeAnyApproval() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2o-mismatched-exporter-jvm-only").apply { isDaemon = true }
+        }
+        val approvals = AtomicInteger(0)
+        val hostNonce = ByteArray(16) { (it + 11).toByte() }
+        val joinNonce = ByteArray(16) { (it + 39).toByte() }
+        val hostExporter = ByteArray(32) { (it + 20).toByte() }
+        val wrongJoinExporter = hostExporter.copyOf().also {
+            it[0] = (it[0].toInt() xor 1).toByte()
+        }
+        try {
+            val a = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                fullJvmControlSequence(
+                    host, pipe.hostInput, pipe.hostOutput, true,
+                    hostNonce, joinNonce, hostExporter
+                ) { approvals.incrementAndGet() }
+            })
+            val b = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                fullJvmControlSequence(
+                    join, pipe.joinInput, pipe.joinOutput, false,
+                    hostNonce, joinNonce, wrongJoinExporter
+                ) { approvals.incrementAndGet() }
+            })
+            assertThrows(ExecutionException::class.java) { await(b) }
+            pipe.close() // unblock the other endpoint's pending comparison
+            try { await(a) } catch (_: Exception) { }
+            assertEquals(0, approvals.get())
+        } finally {
+            hostNonce.fill(0)
+            joinNonce.fill(0)
+            hostExporter.fill(0)
+            wrongJoinExporter.fill(0)
             pipe.close()
             workers.shutdownNow()
             try { host.closeOutbound() } catch (_: Exception) { }
