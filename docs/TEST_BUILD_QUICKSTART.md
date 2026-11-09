@@ -63,7 +63,7 @@ NOT a reviewed secure messenger. Use only harmless sample text.
    (including time spent approving). It also closes if the other phone
    stops responding; you do not have to wait the full 30 minutes.
 
-## New two-phone *live* push-to-talk (F4-F source checkpoint)
+## Two-phone *live* push-to-talk (F4-D onward, experimental)
 
 This Preview includes **F4-D live 20 ms audio streaming**, **F4-E
 receiving/transmitting indicators**, and **F4-F per-session transmit-floor
@@ -104,18 +104,18 @@ both phones**.
    normal session timeout still behave sensibly during and after voice.
    Avoid sharing audio, identity codes, IP addresses or raw debug logs.
 
-**Important:** F4-F passed source/build checks, but simultaneous presses,
+**Important:** F4-D–N passed source/build checks, but simultaneous presses,
 latency, speaker audibility, Bluetooth/Wi-Fi Direct communication and
 cross-device compatibility are **not physically verified yet**. The Preview
 is not suitable for real private, safety-critical or emergency radio use.
 For detailed QA and failure reports, see
 [F4-F two-phone handoff](F4_F_REAL_LAN_FLOOR_HANDSHAKE_2026_11_08.md).
 
-## F4-H/I/J reliability regression tests (newer than Preview 200004)
+## F4-H/I/J reliability regression tests (included since Preview 200005)
 
-The next consolidated signed Preview is intended to **update** your previous
-Preview in place. Keep the existing installed app and use Android's normal
-Update flow. Do not uninstall or reset your identity to solve an unexpected
+A newer signed Preview is intended to **update** your previous Preview in
+place. Keep the installed app and use Android's normal Update flow. Do
+not uninstall or reset your local identity to solve an unexpected
 package/signature error; report the installer message instead.
 
 These changes address **three practical radio interruptions**, but their
@@ -152,6 +152,39 @@ security review. See the [F4-H contention](F4_H_FLOOR_CONTROL_SCHEDULING_2026_11
 [F4-I cancel](F4_I_VOICE_CALLBACK_CANCEL_GUARD_2026_11_08.md) and
 [F4-J link-loss](F4_J_LINK_LOSS_AUDIO_TEARDOWN_2026_11_08.md)
 handoffs for detailed evidence requirements.
+
+## F4-L rapid canceled Talk requests (new consolidated Preview)
+
+F4-L improves the behavior when the **joining** phone cancels several Talk
+requests before the presenter/host's replies arrive. The latest Preview
+adds bounded one-time recognition for old canceled replies; it does
+**not** bypass the host's permission or give a canceled request the
+microphone. It must be checked on two actual phones:
+
+1. With both phones freshly paired and fully approved on the same Wi-Fi,
+   hold Talk on the presenter/host. On the joining phone, press and
+   release Talk **three to five times quickly** while the host is busy.
+   If a request says WAITING FOR RADIO CHANNEL, release/cancel it before
+   the host's response. The joining microphone should stay off whenever
+   its request was canceled.
+2. Verify both phones remain connected after these rapid requests. No
+   delayed GRANT or DENY should unexpectedly disconnect the conversation.
+   Wait until the host finishes, then use a fresh successful joining-phone
+   Talk press. Confirm real audio is audible at the other phone.
+3. Repeat in the reverse talk direction, and again with a few near-simultaneous
+   presses. Note if a timeout intentionally closes the test, but do not
+   interpret an untested delay as proven fixed.
+4. If a new session is needed, begin with fresh reciprocal QR codes and
+   new approvals. Old permission must never survive a disconnected
+   session. Confirm the local microphone is no longer active after End,
+   Wi-Fi loss, app backgrounding or canceled tap recording.
+
+The F4-M virtual two-phone regression suite is **automated** and runs in
+GitHub CI. It now covers overlapping floor requests, delayed replies,
+bounded audio frames and disconnect scenarios with actual encoded packet
+bytes, but it is **not a Wi-Fi/TLS or physical microphone/speaker test**.
+See [F4-L repair handoff](F4_L_CANCELLED_FLOOR_RESPONSES_2026_11_08.md)
+and [F4-M virtual lab](F4_M_VIRTUAL_TWO_PHONE_RADIO_REGRESSION_2026_11_08.md).
 
 ## What to report (do not post private material)
 
