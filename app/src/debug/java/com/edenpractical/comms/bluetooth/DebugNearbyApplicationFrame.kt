@@ -1,6 +1,7 @@
 package com.edenpractical.comms.bluetooth
 
 import com.edenpractical.comms.protocol.DebugLanVoiceWireCodec
+import com.edenpractical.comms.protocol.DebugLanVoiceFloorCodec
 import java.nio.ByteBuffer
 
 /**
@@ -13,7 +14,8 @@ import java.nio.ByteBuffer
  */
 internal object DebugNearbyApplicationFrame {
     private const val VOICE_MAGIC = 0x45435650 // ECVP
-    enum class Kind { TEXT_OR_ACK, VOICE }
+    private const val FLOOR_MAGIC = 0x4543464c // ECFL
+    enum class Kind { TEXT_OR_ACK, VOICE, FLOOR }
 
     val MAX_BYTES: Int = maxOf(
         DebugBluetoothTextFrameCodec.MAX_FRAME_BYTES,
@@ -22,14 +24,22 @@ internal object DebugNearbyApplicationFrame {
 
     fun inspect(bytes: ByteArray): Kind {
         require(bytes.size in DebugBluetoothTextFrameCodec.HEADER_BYTES..MAX_BYTES)
-        return if (ByteBuffer.wrap(bytes).int == VOICE_MAGIC) {
-            // A successful authenticated TLS record is still NOT authorization
-            // to consume malformed or out-of-bound PCM data.
-            DebugLanVoiceWireCodec.decode(bytes).clear()
-            Kind.VOICE
-        } else {
-            DebugBluetoothTextFrameCodec.decode(bytes)
-            Kind.TEXT_OR_ACK
+        return when (ByteBuffer.wrap(bytes).int) {
+            VOICE_MAGIC -> {
+                // Never process truncated, malformed, or out-of-range PCM.
+                DebugLanVoiceWireCodec.decode(bytes).clear()
+                Kind.VOICE
+            }
+            FLOOR_MAGIC -> {
+                // A floor record is only meaningful inside an approved TLS
+                // session. No raw radio/QR message can grant microphone use.
+                DebugLanVoiceFloorCodec.decode(bytes)
+                Kind.FLOOR
+            }
+            else -> {
+                DebugBluetoothTextFrameCodec.decode(bytes)
+                Kind.TEXT_OR_ACK
+            }
         }
     }
 }
