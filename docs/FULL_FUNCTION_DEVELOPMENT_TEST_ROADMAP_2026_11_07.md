@@ -48,6 +48,24 @@ code a validated secure messenger, turn on production release capabilities,
 skip external cryptographic review, or claim reliable radios/voice before
 handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
 
+## November 9 code milestone: optional local privacy on nearby transports (F5-C)
+
+[PR #150](https://github.com/PlayerEden/Eden-Comms/pull/150) connects
+existing F5-A/F5-B independently consented, DEBUG-only Keystore-encrypted
+history and public-pin memory to the actual approved Bluetooth Classic and
+Wi-Fi Direct host/join chat sessions. No duplicate storage implementations:
+one shared scoped owner and Compose panel. Session-only remains the default;
+history can be explicitly enabled for 1h/24h/7d/14d/30d, and the public
+peer record independently for 1–30 days. Both can be viewed and erased
+after **new** real authenticated QR/TLS/exporter and bilateral confirmation.
+No automatic reconnect, saved trusted contact, TLS bypass, production
+capability switch or preview APK. Writes respect opt-out/shortening ordering.
+
+**Source integrated is not physical/security accepted.** Final Android
+CI, real phones, Keystore/OEM restore behaviors and independent crypto
+review are separate gates. Next focus: voice transport implementations,
+simpler connection UX and one consolidated two-phone acceptance pass.
+
 ## November 9 code milestone: actual OS Wi-Fi Direct TEXT/ACK integration (F3-C)
 
 **Review PR #147; pending independent phone/security validation.** The previous

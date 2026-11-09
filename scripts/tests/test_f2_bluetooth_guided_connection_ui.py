@@ -36,9 +36,15 @@ class BluetoothGuideSourceContract(unittest.TestCase):
     def test_terminal_clears_qr_and_untrusted_radio_candidate(self):
         activity = (DIR / "DebugBluetoothDiscoveryActivity.kt").read_text()
         self.assertIn("if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {", activity)
-        stop = activity.split("if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {", 1)[1][:400]
+        # F5-C adds confirmed-session privacy closure to this callback.
+        # Inspect the complete STOPPED branch instead of a brittle 400-char
+        # prefix; both untrusted radio and sensitive local state must clear.
+        stop = activity.split("if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {", 1)[1].split(
+            "onApprovalReady = {", 1
+        )[0]
         self.assertIn("qrCoordinator.clear()", stop)
         self.assertIn("clearCandidateMemory()", stop)
+        self.assertIn("localPrivacy.close()", stop)
         self.assertIn("linkController.background()", activity)
         self.assertIn("onClick = { beginHostLink() }", activity)
         self.assertIn("onClick = { beginJoinLink() }", activity)

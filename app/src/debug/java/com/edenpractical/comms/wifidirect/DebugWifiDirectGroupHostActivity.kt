@@ -1,5 +1,8 @@
 package com.edenpractical.comms.wifidirect
 
+import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
+import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
+
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -52,6 +55,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val gate = DebugWifiDirectGroupHostGate()
     private val preparation = DebugWifiDirectQrCoordinator()
     private val verifiedChat = DebugWifiDirectChatUiState()
+    private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
     private var verifiedSession: DebugWifiDirectApprovedTcpSession? = null
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var foreground = false
@@ -109,6 +113,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedSession?.close()
         verifiedSession = null
         verifiedChat.clear()
+        localPrivacy.close()
         preparation.clear()
         active = null
         timeout?.let(handler::removeCallbacks)
@@ -502,6 +507,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             onStatus = { phase, note ->
                                 if (active === token && verifiedSession === owned) {
                                     verifiedChat.status(phase, note)
+                                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED)
+                                        localPrivacy.close()
                                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
                                         // Group remains alive only for the bounded live session.
                                         timeout?.let(handler::removeCallbacks)
@@ -521,8 +528,14 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 if (active === token && verifiedSession === owned)
                                     verifiedChat.approval(it)
                             },
-                            onText = { if (active === token && verifiedSession === owned)
+                            onText = { if (active === token && verifiedSession === owned) {
                                 verifiedChat.event(it)
+                                localPrivacy.receiveEncryptedEvent(it)
+                            } },
+                            onApprovedIdentity = { self, peer ->
+                                if (active === token && verifiedSession === owned &&
+                                    foreground && ready()
+                                ) localPrivacy.openVerified(self, peer)
                             }
                         )
                         owned = session
@@ -633,6 +646,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 onDraft = { verifiedChat.draft = it },
                                 onSend = { sendVerifiedText() }
                             )
+                            DebugVerifiedNearbyPrivacyPanel(localPrivacy)
                         }
                         Button(
                             onClick = { startVerifiedHostChat() },
@@ -699,6 +713,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedSession?.close()
         verifiedSession = null
         verifiedChat.clear()
+        localPrivacy.close()
         preparation.clear()
         active?.let {
             endHost(it, DebugWifiDirectGroupHostGate.End.BACKGROUND,
@@ -709,5 +724,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
             registered = false
         }
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        localPrivacy.dispose()
+        super.onDestroy()
     }
 }

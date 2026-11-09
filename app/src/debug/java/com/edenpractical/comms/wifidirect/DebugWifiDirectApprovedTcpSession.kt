@@ -32,7 +32,9 @@ internal class DebugWifiDirectApprovedTcpSession(
     private val canContinue: () -> Boolean,
     private val onStatus: (Phase, String) -> Unit,
     private val onApprovalReady: (Boolean) -> Unit,
-    private val onText: (DebugBluetoothApprovedTextChannel.Event) -> Unit
+    private val onText: (DebugBluetoothApprovedTextChannel.Event) -> Unit,
+    // Public pin metadata for optional user-owned storage, NOT authentication.
+    private val onApprovedIdentity: (ByteArray, ByteArray) -> Unit = { _, _ -> }
 ) : Closeable {
     companion object {
         const val PORT = 39_762 // distinct from zero-payload P2P reachability
@@ -176,6 +178,25 @@ internal class DebugWifiDirectApprovedTcpSession(
                     approved.close()
                     throw IOException("Wi-Fi Direct verified session no longer current")
                 }
+                // Transport is now the exact authenticated TLS engine after
+                // QR/exporter, both person-APPROVE and both encrypted CONFIRM.
+                // A saved fingerprint must never influence this admission.
+                val ownForUi = request.localIdentity.publicFingerprint()
+                val peerForUi = try { request.pinCopy() } catch (_: Exception) { null }
+                if (peerForUi != null) {
+                    handler.post {
+                        try {
+                            synchronized(lock) {
+                                if (active === token && text === approved &&
+                                    phase == Phase.CHAT && canContinue()
+                                ) onApprovedIdentity(ownForUi, peerForUi)
+                            }
+                        } finally {
+                            ownForUi.fill(0)
+                            peerForUi.fill(0)
+                        }
+                    }
+                } else ownForUi.fill(0)
                 signal(token, Phase.CHAT, "Verified Wi-Fi Direct encrypted test chat.")
                 try {
                     approved.runUntilClosed()

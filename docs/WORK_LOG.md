@@ -4,6 +4,42 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — F5-C: Bluetooth and Wi-Fi Direct private local options
+
+**Source/PR:** [#150](https://github.com/PlayerEden/Eden-Comms/pull/150)
+on `feature/f5-c-authenticated-bluetooth-p2p-privacy-2026-11-09`.
+No Preview APK build triggered. Branch is not hardware/security accepted.
+
+**Why:** The user's core-first plan requires the same opt-in history and
+public-peer retention decisions on all actual debug chat transports,
+without separate half-working demos or copied persistence implementations.
+
+**What changed:** One shared DEBUG privacy owner + UI is invoked only by
+post-approval, same-channel Bluetooth Classic or Wi-Fi Direct session
+adoption. The original pinned TLS/QR/exporter/commitments and both human
+APPROVE/CONFIRM records still gate the connection; metadata never flows
+back into TLS/QR, discovery or authorization. The owner uses existing
+separate F5-A history and F5-B public-peer encrypted stores, session-only
+default, explicit 1h–30d history and 1–30d remembered fingerprint, view and
+independent delete, per-session token/async fences and serialized storage
+operations for consent/off/expiry ordering.
+
+**QA:** Dedicated Python F5-C source regressions + fail-closed shell guards;
+use [GitHub Actions](https://github.com/PlayerEden/Eden-Comms/actions)
+for the exact head's Android/JVM/security result. At writing this log
+the exact-head result and final merge are **not yet verified**. Prior
+F5-A/F5-B unit tests guard expiry, AEAD tampering, and no silent renewal.
+
+**Still missing:** physical Android 12+ Bluetooth/P2P/Keystore checks,
+independent cryptographic protocol review, transport voice beyond existing
+LAN, simplified cross-transport navigation. Do NOT claim reviewed secure
+communication, dependable message persistence or flash erasure.
+
+**Next/rollback:** Fix and verify exact-head CI; merge and check main,
+then prioritize real voice + cohesive connection UI. Reverting the PR
+doesn't erase ciphertext already stored by a test installation; use
+in-app delete/Forget and avoid touching F5-A/B unrelated data.
+
 ## 2026-11-09 — F5-B: Remember this phone, separate consent and identity proof
 
 **Who/what/where/why:** The owner wants all core functions implemented

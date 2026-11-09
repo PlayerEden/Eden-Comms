@@ -30,7 +30,9 @@ internal class DebugWifiDirectTargetLinkController(
     private val onVerifiedStatus: (DebugWifiDirectApprovedTcpSession.Phase, String) -> Unit =
         { _, _ -> },
     private val onVerifiedApproval: (Boolean) -> Unit = {},
-    private val onVerifiedText: (DebugBluetoothApprovedTextChannel.Event) -> Unit = {}
+    private val onVerifiedText: (DebugBluetoothApprovedTextChannel.Event) -> Unit = {},
+    // Optional UI-only record after confirmed same-session TLS, never a pin allowlist.
+    private val onApprovedIdentity: (ByteArray, ByteArray) -> Unit = { _, _ -> }
 ) {
     private val gate = DebugWifiDirectTargetLinkGate()
     private val handler = Handler(Looper.getMainLooper())
@@ -404,6 +406,11 @@ internal class DebugWifiDirectTargetLinkController(
                             },
                             onText = { if (current === token && verifiedSession === owned)
                                 onVerifiedText(it)
+                            },
+                            onApprovedIdentity = { self, peer ->
+                                if (current === token && verifiedSession === owned &&
+                                    readyAndForeground()
+                                ) onApprovedIdentity(self, peer)
                             }
                         )
                         owned = session

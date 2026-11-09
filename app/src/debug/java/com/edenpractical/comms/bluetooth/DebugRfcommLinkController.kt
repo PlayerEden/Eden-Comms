@@ -32,7 +32,10 @@ internal class DebugRfcommLinkController(
     private val onState: (DebugRfcommAttemptGate.Phase, String) -> Unit,
     private val onApprovalReady: (Boolean) -> Unit,
     private val onVerificationStage: (DebugBluetoothVerifiedStage?) -> Unit = {},
-    private val onTextEvent: (DebugBluetoothApprovedTextChannel.Event) -> Unit = {}
+    private val onTextEvent: (DebugBluetoothApprovedTextChannel.Event) -> Unit = {},
+    // UI metadata ONLY, never consulted by the transport or security gate.
+    // Emitted after the real QR/TLS/exporter and BOTH final confirmations.
+    private val onApprovedIdentity: (ByteArray, ByteArray) -> Unit = { _, _ -> }
 ) {
     companion object {
         // Fixed DEMO SDP UUID, not a secret or a peer identity.
@@ -219,6 +222,27 @@ internal class DebugRfcommLinkController(
                         approved.close()
                         throw IOException("Verified Bluetooth session no longer current")
                     }
+                    // Only the actual post-confirmation same-engine handoff
+                    // may expose public identity pins to optional LOCAL storage.
+                    // Pin metadata does NOT return to connection authorization.
+                    val ownForUi = request.localIdentity.publicFingerprint()
+                    val peerForUi = try { request.pinCopy() } catch (_: Exception) { null }
+                    if (peerForUi != null) {
+                        handler.post {
+                            try {
+                                synchronized(lock) {
+                                    if (active === token && liveText === approved &&
+                                        gate.snapshot().phase ==
+                                            DebugRfcommAttemptGate.Phase.LINK_OPEN &&
+                                        isForeground() && hasConnectPermission()
+                                    ) onApprovedIdentity(ownForUi, peerForUi)
+                                }
+                            } finally {
+                                ownForUi.fill(0)
+                                peerForUi.fill(0)
+                            }
+                        }
+                    } else ownForUi.fill(0)
                     try {
                         approved.runUntilClosed()
                         stop(token, DebugRfcommAttemptGate.End.CHAT_ENDED)

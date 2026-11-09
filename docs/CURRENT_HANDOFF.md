@@ -53,35 +53,52 @@ stored in app `noBackupFilesDir`. Every new session defaults to RAM-only;
 per-peer delete are separate from peer memory. Independent Android storage/
 backup/security acceptance remains open; release variant is no-op.
 
-## Active source stage — F5-B (PR #149)
+## Completed code checkpoint — F5-B remembered public peer
 
-[PR #149](https://github.com/PlayerEden/Eden-Comms/pull/149) implements a
-**separately consented** local public peer certificate fingerprint record:
-1–30 days maximum, default to no saved peer, no auto-extension on repeated
-read/reconnect, explicit Forget and Forget all, encrypted with a *different*
-Android Keystore AES-GCM key/file from F5-A. A record is associated with this
-phone's own public identity; changing or deleting the self identity invalidates
-old records. A saved public pin is read/displayed ONLY after a **fresh actual
-LAN QR/TLS + bilateral confirmed** session. The transport and approval gate
-never read peer memory, so there is **no auto-pairing, auto-trust, or shortcut
-past the next human verification**. Build variant is DEBUG-only; release is no-op.
+[PR #149](https://github.com/PlayerEden/Eden-Comms/pull/149) was merged as
+`5364eea23914d95481625bde30590c7c2b3f93fc`.
+[Main-branch CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42585024948).
+Separate DEBUG Keystore AES-GCM public fingerprint/expiry cache, explicit
+1–30-day consent and per-peer/clear-all deletion. F5-A chat history is
+separate. Records are viewed only after fresh verified LAN approval; they
+never confer an automatic connection or trust. Production store remains no-op.
 
-**PR acceptance:** final-head Android compile, JVM + Python policy/security
-guards, independent manual review of storage consent and identity reset.
-Real two-phone QA, Keystore/OEM backup/clock/restore negative tests, and
-independent crypto review remain open; do not call this trusted contacts or
-a production secure communication feature.
+## Active source stage — F5-C Bluetooth/P2P optional privacy
 
-## Prioritized next source work
+[PR #150](https://github.com/PlayerEden/Eden-Comms/pull/150),
+`feature/f5-c-authenticated-bluetooth-p2p-privacy-2026-11-09`:
+- Bluetooth RFCOMM and Wi-Fi Direct host/join now emit public peer and local
+  certificate pins to the **UI-only** shared privacy controller after actual
+  mutual TLS, QR/exporter binding, both human approvals, both final encrypted
+  confirmations and adoption of the original live session. Saved pins are
+  NEVER read by discovery, TLS, trust gates, P2P routing or connection
+  approval. Leaving/permission loss/STOP closes the privacy view.
+- One DEBUG-only reusable `DebugVerifiedNearbyPrivacy` and Compose panel
+  provide session-only-by-default opt-in history durations (1 hour to 30 days),
+  read/delete local encrypted text, separately consented 1–30-day remembered
+  PUBLIC fingerprint, Forget and Forget all. Uses the existing independent
+  F5-A and F5-B ciphertext stores/keys. Only actual live encrypted
+  text Written/Received callbacks may save; Ready/ACK/Failed do not.
+- Disk ops are serialized so changing to a shorter duration or turning it
+  OFF cannot be silently undone by a queued old-duration save. UI callbacks
+  are fenced by session lifecycle revisions. Debug only, no Preview workflow.
 
-1. Finish F5-B PR #149 checks; merge only once exact-head Android CI
-   passes, then confirm the independent main-branch CI run.
-2. Port **opt-in, authenticated-session-only history/peer-memory controls**
-   to Bluetooth and Wi-Fi Direct once each method's live callback and
-   identity proof semantics are verified; avoid UI duplication.
-3. Connect voice where appropriate, unify Connect → Text/Talk → Disconnect
-   into simple nontechnical navigation, then consolidate a single hardware
-   acceptance matrix. Independent security review remains a release gate.
+**Acceptance pending:** final PR head Android compilation, JVM/Python/shell
+regressions, then post-merge main CI if green. Android OEM/TLS exporter,
+Bluetooth radio, P2P routing, local Keystore/backup/clock and independent
+crypto QA remain explicitly untested, not production accepted.
+
+## Next core work
+
+1. Verify and safely merge F5-C only after green exact-head CI; confirm
+   independent main-branch checks; update this handoff and work log.
+2. Implement missing voice transport support, while avoiding false
+   encryption/security claims and keeping connection lifecycle bounded.
+3. Simplify Connect → Text/Talk → Disconnect across LAN, Bluetooth and
+   Wi-Fi Direct; avoid multiple technical test panels in final usability.
+4. Plan one consolidated two-phone hardware/regression/accessibility
+   acceptance matrix and independent security review. Release CAN_* flags
+   must remain false until they pass.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
