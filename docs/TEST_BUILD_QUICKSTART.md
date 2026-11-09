@@ -264,6 +264,65 @@ Do not share voice recordings, QR images, IP addresses, device IDs,
 certificates or private messages. See
 [F4-Q field-test handoff](F4_Q_LOCAL_VOICE_PLAYBACK_EVIDENCE_2026_11_08.md).
 
+## F6-P consolidated microphone + Bluetooth consent test checkpoint
+
+This build combines the previously merged **F4-S live microphone read fix**
+and **F2-P Bluetooth consent deadline fix** with the earlier local speaker
+QA counters. The exact Preview `versionCode` and source revision are in
+the included build-identity footer. The Preview stays debug-only and uses a
+**public test signing key**. Do not use it for private or emergency traffic.
+
+**Without a second phone:** Install or update Preview without uninstalling
+an earlier matching Preview. Confirm Home, nearby connection instructions
+and Settings remain readable. Run the **one-phone local microphone/speaker**
+test with a harmless sample. If a package/signing error occurs, preserve
+the existing installation and report the exact installer message. One-phone
+loopback cannot verify live LAN hold-to-talk, Bluetooth QR/TLS, or any
+two-person security property.
+
+**Two-phone same-Wi-Fi live mic test (F4-S):**
+
+1. Install the *same Preview version* on both Android phones. Pair with
+   fresh reciprocal QR codes, **both** human approvals and both encrypted
+   final confirmations. Use harmless sample phrases only.
+2. Hold Talk on A. Verify B actually hears speech **while A is holding**,
+   rather than receiving everything only after release. Repeat B to A,
+   with the accessible tap-to-record fallback as a separate test.
+3. Release mid-syllable; observe that Android's microphone indicator ends
+   promptly and no new audio frame begins after Release. Repeat at the
+   three-second maximum. Previously transmitted samples cannot be recalled.
+4. Repeat during **Hide**, **End**, app background/lock, and Wi-Fi loss.
+   Local mic/speaker should stop, previous sounds should not resume, and
+   reconnecting must require new QR and both approvals.
+5. Report any phone where audio unexpectedly stops mid-hold (the new
+   nonblocking reader stops after 450 ms without positive mic data), a
+   microphone indicator lingers, or audio is inaudible despite a local
+   speaker-start observation. Include Android version, the Preview build
+   code, audible yes/no, and coarse pass/fail only; do not record speech.
+
+**Two-phone Bluetooth consent diagnostic (F2-P):**
+
+1. Open the **guided Bluetooth connection test** on both phones. Exchange
+   fresh reciprocal QR codes, select the intended nearby candidate and
+   follow the real RFCOMM/TLS diagnostic. Do **not** treat a Bluetooth
+   device listing, system bond or visible QR as an authenticated peer.
+2. Where the diagnostic reaches the explicit consent prompt, let the
+   **25-second approval window** expire, then try the old Approve control.
+   It must not report that stale consent was accepted. Repeat after
+   deliberately declining, backgrounding or canceling the attempt.
+3. Start another fresh attempt and verify an in-window approval is
+   handled as a **test**; any successful diagnostic must still end and
+   **close Bluetooth**. No Bluetooth text, voice or persistent trusted
+   session is available in this build.
+4. Note the last **verified stage**, whether a timeout/decline was clean,
+   and both Android versions. Never share QR material, radio addresses,
+   certificate pins, or raw logs.
+
+**Acceptance boundary:** Signed APK + green CI means a build artifact
+exists; it does **not** mean real Android microphone timing, Bluetooth
+provider interoperability or independent cryptographic review has passed.
+Keep all release communications capabilities disabled.
+
 ## What to report (do not post private material)
 
 - Which APK `versionCode` and public `source revision` were installed;

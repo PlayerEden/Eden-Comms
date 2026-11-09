@@ -4,8 +4,10 @@ name: Eden Comms - installable offline Preview APK
 # confined to an independent com.edenpractical.comms.preview package.
 # Reviewed workflow updates make an installable test checkpoint; otherwise
 # runs are manual to conserve GitHub Actions minutes.
-# F4-R checkpoint: signed device QA for F4-Q's local speaker-start and
-# rejected-PCM observations. Includes F4-O stop boundaries and prior F4 fixes.
+# F6-P checkpoint: consolidate previously merged F4-S non-blocking live
+# microphone reads and F2-P terminal Bluetooth approval timeout into one
+# installable field-test artifact with F4-Q speaker observations and prior fixes.
+# This is a debug-only packaging checkpoint, NOT hardware/security acceptance.
 # Same Preview package and pinned public AOSP test signer; debug-only.
 on:
   workflow_dispatch:
@@ -145,6 +147,13 @@ jobs:
           echo "a completed encrypted turn is NOT proof that B heard speech." >> "$GITHUB_STEP_SUMMARY"
           echo "Check local playback-problem counts after muted or dropped receiver frames;" >> "$GITHUB_STEP_SUMMARY"
           echo "use Copy this phone's test summary on each phone, never record speech." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4-S LIVE MIC CHECK: hold/release while speaking, Wi-Fi loss, Hide/End;" >> "$GITHUB_STEP_SUMMARY"
+          echo "verify promptly stopped microphone indicator and no stale audio." >> "$GITHUB_STEP_SUMMARY"
+          echo "A nonblocking 450 ms microphone stall cutoff may clip on some OEMs;" >> "$GITHUB_STEP_SUMMARY"
+          echo "compare actual audible speech A to B and B to A, not just UI counts." >> "$GITHUB_STEP_SUMMARY"
+          echo "F2-P BLUETOOTH DIAGNOSTIC CHECK: QR/TLS verification + both approvals;" >> "$GITHUB_STEP_SUMMARY"
+          echo "a consent tap after its 25-second timeout must not be accepted." >> "$GITHUB_STEP_SUMMARY"
+          echo "The Bluetooth diagnostic still CLOSES its socket; there is NO chat." >> "$GITHUB_STEP_SUMMARY"
           echo "No physical audio/latency/security acceptance. Never use for emergencies." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload installable Preview APK
