@@ -55,8 +55,9 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
  * inquiry and unregisters broadcasts. This M3l debug experiment holds up to
  * 12 anonymous BluetoothDevice object handles in memory, as numbered signals.
  * Selecting one stops scanning and can now support a SEPARATE user-tapped,
- * permission-gated debug RFCOMM link. No messages, trusted peer, identity
- * approval or encrypted app session exist over Bluetooth. No physical QA.
+ * permission-gated debug RFCOMM link. F2-Q adds actual encrypted test TEXT
+ * only after full QR/TLS/exporter + bilateral CONFIRM. No saved peer or
+ * public secure messaging; real Android radio QA is still pending.
  */
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val qrCoordinator = DebugBluetoothQrCoordinator()
