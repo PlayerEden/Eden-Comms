@@ -38,7 +38,7 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
         self.assertIn("Avoid private or emergency conversations.", self.main)
         for s in (
             "FieldSectionHeader(\"TRANSPARENCY\", \"Current preview\")",
-            "do not use it for sensitive conversations.",
+            "Do not use them for sensitive conversations.",
             "FieldHelp(", "answer = PrivacyPreviewContent.introduction",
             "PrivacyPreviewContent.sections.forEach",
             "FieldDisclosureCard(",
