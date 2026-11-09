@@ -98,6 +98,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var linkPhase by mutableStateOf(DebugRfcommAttemptGate.Phase.IDLE)
     private var chatReady by mutableStateOf(false)
     private var chatDraft by mutableStateOf("")
+    private var chatSendFeedback by mutableStateOf("")
     private var chatLines by mutableStateOf(emptyList<DebugBluetoothChatLine>())
     // Peer-app ACK may arrive before the sender's posted WRITTEN UI callback.
     // Keep bounded, content-free ids so the eventual bubble is accurate.
@@ -159,11 +160,13 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             finishStream = { linkController.finishLiveVoice() }
                         )
                     }
-                    is DebugBluetoothApprovedTextChannel.Event.Written ->
+                    is DebugBluetoothApprovedTextChannel.Event.Written -> {
+                        chatSendFeedback = ""
                         chatLines = (chatLines + DebugBluetoothChatLine(
                             outgoing = true, id = event.id, text = event.text,
                             acknowledged = event.id in ackedChatIds
                         )).takeLast(24)
+                    }
                     is DebugBluetoothApprovedTextChannel.Event.Received ->
                         chatLines = (chatLines + DebugBluetoothChatLine(
                             outgoing = false, id = event.id, text = event.text
@@ -364,8 +367,12 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                     DebugBluetoothTextPanel(
                                         lines = chatLines,
                                         draft = chatDraft,
-                                        onDraft = { chatDraft = it },
-                                        onSend = { sendBluetoothText() }
+                                        onDraft = {
+                                            chatDraft = it
+                                            chatSendFeedback = ""
+                                        },
+                                        onSend = { sendBluetoothText() },
+                                        sendFeedback = chatSendFeedback
                                     )
                                 },
                                 talkContent = { DebugNearbyVoicePanel(localVoice) },
@@ -617,8 +624,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         if (draft.isBlank()) return
         if (linkController.offerText(draft)) {
             chatDraft = ""
+            chatSendFeedback = "Queued on this phone for encrypted sending. Not yet a write or delivery receipt."
             linkStatus = "Test text queued for encrypted Bluetooth sending."
         } else {
+            chatSendFeedback = "Not queued. Draft kept. Check the connection or try again."
             linkStatus = "Couldn't queue text. Check length, link or outstanding messages."
         }
     }
@@ -638,6 +647,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         approvalPending = false
         chatReady = false
         chatDraft = ""
+        chatSendFeedback = ""
         chatLines = emptyList()
         ackedChatIds = emptySet()
         localPrivacy.close()
