@@ -161,7 +161,7 @@ internal class DebugWifiDirectApprovedTcpSession(
             current.getInputStream(), current.getOutputStream(), request,
             onApprovedChannel = { engine, wireInput, wireOutput ->
                 val approved = DebugBluetoothApprovedTextChannel(
-                    engine, wireInput, wireOutput
+                    engine, wireInput, wireOutput, isHost = request.hostRole
                 ) { event -> textEvent(token, event) }
                 val admitted = synchronized(lock) {
                     if (active === token && canContinue() &&
@@ -244,6 +244,29 @@ internal class DebugWifiDirectApprovedTcpSession(
         return current.offerText(message)
     }
 
+    private fun approvedTextForVoice(): DebugBluetoothApprovedTextChannel? =
+        synchronized(lock) {
+            if (active == null || !canContinue() || phase != Phase.CHAT)
+                null else text
+        }
+
+    fun requestVoiceFloor(): com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask =
+        approvedTextForVoice()?.requestVoiceFloor()
+            ?: com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY
+
+    fun cancelUnstartedVoiceFloor() {
+        approvedTextForVoice()?.cancelUnstartedVoiceFloor()
+    }
+
+    fun beginLiveVoice(): Boolean =
+        approvedTextForVoice()?.beginLiveVoice() == true
+
+    fun offerLiveVoiceFrame(pcm: ByteArray): Boolean =
+        approvedTextForVoice()?.offerLiveVoiceFrame(pcm) == true
+
+    fun finishLiveVoice(): Boolean =
+        approvedTextForVoice()?.finishLiveVoice() == true
+
     /** P2P uses the exact same confirmed text/voice TLS writer, never TCP raw. */
     fun offerVoiceClip(pcm: ByteArray): Boolean {
         val current = synchronized(lock) {
@@ -270,6 +293,8 @@ internal class DebugWifiDirectApprovedTcpSession(
                 // Playback copies PCM immediately; stale callbacks must
                 // neither play nor retain sensitive uncompressed audio.
                 if (event is DebugBluetoothApprovedTextChannel.Event.VoiceReceived)
+                    event.pcm.fill(0)
+                if (event is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame)
                     event.pcm.fill(0)
             }
         }
