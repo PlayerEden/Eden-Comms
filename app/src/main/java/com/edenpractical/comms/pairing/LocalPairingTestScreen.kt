@@ -50,6 +50,7 @@ import com.edenpractical.comms.ui.FieldHelp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Guided two-QR LOCAL CONNECTION TEST. The second QR is still required:
@@ -149,6 +150,9 @@ internal fun LocalPairingTestScreen(
     // Event count only: no text, peer identity, QR, or ACK IDs exported.
     // Keep after stopTest for result QA; reset only on a fresh pairing attempt.
     var qaPeerAppAckEvents by remember { mutableIntStateOf(0) }
+    // F4-Q: per-attempt numeric evidence; never store PCM or peer identifiers.
+    var qaVoiceSpeakerStarts by remember { mutableIntStateOf(0) }
+    var qaVoicePlaybackProblemTurns by remember { mutableIntStateOf(0) }
     var textDraft by remember { mutableStateOf("") }
     var privacyHidden by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
@@ -528,6 +532,8 @@ internal fun LocalPairingTestScreen(
         debugText = DebugTextTranscript.fresh()
         ackedTextIds = emptySet()
         qaPeerAppAckEvents = 0
+        qaVoiceSpeakerStarts = 0
+        qaVoicePlaybackProblemTurns = 0
         textDraft = ""
         privacyHidden = false
         showClearConfirmation = false
@@ -641,6 +647,8 @@ internal fun LocalPairingTestScreen(
             debugText = DebugTextTranscript.fresh()
             ackedTextIds = emptySet()
             qaPeerAppAckEvents = 0
+        qaVoiceSpeakerStarts = 0
+        qaVoicePlaybackProblemTurns = 0
             textDraft = ""
             privacyHidden = false
             showClearConfirmation = false
@@ -656,6 +664,9 @@ internal fun LocalPairingTestScreen(
             qaLocalConfirmationWritten = false
             qaPeerConfirmationObserved = false
             val thisAttempt = attemptVersion
+            // Incoming TLS packets and Android speaker callbacks use separate
+            // threads. The turn object prevents stale audio observations.
+            val currentPlayoutTurn = AtomicReference<DebugVoicePlayoutTurn?>(null)
             val connection = LanDemoSession(context.applicationContext) { event ->
                 handler.post {
                     if (!DebugSessionEventAdmission.current(
@@ -1742,6 +1753,12 @@ internal fun LocalPairingTestScreen(
                             Text(details, style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
+                            "Local live speaker starts: $qaVoiceSpeakerStarts; " +
+                                "voice turns with local playback problems: $qaVoicePlaybackProblemTurns. " +
+                                "Neither count proves speech was audible.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
                             "Peer-app ACK events observed on this phone: $qaPeerAppAckEvents " +
                                 "(not a read receipt or remote display confirmation).",
                             style = MaterialTheme.typography.bodySmall
@@ -1777,7 +1794,9 @@ internal fun LocalPairingTestScreen(
                                 peerConfirmationObserved = qaPeerConfirmationObserved,
                                 testTextWrittenToTls = debugText.writtenHere,
                                 testTextReceivedHere = debugText.receivedHere,
-                                testTextPeerAckEvents = qaPeerAppAckEvents
+                                testTextPeerAckEvents = qaPeerAppAckEvents,
+                                voiceSpeakerStarts = qaVoiceSpeakerStarts,
+                                voicePlaybackProblemTurns = qaVoicePlaybackProblemTurns
                             )
                             try {
                                 val clipboard = context.getSystemService(
