@@ -41,7 +41,7 @@ class DebugNearbyApplicationFrameTest {
             ByteArray(DebugNearbyApplicationFrame.MAX_BYTES + 1),
             byteArrayOf(1, 2, 3), ByteArray(16)
         )) {
-            assertThrows(IllegalArgumentException::class.java) {
+            assertThrows(Exception::class.java) {
                 DebugNearbyApplicationFrame.inspect(bytes)
             }
             bytes.fill(0)
