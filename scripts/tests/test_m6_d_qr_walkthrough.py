@@ -28,7 +28,7 @@ class M6DQrWalkthrough(unittest.TestCase):
             "DebugBluetoothQrCoordinator.Stage.JOIN_PREPARED",
             "QR STEP 1 OF 2", "QR STEP 2 OF 2",
             "QR CODES EXCHANGED", "The link is still unverified.",
-            "The other phone", "after they have scanned it",
+            "other phone", "after they have scanned it",
             "CREATE LOCAL DEVICE IDENTITY",
             "RETRY QR CAMERA", "CANCEL AND ERASE QR PREPARATION",
         ):
