@@ -101,8 +101,9 @@ class DebugBluetoothConsentDecisionTest {
         val returned = CountDownLatch(1)
         val answer = AtomicReference<DebugBluetoothConsentDecision.Decision?>(null)
         val prompt = DebugBluetoothConsentDecision {
+            val sampled = now.get()
             enteredWait.countDown()
-            now.get()
+            sampled
         }
         val worker = Thread {
             try {
@@ -134,8 +135,9 @@ class DebugBluetoothConsentDecisionTest {
         val answer = AtomicReference<DebugBluetoothConsentDecision.Decision?>(null)
         val done = CountDownLatch(1)
         val prompt = DebugBluetoothConsentDecision {
+            val sampled = now.get()
             enteredWait.countDown()
-            now.get()
+            sampled
         }
         val worker = Thread {
             try {
@@ -165,8 +167,9 @@ class DebugBluetoothConsentDecisionTest {
         val done = CountDownLatch(1)
         val result = AtomicReference<DebugBluetoothConsentDecision.Decision?>(null)
         val prompt = DebugBluetoothConsentDecision {
+            val sampled = now.get()
             started.countDown()
-            now.get()
+            sampled
         }
         val worker = Thread {
             try {
