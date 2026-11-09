@@ -48,6 +48,24 @@ code a validated secure messenger, turn on production release capabilities,
 skip external cryptographic review, or claim reliable radios/voice before
 handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
 
+## November 9 core pass: Bluetooth/P2P short encrypted microphone bursts (F4-U)
+
+[PR #151](https://github.com/PlayerEden/Eden-Comms/pull/151)
+builds real debug-only encrypted short-clip PTT on **existing approved**
+Bluetooth and Wi-Fi Direct host/join TLS engine application channel. No
+fresh radio path or second socket: F4-U multiplexes bounded text/ACK and
+20ms/640-byte PCM START/DATA/END records; actual Android microphone
+captures at most 3s, queues only a single clip after release and remote
+AudioTrack plays only a complete correctly sequenced clip. Explicit
+microphone permission and foreground session; disconnect cancels and
+wipes. Reuses main LAN PCM audio driver, strict voice codec and bounded
+assembler. Current code is **burst-after-release**, not low-latency
+real-time PTT nor negotiated half-duplex floor. Production voice remains
+disabled; physical audio/radio provider/device/crypto review open.
+
+Next: floor collision control/streaming improvements and cohesive user
+connection/navigation UI. Check final PR + post-merge CI separately.
+
 ## November 9 code milestone: optional local privacy on nearby transports (F5-C)
 
 [PR #150](https://github.com/PlayerEden/Eden-Comms/pull/150) connects
