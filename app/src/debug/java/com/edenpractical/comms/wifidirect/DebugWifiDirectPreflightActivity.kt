@@ -151,10 +151,11 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text("Wi-Fi Direct — permission & radio preflight",
+                        Text("Wi-Fi Direct • choose Host or Join",
                             style = MaterialTheme.typography.titleLarge)
-                        Text("DEVELOPMENT ONLY • This preflight screen has no peer discovery, connections, QR, " +
-                            "messages, voice or background Wi-Fi Direct activity.")
+                        Text("DEVELOPMENT ONLY • This setup check does not scan or connect. " +
+                            "After permission checks, choose Host on one phone and Join on the other. " +
+                            "Both still need fresh QR codes and mutual approvals before test Text/Talk.")
                         val observation = report?.observation
                         val state = report?.state
                         Text(when (state) {
@@ -223,7 +224,7 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                                 report?.state ==
                                     DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("OPEN 30-SECOND DISCOVERY TEST") }
+                        ) { Text("JOIN • FIND NEARBY HOST PHONE") }
                         Button(
                             onClick = {
                                 if (foreground && !requestOutstanding &&
@@ -242,9 +243,9 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                                 report?.state ==
                                     DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("OPEN 20-SECOND LOCAL GROUP HOST TEST") }
-                        Text("Temporary group-host test requires Android 10 or newer. " +
-                            "It does not connect to any selected nearby device.")
+                        ) { Text("HOST • CREATE A TEMPORARY GROUP") }
+                        Text("Host and Join are separate foreground test steps. " +
+                            "Permission or a formed Wi-Fi Direct group alone does not verify identity.")
                         OutlinedButton(
                             onClick = {
                                 if (foreground && !requestOutstanding) {
@@ -256,7 +257,7 @@ class DebugWifiDirectPreflightActivity : ComponentActivity() {
                             },
                             enabled = foreground && !requestOutstanding,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("OPEN IN-PERSON WI-FI DIRECT QR PREPARATION") }
+                        ) { Text("ADVANCED • QR CHECK WITHOUT RADIO") }
                         Text("QR identity preparation works without using the Wi-Fi radio. " +
                             "It does NOT identify or select an Android P2P device.")
                         if (observation?.wifiEnabled != true) {
