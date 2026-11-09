@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
+import com.edenpractical.comms.privacy.LocalHistoryPolicy
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
@@ -45,13 +46,22 @@ internal fun DebugConversationPanel(
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
     onToggleHidden: () -> Unit,
-    onClearRequested: () -> Unit
+    onClearRequested: () -> Unit,
+    historyDurationMs: Long,
+    historyEntries: List<LocalHistoryPolicy.SavedMessage>,
+    historyNotice: String,
+    onHistoryDurationChange: (Long) -> Unit,
+    onHistoryRead: () -> Unit,
+    onHistoryErase: () -> Unit
 ) {
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     var followNewest by remember { mutableStateOf(true) }
     var autoScrolling by remember { mutableStateOf(false) }
     var showDisappearOptions by remember { mutableStateOf(false) }
+    var showHistoryOptions by remember { mutableStateOf(false) }
+    var showHistoryEntries by remember { mutableStateOf(false) }
+    var confirmHistoryErase by remember { mutableStateOf(false) }
     LaunchedEffect(scroll) {
         snapshotFlow { Triple(scroll.value, scroll.maxValue, scroll.isScrollInProgress) }
             .collect { (position, maximum, moving) ->
@@ -173,6 +183,105 @@ internal fun DebugConversationPanel(
                     }
                 }
             }
+        }
+        if (!hidden) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Save messages on this phone",
+                            style = MaterialTheme.typography.labelLarge)
+                        Text("Optional • encrypted local history • future messages only",
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                    Box {
+                        OutlinedButton(
+                            onClick = { showHistoryOptions = true },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) { Text(LocalHistoryPolicy.label(historyDurationMs)) }
+                        DropdownMenu(
+                            expanded = showHistoryOptions,
+                            onDismissRequest = { showHistoryOptions = false }
+                        ) {
+                            LocalHistoryPolicy.choices.forEach { choice ->
+                                DropdownMenuItem(
+                                    text = { Text(choice.label) },
+                                    onClick = {
+                                        showHistoryOptions = false
+                                        onHistoryDurationChange(choice.durationMs)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    "Default is session only. If enabled, only this phone stores " +
+                        "new messages, for at most 30 days. The other phone chooses " +
+                        "independently. Do not use unreviewed debug history for secrets.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(historyNotice, style = MaterialTheme.typography.labelSmall)
+                OutlinedButton(
+                    onClick = {
+                        showHistoryEntries = !showHistoryEntries
+                        if (showHistoryEntries) onHistoryRead()
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                ) {
+                    Text(if (showHistoryEntries) "HIDE SAVED MESSAGES"
+                        else "VIEW SAVED MESSAGES ON THIS PHONE")
+                }
+                if (showHistoryEntries) {
+                    if (historyEntries.isEmpty()) Text(
+                        "No unexpired saved messages for this verified person.",
+                        style = MaterialTheme.typography.bodySmall
+                    ) else {
+                        historyEntries.takeLast(16).forEach { entry ->
+                            Text(
+                                (if (entry.direction ==
+                                    LocalHistoryPolicy.Direction.WRITTEN_HERE)
+                                    "You • " else "Other phone • ") + entry.text,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Text(
+                            "Previous-session history is local only; no delivery or read status.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                OutlinedButton(
+                    onClick = { confirmHistoryErase = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                ) { Text("DELETE SAVED HISTORY FOR THIS PERSON") }
+            }
+        }
+        if (confirmHistoryErase) {
+            AlertDialog(
+                onDismissRequest = { confirmHistoryErase = false },
+                title = { Text("Delete encrypted local history?") },
+                text = { Text(
+                    "Delete this phone's saved messages for the currently verified " +
+                        "person. This will not erase the other phone, Android backups " +
+                        "or screenshots. You cannot undo this app-level deletion."
+                ) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmHistoryErase = false
+                        showHistoryEntries = false
+                        onHistoryErase()
+                    }) { Text("Delete this phone's saved messages") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmHistoryErase = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
         if (hidden) {
             Surface(
@@ -350,8 +459,9 @@ internal fun DebugConversationPanel(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            "Session-only: leaving this screen or disconnecting clears the app's " +
-                "visible messages. Your keyboard or screenshots may still retain text.",
+            "The live screen clears when you disconnect. Saved local history exists " +
+                "only if you explicitly chose a duration; Clear my screen doesn't " +
+                "delete that saved history. The other person may retain copies.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
