@@ -22,6 +22,9 @@ internal class DebugWifiDirectQrCoordinator {
     }
 
     private val repository = AndroidKeystoreIdentity()
+    // A successfully offered TLS expectation consumes this three-QR transcript.
+    // Only starting fresh QR preparation resets the one-shot claim.
+    private val verifiedRequestClaim = DebugWifiDirectVerifiedQrUseGate()
     private var identity: LocalTlsIdentity? = null
     private var host: DebugWifiDirectQrCodec.Host? = null
     private var reply: DebugWifiDirectQrCodec.Reply? = null
@@ -193,6 +196,7 @@ internal class DebugWifiDirectQrCoordinator {
      * its authenticated TLS record protocol is shared between local radios.
      */
     fun newVerifiedTransportRequest(hostRole: Boolean): DebugBluetoothTlsProbeInput? {
+        if (!verifiedRequestClaim.available()) return null
         val own = identity ?: return null
         val h = host ?: return null
         val r = reply ?: return null
@@ -216,10 +220,16 @@ internal class DebugWifiDirectQrCoordinator {
                 val proof = validated.copyLiveQrProofBinding()
                 try {
                     require(!MessageDigest.isEqual(targetPin, own.publicFingerprint()))
-                    DebugBluetoothTlsProbeInput(
+                    val request = DebugBluetoothTlsProbeInput(
                         own, targetPin, hostRole, proof,
                         h.issuedAt + DebugWifiDirectQrCodec.MAX_AGE_SECONDS
                     )
+                    // The only request issued from these QR codes. Losing a
+                    // socket, timeout or declining consent does not reopen them.
+                    if (verifiedRequestClaim.claim()) request else {
+                        request.close()
+                        null
+                    }
                 } finally {
                     targetPin.fill(0)
                     proof.hostPin.fill(0)
@@ -235,7 +245,8 @@ internal class DebugWifiDirectQrCoordinator {
     }
 
     fun readyForVerifiedTransport(hostRole: Boolean): Boolean =
-        (if (hostRole) stage == Stage.HOST_SHOW_ACK
+        verifiedRequestClaim.available() &&
+            (if (hostRole) stage == Stage.HOST_SHOW_ACK
         else stage == Stage.JOIN_PREPARED) &&
             identity != null && host != null && reply != null && ack != null
 
@@ -245,6 +256,7 @@ internal class DebugWifiDirectQrCoordinator {
     }
 
     private fun clearQrOnly() {
+        verifiedRequestClaim.resetForNewQrExchange()
         host?.clear()
         reply?.clear()
         ack?.clear()
