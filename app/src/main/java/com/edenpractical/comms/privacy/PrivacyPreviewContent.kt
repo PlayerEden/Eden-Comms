@@ -107,6 +107,7 @@ internal object PrivacyPreviewContent {
                 "the default remains session-only. Short in-memory disappearing " +
                 "timers and debug LAN PTT exist; Bluetooth and Wi-Fi Direct " +
                 "text are experimental debug paths, not reviewed services. " +
+                "Bluetooth and Wi-Fi Direct voice remain unavailable. " +
                 "Production secure messaging remains disabled pending independent " +
                 "protocol review and real two-phone tests. Clearing this phone " +
                 "cannot remotely delete another person's messages."
