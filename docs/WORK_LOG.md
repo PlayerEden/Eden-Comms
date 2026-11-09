@@ -4,6 +4,35 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-D: truthful nearby QR progress and next-step guidance
+
+**Source:** `feature/m6-d-qr-guidance-and-accessibility-2026-11-09`.
+Based on M6-C merged `main` commit `9c158b1e9dfea6b82350069cb7cd842956cebd9c`.
+[M6-C final-head CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42691177877),
+and [postmerge main CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42691600680).
+
+**Why:** Wi-Fi Direct QR UI said "Step 1" even after moving to its second
+or third QR. Bluetooth's phase-specific instructions were scattered
+throughout its controls. A first-time user could think setup was stalled or
+misread exchanged QR metadata as a trusted connection.
+
+**What:** Both debug QR panels now display stage-specific instructions for
+their existing host/join coordinators, a distinct "codes exchanged" cue,
+a semantic heading and polite status updates. Retained scanner retry,
+cancel, 48/52dp buttons and explicit identity creation. No changes to
+radio, TLS, QR, approval, Keystore, persistence, release permissions or
+network authority. Dedicated
+[static regression](../scripts/tests/test_m6_d_qr_walkthrough.py) and
+[M6-D audit](M6_D_QR_PAIRING_GUIDANCE_AUDIT.md) document the boundaries.
+
+**Evidence pending:** exact final PR Android/JVM/Python and security tests,
+independent postmerge main CI, visual emulator/manual TalkBack and physical
+two-device QA. The 18-case matrix is still NOT RUN. No APK distributed.
+
+**Next:** CI gate and merge; then text/ACK and pairing error accessibility,
+actual emulator screenshots, and consolidated physical two-phone tests.
+Rollback only the M6-D presentation change if actual UX regresses.
+
 ## 2026-11-09 — M6-C: accessibility, visual consistency and privacy disclosure audit
 
 **Code:** PR #155 on `feature/m6-c-accessibility-copy-and-chat-polish-2026-11-09`.
