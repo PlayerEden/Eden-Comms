@@ -241,7 +241,9 @@ internal class DebugWifiDirectApprovedTcpSession(
     private fun signal(token: Attempt, state: Phase, message: String) {
         handler.post {
             synchronized(lock) {
-                if (active !== token || !canContinue()) return@post
+                if (active !== token || phase != state ||
+                    !canContinue()
+                ) return@post
             }
             onStatus(state, message)
         }
