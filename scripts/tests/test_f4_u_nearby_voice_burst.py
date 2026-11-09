@@ -84,18 +84,18 @@ class NearbyVoiceBurst(unittest.TestCase):
     def test_user_opt_in_permission_audible_playback_and_lifecycle(self):
         for value in ("DebugHoldToTalkControl(", "ActivityResultContracts.RequestPermission()",
                       "permission.launch(Manifest.permission.RECORD_AUDIO)",
-                      "NOT live streaming", "max 3 seconds"):
+                      "Only one phone has the floor", "max 3 seconds"):
             # Captions may say 'up to 3 seconds' instead.
             if value != "max 3 seconds":
                 self.assertIn(value, self.panel, value)
-        for value in ("audio.startCapture(", "audio.finishCapture()",
-                      "audio.playReceived(pcm)", "audio.cancelAll()",
-                      "sender?.invoke(pcm)", "current(ticket)",
+        for value in ("audio.startLiveCapture(", "audio.finishCapture()",
+                      "audio.acceptLiveFrame(kind, pcm)", "audio.cancelAll()",
+                      "offerFrame?.invoke(pcm)", "current(ticket)",
                       "canContinue: () -> Boolean", "fun disable()"):
             self.assertIn(value, self.owner, value)
         for screen in (self.bt, self.p2ph, self.p2pj):
             for value in ("DebugNearbyVoicePanel(localVoice)",
-                          "localVoice.activate(", "localVoice.receiveEncryptedVoice(",
+                          "localVoice.activate(", "localVoice.receiveLiveFrame(",
                           "localVoice.voiceWritten(", "localVoice.disable()"):
                 self.assertIn(value, screen, value)
         self.assertIn("VoiceReceived", self.p2pui)
