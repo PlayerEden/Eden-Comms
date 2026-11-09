@@ -14,7 +14,7 @@ class ConversationPrivacyContentTest {
         assertTrue(ConversationPrivacyContent.futureTimerState.contains("Available"))
         assertTrue(ConversationPrivacyContent.futureTimerExplanation.contains("this phone only"))
         assertTrue(ConversationPrivacyContent.futureTimerExplanation.contains("never saved"))
-        assertTrue(ConversationPrivacyContent.futureTrustState.contains("Not available"))
+        assertTrue(ConversationPrivacyContent.futureTrustState.contains("Opt-in test"))
         assertTrue(ConversationPrivacyContent.futureHistoryExplanation.contains("30 days"))
         assertTrue(ConversationPrivacyContent.futureHistoryExplanation.contains(
             "Session-only is the default"))
@@ -41,12 +41,16 @@ class ConversationPrivacyContentTest {
         assertTrue(caution.contains("unreviewed debug build"))
     }
 
-    @Test fun ownKeystoreIdentityAndFuturePeerTrustAreSeparate() {
+    @Test fun savedPublicPeerIdentityAndMessageHistoryRequireSeparateConsent() {
         assertTrue(ConversationPrivacyContent.futureTrustExplanation.contains(
-            "Android Keystore identity"))
+            "Android Keystore"))
         assertTrue(ConversationPrivacyContent.futureTrustExplanation.contains(
-            "does not save an approved peer"))
+            "PUBLIC certificate fingerprint"))
         assertTrue(ConversationPrivacyContent.futureTrustExplanation.contains(
             "separate from message history"))
+        assertTrue(ConversationPrivacyContent.futureTrustExplanation.contains(
+            "Future chats STILL require fresh QR"))
+        assertTrue(ConversationPrivacyContent.futureTrustExplanation.contains(
+            "unavailable in release"))
     }
 }
