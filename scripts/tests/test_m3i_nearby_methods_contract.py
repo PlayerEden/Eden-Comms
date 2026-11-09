@@ -51,7 +51,7 @@ class NearbyMethodSurfaceContractTest(unittest.TestCase):
         self.assertIn("Only after those checks can you use Text", picker)
         self.assertIn("A radio signal is not proof", picker)
         self.assertIn("No saved peer record can skip", picker)
-        self.assertIn("unreviewed", picker.lower())
+        self.assertIn("not reviewed secure messaging", picker.lower())
         self.assertNotIn("LocalPairingQrCodec", picker)
         self.assertNotIn("LanDemoSession(", picker)
         self.assertNotIn("startActivity(", picker)
