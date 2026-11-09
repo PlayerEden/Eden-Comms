@@ -474,7 +474,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             Text(
                                 "Signal $selectedOrdinal is staged locally ONLY. Its owner " +
                                     "and identity have NOT been verified. A separate debug " +
-                                    "RFCOMM socket test is possible, but no messages are sent."
+                                    "RFCOMM still requires mutual TLS, QR proofs and both approvals before text."
                             )
                             OutlinedButton(
                                 onClick = { clearCandidateMemory() },
@@ -527,11 +527,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         }
                         if (showRawScanner) {
                         Text(
-                            "A successful pinned TLS + QR nonce/channel agreement " +
-                                "is followed by explicit approval from EACH person " +
-                                "and two encrypted final confirmations. The test " +
-                                "then ends; NO app text or voice is sent or accepted. " +
-                                "A host may become discoverable beyond this screen under Android control."
+                            "Only after the pinned TLS + QR + exporter proof, BOTH " +
+                                "independent human approvals, and both encrypted final confirmations " +
+                                "may the same connection carry debug TEXT/ACK. No Bluetooth voice " +
+                                "or reviewed secure messaging. Android controls discoverability."
                         )
                         }
                     }
