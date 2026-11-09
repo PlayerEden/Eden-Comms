@@ -4,6 +4,46 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — F5-B: Remember this phone, separate consent and identity proof
+
+**Who/what/where/why:** The owner wants all core functions implemented
+in source before one consolidated phone test. After F5-A local history,
+build the independent peer-identity retention decision, not a remembered
+contact shortcut around cryptographic or human checks. Source branch
+`feature/f5-b-explicit-peer-memory-2026-11-09`, [PR #149](https://github.com/PlayerEden/Eden-Comms/pull/149).
+
+**What changed:** Pure peer-memory 1–30-day policy, 8-peer bound and
+clock rollback/expiry fail-closed; separate DEBUG Keystore AES-GCM key,
+AAD, ciphertext and no-backup directory holding only the public peer
+fingerprint, this phone's public fingerprint, and expiry/integrity metadata.
+Only the real LAN **APPROVAL_COMPLETE** callback may display previously
+remembered metadata. A separate choice inside active verified LAN chat
+lets the user remember 1–30 days, shorten but never silently extend,
+forget this peer, or forget all. Session end invalidates callbacks and
+resets UI. Identity reset separately purges experimental peer cache and
+F5-A history. RELEASE stores are hard no-op.
+
+**Safety / real acceptance:** Saved public key fingerprints are NOT
+trusted connections. All future peers must still complete fresh QR/TLS,
+session challenge, both approvals and final confirmations. No names,
+addresses, phone numbers, message text, voice, backend or auto-reconnect;
+no unaudited auth-capability flag changed. Real Android device, backup
+rules, clock rollback, identity reset, two-phone P2P/Classic and independent
+cryptographic/security review remain outstanding.
+
+**QA receipt:** [PR #149](https://github.com/PlayerEden/Eden-Comms/pull/149)
+and [Actions](https://github.com/PlayerEden/Eden-Comms/actions).
+Policy unit tests, separate ciphertext sourcing and explicit consent
+source gates require final-head green Android CI. Post-merge CI must be
+checked separately; don't claim either before seeing the result.
+
+**Next:** Integrate the independent privacy/peer-memory choices into
+verified Bluetooth and Wi-Fi Direct sessions (never discovery); then
+unify connection UX and plan one meaningful physical-device test.
+**Rollback:** revert PR #149 without rolling back existing F5-A history;
+running code cannot retroactively clear ciphertext already saved on
+previously installed test devices. App Forget controls are provided.
+
 ## 2026-11-09 — F5-A: optional encrypted local history + simpler project handoff
 
 **Why:** The owner wants the actual usable core functions implemented in code
