@@ -54,7 +54,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private val preparation = DebugWifiDirectQrCoordinator()
     private val verifiedChat = DebugWifiDirectChatUiState()
     private val handler = Handler(Looper.getMainLooper())
-    private var foreground = false
+    @Volatile private var foreground = false
     private var registered = false
     private var manager: WifiP2pManager? = null
     private var channel: WifiP2pManager.Channel? = null
