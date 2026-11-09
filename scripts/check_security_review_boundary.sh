@@ -1180,3 +1180,50 @@ fi
 
 echo "PASS: F4-V verified shared TLS host floor and live foreground PCM, release still disabled"
 
+# M6-A: one product-facing debug method chooser and a reusable, presentational
+# Text/Talk/Disconnect shell. Selection is NOT authentication: all actual
+# sessions continue to require their already-verified QR/TLS/consent gates.
+M6_MAIN="app/src/main/java/com/edenpractical/comms/MainActivity.kt"
+M6_METHODS="app/src/main/java/com/edenpractical/comms/model/NearbyMethodCatalog.kt"
+M6_CHAT="app/src/debug/java/com/edenpractical/comms/ui/DebugVerifiedConversationPanel.kt"
+test -f "$M6_MAIN" && test -f "$M6_METHODS" && test -f "$M6_CHAT"
+grep -Fq 'NearbyMethodCatalog.select(method, debug)' "$M6_MAIN"
+grep -Fq 'NearbyMethodCatalog.Selection.LaunchDebugBluetooth' "$M6_MAIN"
+grep -Fq 'NearbyMethodCatalog.Selection.LaunchDebugWifiDirectPreflight' "$M6_MAIN"
+grep -Fq 'Intent().setClassName(context, target)' "$M6_MAIN"
+grep -Fq 'if (!debuggable) return Selection.NotAvailable' "$M6_METHODS"
+grep -Fq 'ConnectionMethod.LAN -> Selection.LaunchDebugLanQr' "$M6_METHODS"
+grep -Fq 'ConnectionMethod.BLUETOOTH -> Selection.LaunchDebugBluetooth' "$M6_METHODS"
+grep -Fq 'ConnectionMethod.WIFI_DIRECT -> Selection.LaunchDebugWifiDirectPreflight' "$M6_METHODS"
+grep -Fq 'internal fun DebugVerifiedConversationPanel(' "$M6_CHAT"
+grep -Fq 'Text("DISCONNECT THIS TEST SESSION")' "$M6_CHAT"
+grep -Fq 'if (selection == "text") textContent()' "$M6_CHAT"
+grep -Fq 'if (showPrivacy) privacyContent()' "$M6_CHAT"
+grep -Fq 'DebugVerifiedConversationPanel(' "$BT_LIVE_SCREEN"
+grep -Fq 'DebugVerifiedConversationPanel(' "$P2P_HOST_SCREEN"
+grep -Fq 'DebugVerifiedConversationPanel(' "$P2P_JOIN_SCREEN"
+grep -Fq 'linkController.disconnect()' "$BT_LIVE_SCREEN"
+grep -Fq 'DebugWifiDirectGroupHostGate.End.USER_STOP' "$P2P_HOST_SCREEN"
+grep -Fq 'DebugWifiDirectTargetLinkGate.End.USER_STOP' "$P2P_JOIN_SCREEN"
+grep -Fq 'DebugWifiDirectReadinessPolicy.State.PREREQUISITES_OBSERVED' \
+  'app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectPreflightActivity.kt'
+for FLAG in CAN_CONNECT CAN_SEND_MESSAGES CAN_TRANSMIT_VOICE; do
+  grep -Fq "const val $FLAG = false" \
+    app/src/main/java/com/edenpractical/comms/model/ReleaseCapabilities.kt
+done
+if grep -REn '(BluetoothSocket|WifiP2pManager|LanDemoSession\(|approveForTest\(|openFileOutput\(|SharedPreferences|ProductionSessionAuthorization|startDiscovery\(|discoverPeers\()' \
+  "$M6_CHAT" "$M6_METHODS"; then
+  echo "FAIL: M6-A presentation acquired radio, approval, or persistence authority" >&2
+  exit 1
+fi
+for F in \
+  'app/src/release/java/com/edenpractical/comms/ui/DebugVerifiedConversationPanel.kt' \
+  'app/src/main/java/com/edenpractical/comms/ui/DebugVerifiedConversationPanel.kt'; do
+  if test -f "$F"; then
+    echo "FAIL: M6-A debug-only chat shell entered release source" >&2
+    exit 1
+  fi
+done
+
+echo "PASS: M6-A debug only method selection and verified Text/Talk/Disconnect presentation"
+
