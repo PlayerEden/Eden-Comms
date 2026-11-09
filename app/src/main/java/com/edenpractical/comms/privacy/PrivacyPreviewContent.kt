@@ -35,7 +35,7 @@ internal object PrivacyPreviewContent {
                 "reconnecting does not extend the stored message expiry. " +
                 "The optional remember an already verified peer choice stores " +
                 "only the public peer fingerprint and bounded expiry (1–30 days) " +
-                "in SEPARATE encrypted local storage. This is historical metadata, " +
+                "in separate encrypted local storage. This is historical metadata, " +
                 "not a login, approval or automatic reconnection. You can " +
                 "delete saved local history and forget one or all remembered " +
                 "phones. Both controls are available in verified Same Wi-Fi, " +
