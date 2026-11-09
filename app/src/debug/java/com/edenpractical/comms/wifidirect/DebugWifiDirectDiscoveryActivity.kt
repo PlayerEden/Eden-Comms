@@ -472,6 +472,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         }
         val active = gate.begin(foreground, prerequisites()) ?: return
         token = active
+        verifiedChat.beginNewAttempt()
         candidateLedger.clear()
         candidateToken = candidateLedger.begin()
         candidateReader = DebugWifiDirectCandidateReader()
