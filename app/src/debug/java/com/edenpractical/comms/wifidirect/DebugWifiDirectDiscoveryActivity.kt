@@ -635,6 +635,8 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     override fun onStop() {
         foreground = false
         targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)
+        verifiedChat.clear()
+        preparation.clear()
         token?.let {
             finishAttempt(it, DebugWifiDirectDiscoveryGate.End.BACKGROUND,
                 "Left screen; the foreground-only search was stopped.")
