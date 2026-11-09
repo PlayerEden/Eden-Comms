@@ -107,45 +107,57 @@ privacy under a disclosure; low-level diagnostics moved to Advanced.
 Choosing a radio never authorizes or verifies it, and production switches
 are still FALSE. Physical two-phone UX and real OEM/security acceptance OPEN.
 
-## Active source milestone — M6-B tab mic safety + consolidated QA
+## Completed code checkpoint — M6-B tab safety and QA evidence
 
-[PR #154](https://github.com/PlayerEden/Eden-Comms/pull/154),
-`feature/m6-b-talk-tab-safety-and-qa-matrix-2026-11-09`:
+[PR #154](https://github.com/PlayerEden/Eden-Comms/pull/154) merged to
+`main` as `3d0e2d6e050d7617079fd1929c85da227e6dea9c`.
+[Independent main CI passed 19/19](https://github.com/PlayerEden/Eden-Comms/actions/runs/42669197572).
+Nearby Bluetooth and Wi-Fi Direct verified sessions now cancel pending mic floor
+or release active AudioRecord when switching Talk → Text or unmounting Talk.
+Optional Advanced RAM-only local counters for text, ACK, floor and voice are
+copyable with an explicit user tap but retain NO text/audio/peer data.
+[18-case x 3-method phone test matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md) is
+ready but **NOT RUN** on physical devices.
 
-- On verified Bluetooth/P2P chat, **switching from Talk to Text** or
-  unmounting Talk calls the live voice owner `release()`: pending encrypted
-  floor requests are CANCELed; an active AudioRecord stops and its worker
-  queues END/RELEASE in order. Never simply hide a still-active microphone
-  behind a Text tab or call `disable()` and strand a live floor.
-  Session Disconnect/background retains the original hard teardown.
-- A small optional **Advanced: This phone's test counts** panel in those
-  existing authenticated chat screens exposes an *explicit* clipboard copy
-  of RAM-only redacted counters for text sent/received, peer ACK, floor
-  grant/deny and inbound/outbound voice frames. Never store payload text,
-  PCM, QR, peer fingerprints, IPs, credentials or contact details. Counts
-  are NOT read receipts, proof of audible speech or cryptographic assurance.
-  Existing LAN result-screen QA report remains separate and unchanged.
-- [One consolidated two-phone acceptance matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-  describes 18 repeatable connection/auth/text/PTT/privacy/lifecycle/
-  accessibility cases across all 3 methods, one redacted evidence format,
-  FAIL/BLOCKED/retest procedure and explicit **NOT RUN** status. No user
-  device tests are asserted. Kotlin redaction tests and Python/shell
-  UI/security gates accompany the change.
-- **Pending:** exact-final-head PR Android/JVM/security CI, then postmerge
-  `main` CI. No new APK or production capability enabled.
+## Active source milestone — M6-C visual and accessibility refinement
 
-## Next milestone after M6-B
+[Source audit](M6_C_USABILITY_ACCESSIBILITY_AUDIT.md) and PR #155,
+`feature/m6-c-accessibility-copy-and-chat-polish-2026-11-09`.
 
-1. Resolve all CI regressions on PR #154, then merge only after final
-   head green; independently verify postmerge main and update the work log.
-2. Execute the [single two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   when the owner has both phones and wants a field build, rather than
-   generating repeated Preview apps. Record real PASS/FAIL/BLOCKED evidence
-   for each method and role, including audible live PTT and background stops.
-3. Fix actual physical-device issues in narrow PRs and repeat negative
-   QR/approval/mic/background regressions. Independent crypto and privacy
-   review, accessibility and OEM Keystore/backup validation are mandatory
-   BEFORE enabling release CAN_* or claiming secure production messenger.
+- **Usability safety:** every Text tab routes through the immediate
+  Talk-release/cancel path and Talk disposal remains a second guard.
+- **Visual cohesion:** verified nearby chat shell adopts the shared angular
+  7dp cut-corner, bordered graphite card; proper heading, selected-tab
+  and expanded/collapsed disclosure semantics for screen readers.
+- **Microphone accessibility:** after a foreground return from Android
+  settings, RECORD_AUDIO permission is rechecked, never silently requested.
+  Nearby Talk instructions now describe *streaming while held* and
+  *activate again to stop/cancel* instead of the obsolete send-after-release
+  model. Status announcements are polite and accessible.
+- **Truthful product copy:** Home, Help, restored old PTT route and
+  Privacy & data no longer imply encrypted local history is impossible,
+  voice is Coming Soon, or Bluetooth/Wi-Fi Direct voice and opt-in storage
+  are LAN-only. Full privacy page still clearly says that neither the
+  current experimental transports nor release messaging is security
+  accepted. Expanded JVM/Python/shell tests protect the disclosures.
+- **Still open:** exact-head and postmerge Android CI, manual emulator
+  visual review, large-font/landscape/TalkBack, actual microphone-permission
+  behavior on real OEMs, all three physical transport tests and independent
+  security/crypto/privacy review. Production CAN_* stay FALSE.
+
+## Next priority after M6-C
+
+1. Verify PR #155 on its final SHA, merge only when green, then verify
+   the separate main-branch build and record exact evidence.
+2. Continue a separate focused QR/Host/Join **pairing and recovery
+   accessibility pass**: plain next-step instructions, readable progress,
+   actual keyboard/screen-reader focus, clear error/retry, no shortcut
+   around independent approvals.
+3. Perform a manual emulator visual audit for small/large phone, landscape,
+   200% font and light/dark; don't infer successful real-hardware networking.
+4. Perform [one consolidated two-phone test](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   only when devices available, and independently review cryptography,
+   device storage and accessibility before considering production release.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
