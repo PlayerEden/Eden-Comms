@@ -35,6 +35,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -556,7 +559,12 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
                     Column(
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                        Modifier.fillMaxSize()
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .imePadding()
+                            .verticalScroll(rememberScrollState())
+                            .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
