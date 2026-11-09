@@ -73,40 +73,56 @@ after real approved Bluetooth Classic and Wi-Fi Direct host/join sessions.
 Saved peer public fingerprints are not TLS pin authorization, and both
 choices reset appropriately. No physical-device/security acceptance.
 
-## Active source stage — F4-U: actual Bluetooth/P2P short voice bursts
+## Completed code checkpoint — F4-U Bluetooth/P2P voice bursts
 
-[PR #151](https://github.com/PlayerEden/Eden-Comms/pull/151)
-`feature/f4-u-nearby-voice-burst-2026-11-09`:
+[PR #151](https://github.com/PlayerEden/Eden-Comms/pull/151) merged to
+`main` as `48c94f0c9a218363a5cd95d326517332ad41735e`.
+[Independent post-merge CI passed 19/19](https://github.com/PlayerEden/Eden-Comms/actions/runs/42653580697).
+The previous DEBUG Bluetooth Classic and Wi-Fi Direct host/join voice option
+was a three-second **record-then-send** encrypted voice burst (not real-time).
+No physical radio/voice acceptance or cryptographic review.
 
-- Extends the existing post-confirmation **same SSLEngine** application
-  writer/reader (also used by P2P), not QR, radio discovery or TCP reachability.
-  Adds strictly parsed ECVP START/DATA/END 640-byte/20ms PCM frames alongside
-  ECBT TEXT/ACK, using the already-tested LAN audio wire codec.
-- The foreground mic captures **one up-to-3-second burst**, with explicit
-  Android microphone permission. Only on release does the current approved
-  authenticated channel copy, transmit, and sequence the bounded PCM; the
-  receiver reconstructs a complete valid turn and tries local speaker
-  playback. This is NOT real-time streaming or coordinated simultaneous
-  voice floor. No voice saving/cloud, and no alternate raw socket.
-- Shared DEBUG audio owner/UI used by Bluetooth and Wi-Fi Direct host and
-  join. Permission/background/STOP tears down capture, playback and queued
-  unsent PCM. Incoming audio is wiped after synchronous playback handoff.
-- JVM QR/exporter/dual-approval paired TLS engine test now verifies audio in
-  both directions on original engine. Negative frame/mixed transport and
-  security Python/shell boundary checks. Final-head CI and post-merge
-  acceptance must be checked before declaring the milestone merged.
+## Active source milestone — F4-V live floor-controlled nearby voice
 
-## Next substantive steps
+[PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152),
+`feature/f4-v-floor-controlled-live-nearby-voice-2026-11-09`:
 
-1. Fix any F4-U compile/CI regressions; merge only if the precise final
-   branch SHA passes Android + source/security checks, then verify main CI.
-2. Add a real collision/half-duplex voice-floor policy and, if viable,
-   lower-latency live audio over both nearby transports. Never promise
-   radio latency before actual two-phone QA.
-3. Simplify Connect → Text/Talk → Disconnect using a shared user-level
-   navigation flow instead of several dev-focused diagnostics.
-4. Consolidate actual hardware/voice/privacy/backup/accessibility QA and
-   independent cryptographic review. Production CAN_* remain OFF.
+- Reuse the LAN-tested `DebugLanVoiceFloor` and its strict ECFL
+  REQUEST/GRANT/DENY/CANCEL/RELEASE records **inside the same approved
+  TLS 1.3 engine** used for actual Bluetooth/P2P TEXT/ACK and ECVP audio.
+  Existing per-attempt QR pins/exporter proof, two human APPROVE and encrypted
+  CONFIRM are still mandatory. Host role is copied only from verified
+  `request.hostRole`; radio discovery cannot grant the voice floor.
+- User holds the shared DEBUG voice control: host can reserve the floor;
+  joiner requests and waits (microphone OFF) for a matching encrypted GRANT.
+  If released before GRANT, a bounded CANCEL discards late grants.
+  After a real grant, the Android `AudioRecord` streams **640 bytes / 20ms**
+  while held, at most 150 frames/3 seconds. The shared TLS writer has a
+  bounded queue, preserves START-DATA-END-RELEASE order, fails closed on
+  queue overrun and expires stale leases. Inbound sequence is validated
+  before live `AudioTrack` playout. Disconnect/background stop the mic,
+  speaker and queued PCM; user privacy/history remain independent.
+- Existing F4-U whole-clip method is regression-only and ALSO requires
+  an approved floor; it is not linked to the new voice UI. No cloud,
+  storage, raw radio socket, headless microphone, or release capability.
+- Unit tests cover strict ECFL/ECVP/text envelope validation and LAN
+  floor collisions/replay/cancel. Actual two-SSLEngine TLS JVM fixture
+  tests grant+reciprocal voice bursts followed by streamed 20ms frames.
+  Source/security tests check no changed release permission or auth gate.
+  **CI/physical acceptance not yet claimed**; check exact-head PR and main
+  Actions results after green merge.
+
+## Next code/acceptance priorities
+
+1. Fix any F4-V Android/JVM/source regression, merge only on exact green
+   PR head, then check independent main CI. Keep docs/PR QA receipts current.
+2. Simplify Connect → Text/Talk → Disconnect with one user-level
+   navigation flow, hiding most radio diagnostic controls behind Advanced.
+3. Execute real two-phone radio/voice/privacy/permission/background,
+   accessibility and OEM/Android Keystore/clock/restore QA. Independently
+   review the cryptography. Production CAN_* remain FALSE until accepted.
+4. If real-phone audio shows excessive latency or packet drop, improve
+   bounded PCM/flow control without weakening floor or session checks.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
