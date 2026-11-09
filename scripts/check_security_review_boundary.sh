@@ -1120,10 +1120,10 @@ grep -Fq 'DebugNearbyVoicePanel(localVoice)' "$P2P_HOST_SCREEN"
 grep -Fq 'DebugNearbyVoicePanel(localVoice)' "$P2P_JOIN_SCREEN"
 grep -Fq 'DebugHoldToTalkControl(' "$NEARBY_VOICE_UI"
 grep -Fq 'ActivityResultContracts.RequestPermission()' "$NEARBY_VOICE_UI"
-grep -Fq 'audio.startCapture(' "$NEARBY_VOICE_OWNER"
-grep -Fq 'audio.playReceived(pcm)' "$NEARBY_VOICE_OWNER"
+grep -Fq 'audio.startLiveCapture(' "$NEARBY_VOICE_OWNER"
+grep -Fq 'audio.acceptLiveFrame(kind, pcm)' "$NEARBY_VOICE_OWNER"
 grep -Fq 'audio.cancelAll()' "$NEARBY_VOICE_OWNER"
-grep -Fq 'sender?.invoke(pcm)' "$NEARBY_VOICE_OWNER"
+grep -Fq 'offerFrame?.invoke(pcm)' "$NEARBY_VOICE_OWNER"
 if grep -REn '(BluetoothSocket|WifiP2pManager|ServerSocket|DatagramSocket|SharedPreferences|DataStore|openFileOutput\(|FileOutputStream|Log\.|println\(|ProductionSessionAuthorization|startService\()' \
   "$NEARBY_VOICE_OWNER" "$NEARBY_VOICE_UI" "$NEARBY_VOICE_FRAME" "$NEARBY_VOICE_CHANNEL"; then
   echo "FAIL: F4-U voice model gained raw radio, persistence or release authorization" >&2
@@ -1134,5 +1134,49 @@ if find app/src/release -name '*DebugNearbyVoice*' -print -quit | grep -q .; the
   exit 1
 fi
 
-echo "PASS: F4-U verified session-only debug voice bursts with capture/playback cleanup"
+# F4-V: host-arbitrated encrypted floor and live 20ms PCM while held.
+# A saved public pin, discovery address or local button is not a voice grant.
+grep -Fq 'private const val FLOOR_MAGIC = 0x4543464c' "$NEARBY_VOICE_FRAME"
+grep -Fq 'DebugLanVoiceFloorCodec.decode(bytes)' "$NEARBY_VOICE_FRAME"
+grep -Fq 'private val floor = DebugLanVoiceFloor(isHost)' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'fun requestVoiceFloor(): DebugLanVoiceFloor.Ask' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'fun cancelUnstartedVoiceFloor()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'fun beginLiveVoice(): Boolean' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'fun offerLiveVoiceFrame(pcm: ByteArray)' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'fun finishLiveVoice(): Boolean' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'floor.remoteAudioStart()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'floor.remoteAudioEnd()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'floor.timedOut(nowMs())' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'outbound.remainingCapacity() < if (first) 5 else 4' "$NEARBY_VOICE_CHANNEL"
+grep -Fq '!floor.maySendAudio()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'voiceEndFrames = count' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'liveVoiceActive = false' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'floor.close()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'isHost = request.hostRole' "$BT_RFCOMM"
+grep -Fq 'isHost = request.hostRole' "$P2P_VERIFIED"
+grep -Fq 'fun requestVoiceFloor()' "$BT_RFCOMM"
+grep -Fq 'fun requestVoiceFloor()' "$P2P_VERIFIED"
+grep -Fq 'fun offerVerifiedLiveVoiceFrame(pcm: ByteArray)' \
+  'app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTargetLinkController.kt'
+grep -Fq 'DebugLanVoiceFloor.Ask.PENDING' "$NEARBY_VOICE_OWNER"
+grep -Fq 'fun floorGranted()' "$NEARBY_VOICE_OWNER"
+grep -Fq 'fun floorDenied()' "$NEARBY_VOICE_OWNER"
+grep -Fq 'audio.startLiveCapture(' "$NEARBY_VOICE_OWNER"
+grep -Fq 'audio.finishCapture()' "$NEARBY_VOICE_OWNER"
+grep -Fq 'offerFrame?.invoke(pcm)' "$NEARBY_VOICE_OWNER"
+grep -Fq 'cancelFloor?.invoke()' "$NEARBY_VOICE_OWNER"
+grep -Fq 'fun receiveLiveFrame(kind: DebugLanVoiceWireCodec.Kind' "$NEARBY_VOICE_OWNER"
+grep -Fq 'Only one phone has the floor' "$NEARBY_VOICE_UI"
+for FILE in "$BT_LIVE_SCREEN" "$P2P_HOST_SCREEN" "$P2P_JOIN_SCREEN"; do
+  grep -Fq 'localVoice.floorGranted()' "$FILE"
+  grep -Fq 'localVoice.floorDenied()' "$FILE"
+  grep -Fq 'localVoice.receiveLiveFrame(' "$FILE"
+  grep -Fq 'localVoice.disable()' "$FILE"
+done
+if find app/src/release -name '*DebugNearbyVoice*' -print -quit | grep -q .; then
+  echo "FAIL: unreviewed live floor voice entered release variant" >&2
+  exit 1
+fi
+
+echo "PASS: F4-V verified shared TLS host floor and live foreground PCM, release still disabled"
 
