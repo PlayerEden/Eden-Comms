@@ -1,6 +1,6 @@
 # Eden Comms — Trust retention, message retention and contextual help
 
-Decision date: **November 4, 2026**. Status: **approved direction / implementation deferred**. Derived from user acceptance of short, clear privacy choices and an absolute 30-day maximum.
+Decision date: **November 4, 2026**. Status (November 9): **remembered peer trust remains unimplemented; F5-A implements experimental opt-in encrypted LAN message history only**. The two controls remain independent. Physical Android/backup and independent security review are OPEN.
 
 ## One sentence we want users to understand
 
@@ -79,4 +79,4 @@ Use ? only for nontrivial data/privacy choices, not every ordinary label. Use ac
 - User-facing status states come only from proven authenticated channels, not from discovery or a QR scan alone.
 - Test manual Forget and expiry at exact boundary, process restart, OS clock change, uninstall/reinstall and different users' choices.
 
-**Implementation status:** The repository now contains only a pure `PeerTrustExpiry` duration/clock-check helper plus unit tests. It **does not store, remember or use any peer identity**. Do not describe this as a released trust feature.
+**Implementation status (November 9):** Peer remembering still contains only pure `PeerTrustExpiry` rules/tests; it **does not store, remember or authenticate using a saved peer identity**. F5-A PR #148 separately adds explicitly opted-in, encrypted **LAN debug** message history for up to 30 days with an in-app erase control. Neither feature is approved for production security, and persisted history does not confer peer trust or shortcut mutual TLS + human confirmation.
