@@ -35,7 +35,7 @@ class PrivacyPreviewContentTest {
             "per-conversation choice",
             "Keystore AES-GCM",
             "no-backup storage",
-            "no saved peer",
+            "remember an already verified peer",
             "keyboard",
             "Camera",
             "INTERNET",
