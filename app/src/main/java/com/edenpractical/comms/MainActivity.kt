@@ -700,6 +700,11 @@ private fun SettingsScreen(
     onPrivacy: () -> Unit
 ) {
     var showHistoryHelp by remember { mutableStateOf(false) }
+    var showForgetAllPeers by remember { mutableStateOf(false) }
+    var erasingPeerCache by remember { mutableStateOf(false) }
+    var peerCacheNotice by remember { mutableStateOf("") }
+    val settingsContext = LocalContext.current.applicationContext
+    val settingsScope = rememberCoroutineScope()
     SectionLabel("APPEARANCE")
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
@@ -765,6 +770,20 @@ private fun SettingsScreen(
                 ConversationPrivacyContent.futureTrustExplanation
         ).joinToString("\n\n")
     )
+    // F5-B is DEBUG-only, but a saved peer should be removable even when
+    // that other phone is unavailable. This does not erase chat history.
+    if (settingsContext.applicationInfo.flags and
+        ApplicationInfo.FLAG_DEBUGGABLE != 0
+    ) {
+        OutlinedButton(
+            onClick = { showForgetAllPeers = true },
+            enabled = !erasingPeerCache,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) { Text("Forget all remembered phones on this device") }
+        if (peerCacheNotice.isNotBlank()) {
+            Text(peerCacheNotice, style = MaterialTheme.typography.bodySmall)
+        }
+    }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("ADVANCED")
     NavigationRow("Device and developer tools", "Identity and connection testing", onDeveloper)
@@ -773,6 +792,39 @@ private fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    if (showForgetAllPeers) {
+        AlertDialog(
+            onDismissRequest = { showForgetAllPeers = false },
+            title = { Text("Forget all remembered phones?") },
+            text = { Text(
+                "Delete every saved public peer fingerprint on this phone. " +
+                    "This does not delete separately saved encrypted messages " +
+                    "or remotely erase another phone."
+            ) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showForgetAllPeers = false
+                    if (!erasingPeerCache) {
+                        erasingPeerCache = true
+                        settingsScope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                DebugPeerMemoryStore(settingsContext).forgetAll()
+                            }
+                            peerCacheNotice = if (ok)
+                                "Remembered peer identities were cleared on this device."
+                            else "Could not verify removal of remembered peer identities."
+                            erasingPeerCache = false
+                        }
+                    }
+                }) { Text("Forget all saved peers") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForgetAllPeers = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
     if (showHistoryHelp) {
         AlertDialog(
             onDismissRequest = { showHistoryHelp = false },
