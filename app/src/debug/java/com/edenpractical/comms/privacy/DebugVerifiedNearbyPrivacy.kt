@@ -106,19 +106,23 @@ internal class DebugVerifiedNearbyPrivacy(context: Context) {
             }
             else -> return // Ready/ACK/Failed are NEVER message-history entries.
         }
-        val duration = retentionMs
-        if (duration == LocalHistoryPolicy.SESSION_ONLY) return
+        if (retentionMs == LocalHistoryPolicy.SESSION_ONLY) return
         val peer = other?.copyOf() ?: return
         val ticket = revision
         scope.launch {
             try {
                 storageMutex.withLock {
-                    if (!current(ticket) || retentionMs == LocalHistoryPolicy.SESSION_ONLY)
+                    if (!current(ticket)) return@withLock
+                    // Capture the CURRENT duration only once the lock is ours.
+                    // An earlier choice to shorten/off cannot be undone by
+                    // an in-flight message carrying an older duration.
+                    val activeDuration = retentionMs
+                    if (activeDuration == LocalHistoryPolicy.SESSION_ONLY)
                         return@withLock
                     val saved = withContext(Dispatchers.IO) {
                         history.save(
                             peer, direction, id, text,
-                            duration, System.currentTimeMillis()
+                            activeDuration, System.currentTimeMillis()
                         )
                     }
                     if (!saved && current(ticket))
