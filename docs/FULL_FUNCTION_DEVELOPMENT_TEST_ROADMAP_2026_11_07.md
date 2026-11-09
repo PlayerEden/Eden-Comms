@@ -25,6 +25,18 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-Q honest local speaker observations for two-phone QA (November 8):**
+A correctly validated incoming voice START/END no longer hides a silent
+speaker rejection. Android's actual AudioTrack start callbacks and
+locally rejected START/DATA frames now produce distinct one-time per-turn
+on-screen notices and bounded content-free counts in the existing user-copied
+one-phone QA report. Old attempts cannot mutate a new session; intentionally
+hidden playback is not treated as failure. JVM concurrency/QA-format
+tests and Python source checks added. No new wire, permission, server,
+production communications flag or audio storage. Preview 200007 predates
+F4-Q; real speaker audibility still requires the owner's two-phone QA.
+[F4-Q field report](F4_Q_LOCAL_VOICE_PLAYBACK_EVIDENCE_2026_11_08.md).
+
 **F4-P signed handset Preview of F4-O (November 8):**
 Consolidates the already-merged atomic outgoing microphone Release/Hide
 frame barrier and cancellation-safe 240 ms incoming speaker buffer into
