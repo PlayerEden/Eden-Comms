@@ -48,6 +48,29 @@ code a validated secure messenger, turn on production release capabilities,
 skip external cryptographic review, or claim reliable radios/voice before
 handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
 
+## November 9 UX milestone: method-first connection, chat-first verified sessions (M6-A)
+
+[PR #153](https://github.com/PlayerEden/Eden-Comms/pull/153)
+unifies the *visible debug workflow*, not the underlying security
+implementations. Home Connect, Text and Talk all enter one chooser:
+Same-Wi-Fi QR; Bluetooth Classic's existing real foreground
+QR/pinned-TLS/debug chat; and Wi-Fi Direct's supported-device/
+permission preflight then Host/Join QR/TLS debug chat. No raw
+radio is started merely by opening the chooser. In authenticated
+Bluetooth/P2P sessions, one composable surface gives Text/Talk,
+Disconnect and independently expanded optional local privacy.
+Underlying per-method sockets, identity pins, exporter, bilateral
+consent, and session lifecycle are not replaced. Production
+release remains closed and no new runtime permissions added.
+
+**Acceptance still open:** physical device Android permission flows,
+two-phone authentication and text/voice, keyboard/accessibility,
+large fonts/rotation, Wi-Fi Direct group cleanup, peer-memory
+and history encryption/retention, OEM/Keystore and independent
+crypto/security review. Final-head and post-merge CI must be
+checked separately. Next: consolidated handset matrix, fix any
+observed failures, external security review.
+
 ## November 9 core pass: authenticated live floor across nearby transports (F4-V)
 
 [PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152)
