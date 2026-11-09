@@ -205,7 +205,7 @@ internal class DebugRfcommLinkController(
                 onVerifiedStage = { step -> verified(token, step) },
                 onApprovedChannel = { engine, wireInput, wireOutput ->
                     val approved = DebugBluetoothApprovedTextChannel(
-                        engine, wireInput, wireOutput
+                        engine, wireInput, wireOutput, isHost = request.hostRole
                     ) { event -> textEvent(token, event) }
                     val admitted = synchronized(lock) {
                         if (active === token &&
@@ -333,6 +333,31 @@ internal class DebugRfcommLinkController(
         return channel.offerText(text)
     }
 
+    private fun approvedTextForVoice(): DebugBluetoothApprovedTextChannel? =
+        synchronized(lock) {
+            if (active == null ||
+                gate.snapshot().phase != DebugRfcommAttemptGate.Phase.LINK_OPEN ||
+                !isForeground() || !hasConnectPermission()
+            ) null else liveText
+        }
+
+    fun requestVoiceFloor(): com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask =
+        approvedTextForVoice()?.requestVoiceFloor()
+            ?: com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY
+
+    fun cancelUnstartedVoiceFloor() {
+        approvedTextForVoice()?.cancelUnstartedVoiceFloor()
+    }
+
+    fun beginLiveVoice(): Boolean =
+        approvedTextForVoice()?.beginLiveVoice() == true
+
+    fun offerLiveVoiceFrame(pcm: ByteArray): Boolean =
+        approvedTextForVoice()?.offerLiveVoiceFrame(pcm) == true
+
+    fun finishLiveVoice(): Boolean =
+        approvedTextForVoice()?.finishLiveVoice() == true
+
     /** Send only a bounded microphone clip on the currently approved TLS engine. */
     fun offerVoiceClip(pcm: ByteArray): Boolean {
         val channel = synchronized(lock) {
@@ -366,6 +391,8 @@ internal class DebugRfcommLinkController(
                 // its own bounded copy synchronously; never retain in a
                 // stale delayed callback or diagnostics/transcript.
                 if (event is DebugBluetoothApprovedTextChannel.Event.VoiceReceived)
+                    event.pcm.fill(0)
+                if (event is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame)
                     event.pcm.fill(0)
             }
         }
