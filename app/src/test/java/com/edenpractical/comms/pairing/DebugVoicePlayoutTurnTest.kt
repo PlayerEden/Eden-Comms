@@ -7,8 +7,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+private typealias O = DebugVoicePlayoutTurn.Observation
+
 class DebugVoicePlayoutTurnTest {
-    private val O = DebugVoicePlayoutTurn.Observation
 
     @Test fun validTlsStartWithoutAndroidSpeakerIsNotCountedAsAudiblePlayback() {
         val turn = DebugVoicePlayoutTurn()
