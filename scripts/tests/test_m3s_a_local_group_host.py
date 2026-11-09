@@ -45,8 +45,10 @@ class GroupHostSafetyBoundary(unittest.TestCase):
             self.assertIn(fragment, self.gate, fragment)
 
     def test_zero_peer_target_network_or_message_capability(self):
-        # This diagnostic only hosts a temporary local group; it never selects
-        # another device or uses the future encrypted communication stream.
+        # The group CREATION path never selects a radio peer or sends a
+        # message. A SEPARATE, fully QR/TLS/dual-confirmed debug session now
+        # owns TEXT and bounded voice, so block unauthenticated operations
+        # rather than the name of its shared encrypted frame type.
         for bad in (
             "requestPeers(", "deviceAddress", "deviceName", "EXTRA_P2P_DEVICE_LIST",
             "connect(", "cancelConnect(", "getConnectionInfo(",
@@ -54,7 +56,7 @@ class GroupHostSafetyBoundary(unittest.TestCase):
             "getPassphrase(", "getNetworkName(", "getClientList(",
             "Socket(", "DatagramSocket(", "ServerSocket(", "openFileOutput(",
             "SharedPreferences", "Log.d(", "Log.i(", "Log.e(",
-            "println(", "DebugBluetooth", "sendDebugText(",
+            "println(", "sendDebugText(",
             "sendPacket(", "DebugApprovalGate", "selectedHandle(",
             "selectedOrdinal(", "candidateLedger", "WifiP2pDevice"
         ):
@@ -64,6 +66,23 @@ class GroupHostSafetyBoundary(unittest.TestCase):
                 self.assertNotIn("group.passphrase", self.activity)
                 continue
             self.assertNotIn(bad, self.activity, bad)
+        self.assertIn("DebugWifiDirectApprovedTcpSession(", self.activity)
+        self.assertIn("onText = { event ->", self.activity)
+        self.assertIn("DebugNearbyVoicePanel(localVoice)", self.activity)
+        self.assertIn("onApprovedIdentity = { self, peer ->", self.activity)
+        # Creating the temporary group is NOT voice/text authorization:
+        # it never sends an app frame, opens a raw voice socket or bypasses
+        # the separate approved encrypted session.
+        group_setup = self.activity.split("private fun newTemporaryConfig()", 1)[1].split(
+            "private fun inspectGroup", 1
+        )[0] if "private fun inspectGroup" in self.activity.split(
+            "private fun newTemporaryConfig()", 1
+        )[1] else self.activity.split("private fun newTemporaryConfig()", 1)[1].split(
+            "private fun startHost()", 1
+        )[0]
+        for forbidden in ("onText(", "offerVoiceClip(", "offerText(",
+                          "DebugNearbyVoiceOwner(", "onApprovedChannel ="):
+            self.assertNotIn(forbidden, group_setup, forbidden)
         self.assertNotIn("onClick = { startHost() }", self.preflight)
         self.assertIn("DebugWifiDirectGroupHostActivity::class.java", self.preflight)
 

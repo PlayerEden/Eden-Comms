@@ -1,5 +1,9 @@
 package com.edenpractical.comms.wifidirect
 
+import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
+import com.edenpractical.comms.audio.DebugNearbyVoicePanel
+import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
+
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
 
@@ -57,6 +61,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private val preparation = DebugWifiDirectQrCoordinator()
     private val verifiedChat = DebugWifiDirectChatUiState()
     private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
+    private val localVoice by lazy { DebugNearbyVoiceOwner(applicationContext) }
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var foreground = false
     private var registered = false
@@ -292,6 +297,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                 active, DebugWifiDirectDiscoveryGate.End.STOP_BUTTON,
                 "Discovery stopped for one explicitly requested UNVERIFIED link test."
             )
+            var ownedController: DebugWifiDirectTargetLinkController? = null
             val controller = DebugWifiDirectTargetLinkController(
                 context = this,
                 readyAndForeground = {
@@ -302,23 +308,46 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     targetController = null
                     verifiedChat.clear()
                     localPrivacy.close()
+                    localVoice.disable()
                     preparation.clear()
                     targetNotice += " Fresh QR and discovery required for another session."
                 },
                 onVerifiedStatus = { phase, message ->
                     verifiedChat.status(phase, message)
-                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED)
+                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                         localPrivacy.close()
+                        localVoice.disable()
+                    }
                 },
                 onVerifiedApproval = { verifiedChat.approval(it) },
-                onVerifiedText = {
-                    verifiedChat.event(it)
-                    localPrivacy.receiveEncryptedEvent(it)
+                onVerifiedText = { event ->
+                    verifiedChat.event(event)
+                    localPrivacy.receiveEncryptedEvent(event)
+                    when (event) {
+                        DebugBluetoothApprovedTextChannel.Event.Ready ->
+                            localVoice.activate(
+                                canContinue = {
+                                    foreground && targetController === ownedController &&
+                                        verifiedChat.phase ==
+                                            DebugWifiDirectApprovedTcpSession.Phase.CHAT &&
+                                        prerequisites()
+                                },
+                                offer = { pcm ->
+                                    ownedController?.offerVerifiedVoiceClip(pcm) == true
+                                }
+                            )
+                        is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
+                            localVoice.receiveEncryptedVoice(event.pcm)
+                        is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
+                            localVoice.voiceWritten(event.frames)
+                        else -> Unit
+                    }
                 },
                 onApprovedIdentity = { self, peer ->
                     localPrivacy.openVerified(self, peer)
                 }
             )
+            ownedController = controller
             targetController = controller
             if (!controller.startSelected(selectedDevice, verifiedQrPrepared = true)) {
                 targetController = null
@@ -579,6 +608,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                 onDraft = { verifiedChat.draft = it },
                                 onSend = { sendVerifiedText() }
                             )
+                            DebugNearbyVoicePanel(localVoice)
                             DebugVerifiedNearbyPrivacyPanel(localPrivacy)
                         }
                         Button(
@@ -651,6 +681,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)
         verifiedChat.clear()
         localPrivacy.close()
+        localVoice.disable()
         preparation.clear()
         token?.let {
             finishAttempt(it, DebugWifiDirectDiscoveryGate.End.BACKGROUND,
@@ -664,6 +695,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        localVoice.disable()
         localPrivacy.dispose()
         super.onDestroy()
     }

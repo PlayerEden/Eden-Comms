@@ -445,6 +445,10 @@ internal class DebugWifiDirectTargetLinkController(
     fun offerVerifiedText(text: String): Boolean =
         verifiedSession?.offerText(text) ?: false
 
+    /** Audio has NO alternate P2P socket or bypass around confirmed TLS. */
+    fun offerVerifiedVoiceClip(pcm: ByteArray): Boolean =
+        verifiedSession?.offerVoiceClip(pcm) ?: false
+
     /**
      * The controller owns cancellation; it is safe to call from Stop/exit.
      * A late connect success/connection-info callback is always ignored.

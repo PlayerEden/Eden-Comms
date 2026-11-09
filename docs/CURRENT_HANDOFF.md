@@ -63,42 +63,50 @@ Separate DEBUG Keystore AES-GCM public fingerprint/expiry cache, explicit
 separate. Records are viewed only after fresh verified LAN approval; they
 never confer an automatic connection or trust. Production store remains no-op.
 
-## Active source stage — F5-C Bluetooth/P2P optional privacy
+## Completed code checkpoint — F5-C verified nearby privacy
 
-[PR #150](https://github.com/PlayerEden/Eden-Comms/pull/150),
-`feature/f5-c-authenticated-bluetooth-p2p-privacy-2026-11-09`:
-- Bluetooth RFCOMM and Wi-Fi Direct host/join now emit public peer and local
-  certificate pins to the **UI-only** shared privacy controller after actual
-  mutual TLS, QR/exporter binding, both human approvals, both final encrypted
-  confirmations and adoption of the original live session. Saved pins are
-  NEVER read by discovery, TLS, trust gates, P2P routing or connection
-  approval. Leaving/permission loss/STOP closes the privacy view.
-- One DEBUG-only reusable `DebugVerifiedNearbyPrivacy` and Compose panel
-  provide session-only-by-default opt-in history durations (1 hour to 30 days),
-  read/delete local encrypted text, separately consented 1–30-day remembered
-  PUBLIC fingerprint, Forget and Forget all. Uses the existing independent
-  F5-A and F5-B ciphertext stores/keys. Only actual live encrypted
-  text Written/Received callbacks may save; Ready/ACK/Failed do not.
-- Disk ops are serialized so changing to a shorter duration or turning it
-  OFF cannot be silently undone by a queued old-duration save. UI callbacks
-  are fenced by session lifecycle revisions. Debug only, no Preview workflow.
+[PR #150](https://github.com/PlayerEden/Eden-Comms/pull/150) merged into
+`main` at `9f69de394069fa8ac1c17d5ba459bccefb808e01`.
+[Post-merge CI passed 19/19 checks](https://github.com/PlayerEden/Eden-Comms/actions/runs/42648245844).
+One experimental, **debug-only** opt-in history/remember-peer UI now runs
+after real approved Bluetooth Classic and Wi-Fi Direct host/join sessions.
+Saved peer public fingerprints are not TLS pin authorization, and both
+choices reset appropriately. No physical-device/security acceptance.
 
-**Acceptance pending:** final PR head Android compilation, JVM/Python/shell
-regressions, then post-merge main CI if green. Android OEM/TLS exporter,
-Bluetooth radio, P2P routing, local Keystore/backup/clock and independent
-crypto QA remain explicitly untested, not production accepted.
+## Active source stage — F4-U: actual Bluetooth/P2P short voice bursts
 
-## Next core work
+[PR #151](https://github.com/PlayerEden/Eden-Comms/pull/151)
+`feature/f4-u-nearby-voice-burst-2026-11-09`:
 
-1. Verify and safely merge F5-C only after green exact-head CI; confirm
-   independent main-branch checks; update this handoff and work log.
-2. Implement missing voice transport support, while avoiding false
-   encryption/security claims and keeping connection lifecycle bounded.
-3. Simplify Connect → Text/Talk → Disconnect across LAN, Bluetooth and
-   Wi-Fi Direct; avoid multiple technical test panels in final usability.
-4. Plan one consolidated two-phone hardware/regression/accessibility
-   acceptance matrix and independent security review. Release CAN_* flags
-   must remain false until they pass.
+- Extends the existing post-confirmation **same SSLEngine** application
+  writer/reader (also used by P2P), not QR, radio discovery or TCP reachability.
+  Adds strictly parsed ECVP START/DATA/END 640-byte/20ms PCM frames alongside
+  ECBT TEXT/ACK, using the already-tested LAN audio wire codec.
+- The foreground mic captures **one up-to-3-second burst**, with explicit
+  Android microphone permission. Only on release does the current approved
+  authenticated channel copy, transmit, and sequence the bounded PCM; the
+  receiver reconstructs a complete valid turn and tries local speaker
+  playback. This is NOT real-time streaming or coordinated simultaneous
+  voice floor. No voice saving/cloud, and no alternate raw socket.
+- Shared DEBUG audio owner/UI used by Bluetooth and Wi-Fi Direct host and
+  join. Permission/background/STOP tears down capture, playback and queued
+  unsent PCM. Incoming audio is wiped after synchronous playback handoff.
+- JVM QR/exporter/dual-approval paired TLS engine test now verifies audio in
+  both directions on original engine. Negative frame/mixed transport and
+  security Python/shell boundary checks. Final-head CI and post-merge
+  acceptance must be checked before declaring the milestone merged.
+
+## Next substantive steps
+
+1. Fix any F4-U compile/CI regressions; merge only if the precise final
+   branch SHA passes Android + source/security checks, then verify main CI.
+2. Add a real collision/half-duplex voice-floor policy and, if viable,
+   lower-latency live audio over both nearby transports. Never promise
+   radio latency before actual two-phone QA.
+3. Simplify Connect → Text/Talk → Disconnect using a shared user-level
+   navigation flow instead of several dev-focused diagnostics.
+4. Consolidate actual hardware/voice/privacy/backup/accessibility QA and
+   independent cryptographic review. Production CAN_* remain OFF.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide

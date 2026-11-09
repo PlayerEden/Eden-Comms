@@ -953,6 +953,14 @@ class DebugPairedTlsEngineInteropTest {
         val hostAck = CountDownLatch(1)
         val hostedText = CountDownLatch(1)
         val joinAck = CountDownLatch(1)
+        // Real paired JDK TLS 1.3 engines, AFTER the identical reciprocal
+        // QR / exporter / dual-confirmation control exchange, carry PCM too.
+        val hostVoice = CountDownLatch(1)
+        val joinVoice = CountDownLatch(1)
+        val hostVoiceWritten = CountDownLatch(1)
+        val joinVoiceWritten = CountDownLatch(1)
+        val testHostPcm = ByteArray(1280) { (it % 101).toByte() }
+        val testJoinPcm = ByteArray(640) { (it % 73).toByte() }
         val hostChannel = AtomicReference<DebugBluetoothApprovedTextChannel>()
         val joinChannel = AtomicReference<DebugBluetoothApprovedTextChannel>()
         val hostNonce = ByteArray(16) { (it + 5).toByte() }
@@ -976,6 +984,12 @@ class DebugPairedTlsEngineInteropTest {
                         }
                         is DebugBluetoothApprovedTextChannel.Event.Acknowledged ->
                             if (event.id == 1L) hostAck.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.VoiceReceived -> {
+                            if (event.pcm.contentEquals(testJoinPcm)) hostVoice.countDown()
+                            event.pcm.fill(0)
+                        }
+                        is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
+                            if (event.frames == 2) hostVoiceWritten.countDown()
                         else -> Unit
                     }
                 }
@@ -999,6 +1013,12 @@ class DebugPairedTlsEngineInteropTest {
                             if (event.text == "hello from host") joinedText.countDown()
                         is DebugBluetoothApprovedTextChannel.Event.Acknowledged ->
                             if (event.id == 1L) joinAck.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.VoiceReceived -> {
+                            if (event.pcm.contentEquals(testHostPcm)) joinVoice.countDown()
+                            event.pcm.fill(0)
+                        }
+                        is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
+                            if (event.frames == 1) joinVoiceWritten.countDown()
                         else -> Unit
                     }
                 }
@@ -1015,6 +1035,16 @@ class DebugPairedTlsEngineInteropTest {
             assertTrue(joinChannel.get().offerText("reply from join"))
             assertTrue(hostedText.await(5, TimeUnit.SECONDS))
             assertTrue(joinAck.await(5, TimeUnit.SECONDS))
+            assertTrue(hostChannel.get().offerVoiceClip(testHostPcm))
+            assertTrue("JOIN didn't decode exact encrypted host PCM burst",
+                joinVoice.await(10, TimeUnit.SECONDS))
+            assertTrue(hostVoiceWritten.await(10, TimeUnit.SECONDS))
+            assertTrue(joinChannel.get().offerVoiceClip(testJoinPcm))
+            assertTrue("HOST didn't decode exact encrypted join PCM burst",
+                hostVoice.await(10, TimeUnit.SECONDS))
+            assertTrue(joinVoiceWritten.await(10, TimeUnit.SECONDS))
+            // TEXT still works after VOICE on the SAME approved engines.
+            assertTrue(hostChannel.get().offerText("text after voice"))
             hostChannel.get().close()
             joinChannel.get().close()
             pipe.close()
@@ -1030,6 +1060,8 @@ class DebugPairedTlsEngineInteropTest {
             testOnlyExporter.fill(0)
             hostNonce.fill(0)
             joinNonce.fill(0)
+            testHostPcm.fill(0)
+            testJoinPcm.fill(0)
             try { host.closeOutbound() } catch (_: Exception) { }
             try { join.closeOutbound() } catch (_: Exception) { }
         }

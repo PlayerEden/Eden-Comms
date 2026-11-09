@@ -7,7 +7,7 @@ import javax.net.ssl.SSLEngine
 import javax.net.ssl.SSLException
 
 /**
- * F2-G/F2-Q: encrypted TEXT/ACK record adapter, debug only. F2-Q's live
+ * F2-G/F2-Q/F4-U: encrypted TEXT/ACK and bounded PCM record adapter, debug only. F2-Q's live
  * channel owns one writer and one reader only AFTER the actual authenticated
  * approval protocol completes on the same TLS engine.
  *
@@ -37,8 +37,8 @@ internal class DebugBluetoothFutureTlsTextLab(
     fun transmit(frame: ByteArray) {
         try {
             ready()
-            // Never encrypt an unsupported/partial TEXT or ACK frame.
-            DebugBluetoothTextFrameCodec.decode(frame)
+            // Strictly validate text/ACK or 20ms PCM control/data before wrap.
+            DebugNearbyApplicationFrame.inspect(frame)
             val encrypted = ByteBuffer.allocate(engine.session.packetBufferSize)
             try {
                 val result = engine.wrap(ByteBuffer.wrap(frame), encrypted)
@@ -93,7 +93,7 @@ internal class DebugBluetoothFutureTlsTextLab(
                         }
                         if (result.bytesProduced() !in
                             DebugBluetoothTextFrameCodec.HEADER_BYTES..
-                                DebugBluetoothTextFrameCodec.MAX_FRAME_BYTES
+                                DebugNearbyApplicationFrame.MAX_BYTES
                         ) throw SSLException("Invalid encrypted Bluetooth application frame size")
                         DebugTlsProviderReadiness.requireExactControlResult(
                             result, consumed = record.size, produced = result.bytesProduced()
@@ -105,7 +105,7 @@ internal class DebugBluetoothFutureTlsTextLab(
                             plaintext.get(frame)
                             // Parse before returning: no invalid or partially
                             // authenticated plaintext is delivered to the ledger.
-                            DebugBluetoothTextFrameCodec.decode(frame)
+                            DebugNearbyApplicationFrame.inspect(frame)
                             return frame
                         } catch (failure: Exception) {
                             frame.fill(0)
