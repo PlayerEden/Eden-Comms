@@ -541,17 +541,28 @@ class DebugPairedTlsEngineInteropTest {
                 finally { finalAck.fill(0) }
                 assertEquals(0, joinLedger.outstanding())
 
-                // This expires the test-only owner. The bundle must close
-                // exact TLS engine outbound + byte streams, never allow reuse.
+                // This expires the test-only owner. The bundle must
+                // request TLS outbound closure, close the underlying pipes
+                // and prevent reuse. Hard radio loss is NOT close_notify.
                 assertTrue(!hostOwner.observe(71, 112, true, true, hostContext))
                 assertTrue(hostBundle.isClosed())
-                assertTrue(host.isOutboundDone)
+                // On an established TLS engine, closeOutbound() may still
+                // require emitting a close_notify. A forced radio teardown
+                // cannot promise isOutboundDone immediately.
+                assertThrows(java.io.IOException::class.java) {
+                    pipe.hostOutput.write(1)
+                }
                 assertThrows(javax.net.ssl.SSLException::class.java) {
                     hostLab.transmit(DebugBluetoothTextFrameCodec.acknowledgment(2))
                 }
                 assertTrue(joinOwner.stop(72))
                 assertTrue(joinBundle.isClosed())
-                assertTrue(join.isOutboundDone)
+                assertThrows(java.io.IOException::class.java) {
+                    pipe.joinOutput.write(1)
+                }
+                assertThrows(javax.net.ssl.SSLException::class.java) {
+                    joinLab.transmit(DebugBluetoothTextFrameCodec.acknowledgment(2))
+                }
             } finally {
                 hostOwner.close()
                 joinOwner.close()
