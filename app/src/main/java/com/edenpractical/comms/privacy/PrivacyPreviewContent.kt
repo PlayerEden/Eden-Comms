@@ -1,124 +1,125 @@
 package com.edenpractical.comms.privacy
 
 /**
- * Current development-build privacy disclosure, not a Google Play policy,
- * security certification, claim of remote erasure, or consent mechanism.
- *
- * Revise whenever the actual code gains a new data flow/retention pathway.
+ * Experimental debug-build privacy disclosures, NOT a Google Play policy,
+ * remote erasure promise or security certification. Update along with every
+ * new data flow. All production communication flags remain off.
  */
 internal object PrivacyPreviewContent {
     const val heading = "Privacy & data"
     const val status = "DEVELOPMENT PREVIEW"
     const val introduction =
-        "Eden Comms has an experimental same-Wi-Fi, two-phone QR/TLS connection. " +
-        "After both phones approve and confirm, short typed TEST messages can " +
-        "travel between the phones over the test connection. A separate " +
-        "local-only text layout sandbox never transmits. This is unreviewed, " +
-        "not physically accepted secure messaging. Debug LAN push-to-talk " +
-        "is experimental and voice is not a production feature. " +
-        "Do not use the development build for sensitive conversations."
+        "Eden Comms has experimental nearby two-phone test connections over " +
+        "Same Wi-Fi, Bluetooth Classic and Wi-Fi Direct. Fresh in-person QR " +
+        "checks and both phones approve and confirm before short typed TEST messages " +
+        "or live push-to-talk can travel on the approved local TLS connection. " +
+        "Debug LAN push-to-talk, Bluetooth and Wi-Fi Direct test voice are " +
+        "unreviewed and voice is not a production feature. Nothing here is " +
+        "accepted as secure private messaging; do not use secrets or rely " +
+        "on this app for emergencies."
 
     data class Section(val heading: String, val description: String)
 
     val sections = listOf(
         Section(
             "On your phone",
-            "If you explicitly create a device identity, its private key stays " +
-                "in Android Keystore until reset or removal. The app also stores " +
-                "your light or dark appearance setting. Short typed test chat " +
-                "and fixed test phrases are temporary in-memory session content " +
-                "by default. In debug LAN chat ONLY, a separate explicit " +
-                "per-conversation choice can save up to 30 days of message " +
-                "ciphertext in app-private no-backup storage using Android " +
-                "Keystore AES-GCM. The option resets to session-only every " +
-                "new connection. Leaving clears the live view but does not " +
-                "delete expressly saved history. Use Delete saved history " +
-                "for that verified person. A separate LAN debug-only choice can " +
-                "remember an already verified peer PUBLIC fingerprint for " +
-                "1–30 days inside separately encrypted app-private storage; " +
-                "it is never used for automatic reconnect or approval. " +
-                "You can forget one or all remembered phones independently. " +
-                "File deletion cannot guarantee physical erasure of Android/flash, " +
-                "recipient copies or screenshots."
+            "If you choose to create a local identity, its private key is " +
+                "managed in Android Keystore; your appearance setting is " +
+                "saved on this phone. Every new test conversation starts " +
+                "session-only, with short typed text in memory by default. " +
+                "AFTER a verified session, a separate explicit per-conversation choice " +
+                "can retain NEW text locally for 1 hour, 24 hours, 7, 14 or " +
+                "30 days maximum. Debug history uses Keystore AES-GCM " +
+                "in app-private no-backup storage; it does not intentionally " +
+                "save microphone audio or another person's copy. Reading or " +
+                "reconnecting does not extend the stored message expiry. " +
+                "The optional remember an already verified peer choice stores " +
+                "only the public peer fingerprint and bounded expiry (1–30 days) " +
+                "in SEPARATE encrypted local storage. This is historical metadata, " +
+                "not a login, approval or automatic reconnection. You can " +
+                "delete saved local history and forget one or all remembered " +
+                "phones. Both controls are available in verified Same Wi-Fi, " +
+                "Bluetooth Classic and Wi-Fi Direct debug conversations. " +
+                "File deletion is best effort, never guaranteed physical " +
+                "erasure from flash, backups, the recipient or screenshots."
         ),
         Section(
             "Shared when pairing and chatting",
-            "QR pairing exposes the local Wi-Fi address, public certificate " +
-                "fingerprint and short-lived pairing value to the other phone. " +
-                "The phones exchange TLS channel-binding proof and bilateral " +
-                "approval controls inside the encrypted local connection. " +
-                "Only after approvals and final confirmations can the DEBUG " +
-                "test exchange fixed phrase IDs and short typed test messages. " +
-                "The other phone receives the text; the other person can " +
-                "photograph or retain copies. No chat content is intentionally " +
-                "uploaded to an Eden Comms server."
+            "A fresh in-person QR exchange shares public certificate identity " +
+                "information and short-lived proof values; Same Wi-Fi QR may " +
+                "include a local Wi-Fi address needed by that connection. " +
+                "Other methods use their own Android Bluetooth or Wi-Fi Direct " +
+                "radio setup, not that Wi-Fi address. The phones must pass " +
+                "pinned TLS channel-binding checks, current QR proof and " +
+                "encrypted approval controls, with both people approving " +
+                "before final confirmation. Only the current approved " +
+                "encrypted test channel sends short typed test messages and " +
+                "bounded live voice frames. The other phone receives those " +
+                "bytes, but a local peer-app ACK is not proof the other person " +
+                "read the message or heard the audio. No content is " +
+                "intentionally uploaded to an Eden Comms server; another " +
+                "person can photograph, copy or record their screen."
         ),
         Section(
             "Permissions",
-            "Local network access uses INTERNET and ACCESS_NETWORK_STATE " +
-                "permissions for a nearby Wi-Fi connection. Camera permission " +
-                "is requested for QR scanning. Debug builds also declare " +
-                "Nearby devices permissions BLUETOOTH_SCAN for explicitly started " +
-                "Classic inquiry, BLUETOOTH_CONNECT for a separate unverified " +
-                "RFCOMM socket test, and BLUETOOTH_ADVERTISE for a user-approved " +
-                "Android discoverability request under Developer Tools. " +
-                "These are not requested merely by opening the main app. " +
-                "The inquiry " +
-                "counts unverified radio observations and temporarily keeps " +
-                "up to 12 opaque discovered-device objects in memory for " +
-                "numbered, unverified local selection. It reads no device names " +
-                "or addresses and saves no peer history. A separate user-guided two-QR " +
-                "exchange can prepare public device certificate pins/nonces in " +
-                "RAM; the scanned Bluetooth signal is NOT authenticated by these codes. " +
-                "A separate explicit host/join " +
-                "test can open a Bluetooth socket, require pinned TLS 1.3, " +
-                "mutual QR proof, exporter/commitment and bilateral approval, " +
-                "and exchange short debug encrypted TEXT/ACK after both " +
-                "confirmations. Wi-Fi Direct also has experimental verified " +
-                "group/socket/TLS text. Neither path has independently passed " +
-                "two-phone or cryptographic review. There is no auto-trust or " +
-                "remembered-radio peer authorization, Bluetooth voice, or " +
-                "production messaging permission. "  +
-                "This test is not an independently reviewed secure messenger. " +
-                "Android may continue device discoverability for its approved " +
-                "duration after a socket closes. All these tools are absent " +
-                "from release builds. " +
-                "The release app does not request microphone, contacts or " +
-                "device location permission. Debug Wi-Fi Direct tests may " +
-                "request nearby Wi-Fi permission on Android 13+ or location " +
-                "permission on older Android versions; no coordinates are " +
-                "read. Location Mode may be required for nearby discovery."
+            "Android INTERNET and ACCESS_NETWORK_STATE permit nearby Wi-Fi " +
+                "communication; they do not require an Eden server. Camera " +
+                "permission is requested for QR scanning. In DEBUG builds " +
+                "only, Bluetooth SCAN/CONNECT/ADVERTISE access, nearby " +
+                "Wi-Fi permission on newer Android, and location permission " +
+                "on some older Android versions may be requested explicitly " +
+                "for the selected radio method. Location Mode may be " +
+                "needed for discovery, but the app does not intentionally " +
+                "read or upload location coordinates. Microphone permission " +
+                "is requested only when you choose to enable an approved " +
+                "debug voice test; it is not needed merely to open Connect. " +
+                "No background microphone, always-on radio discovery, " +
+                "contacts access or automatic reconnection is required. " +
+                "Bluetooth discovery exposes unverified nearby signals, " +
+                "not trusted Eden Comms identities. Android Bluetooth " +
+                "discoverability may continue for the OS-approved period " +
+                "even after the app closes its socket. Experimental nearby " +
+                "radio and voice permissions are absent from the release app."
         ),
         Section(
             "Local-only sandbox versus real test text",
-            "The developer Text layout sandbox is local-only and does not intentionally " +
-                "save or transmit that text. The Home Text pathway instead pairs phones " +
-                "and can transmit typed test messages over a pinned TLS " +
-                "connection. The keyboard, Android snapshots, screen recording " +
-                "or an observer may retain what you type or display. Avoid secrets."
+            "The separate developer text-layout sandbox is local-only: " +
+                "it does not intentionally save or transmit test messages. " +
+                "The Home Text pathway instead starts Connect and can " +
+                "exchange typed test messages after fresh QR checks, " +
+                "mutual TLS and both approvals. Keyboard suggestions, " +
+                "operating system snapshots, screenshots, screen recording " +
+                "or an observer can still retain what you type or display."
         ),
         Section(
             "What privacy cannot hide",
-            "The Wi-Fi network and nearby observers may detect connected devices " +
-                "and connection timing. Encryption does not protect a compromised " +
-                "phone or stop another person copying what they see. The phone's " +
-                "operating system can make its own network connections. " +
-                "Hide conversation is a visual curtain, not encryption or deletion."
+            "The Wi-Fi network, Bluetooth radio and nearby observers may " +
+                "detect device presence or connection timing. Encryption " +
+                "does not protect a compromised phone or stop the other " +
+                "person saving content. The operating system can make " +
+                "its own network connections and may keep snapshots. " +
+                "A Hide conversation privacy curtain is only a visual " +
+                "shield, not encryption, remote deletion or a guarantee " +
+                "of permanent erasure. Timed disappearing controls " +
+                "affect local display/retention only, not the other phone."
         ),
         Section(
             "What is not available",
-            "There are no Eden Comms accounts, server backups or automatic " +
-                "remembered peer connections. Separate DEBUG LAN-only peer-pin " +
-                "memory is user-approved, does not bypass QR/TLS or approvals, " +
-                "and does not save messages. An explicit DEBUG LAN-only history option "  +
-                "can retain locally encrypted test text for at most 30 days; " +
-                "the default remains session-only. Short in-memory disappearing " +
-                "timers and debug LAN PTT exist; Bluetooth and Wi-Fi Direct " +
-                "text are experimental debug paths, not reviewed services. " +
-                "Bluetooth and Wi-Fi Direct voice remain unavailable. " +
-                "Production secure messaging remains disabled pending independent " +
-                "protocol review and real two-phone tests. Clearing this phone " +
-                "cannot remotely delete another person's messages."
+            "There are no Eden Comms accounts, company cloud backups, " +
+                "automatic remembered peer connections or authorized " +
+                "remote Internet relay. Group messaging, file transfer " +
+                "and mesh networking are not part of this debug core. " +
+                "Short in-memory disappearing timers and experimental " +
+                "Bluetooth Classic, Same Wi-Fi and Wi-Fi Direct TEXT/ACK " +
+                "and foreground live voice exist only after active " +
+                "verified consent; they are not reviewed communication " +
+                "services. Optional encrypted test text history and " +
+                "public-peer memory never bypass fresh QR, TLS or " +
+                "approvals. Production secure messaging remains disabled " +
+                "pending independent protocol review, Android physical " +
+                "two-phone radio/voice tests and privacy/accessibility QA. " +
+                "Clearing this phone cannot remotely delete another " +
+                "person's messages or recordings."
         )
     )
 
