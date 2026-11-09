@@ -25,6 +25,18 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-S non-blocking live microphone reads (November 8):**
+The approved foreground LAN hold-to-talk AudioRecord worker previously used
+a blocking read even though F4-O prevented post-Stop PCM enqueue. F4-S uses
+non-blocking reads with a 5 ms retry, a monotonic 450 ms stalled-driver cutoff
+and an unchanged hard 3-second turn. A completed 20 ms frame still passes
+through the F4-O cancel gate. JVM clock/partial-read/stop/idle tests and Python
+source/privacy/approval guards added. The accessible tap fallback and all
+TLS/QR/approval, audio wire, package, signing and production flags remain
+unchanged. Preview 200008 predates F4-S; real OEM stop latency and audibility
+remain physical two-phone QA, not CI acceptance.
+[F4-S driver-read QA](F4_S_NONBLOCKING_LIVE_MIC_DRIVER_BUDGET_2026_11_08.md).
+
 **F4-R signed local-speaker-diagnostics Preview (November 8):**
 The next numbered, public-development-signed Preview packages the already
 merged F4-Q local AudioTrack speaker-start and refused/overflowed PCM
