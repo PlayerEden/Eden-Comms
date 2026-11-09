@@ -54,6 +54,8 @@ import com.edenpractical.comms.model.NearbyMethodCatalog
 import com.edenpractical.comms.model.NearbyDiscoveryPolicy
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
+import com.edenpractical.comms.privacy.DebugPeerMemoryStore
+import com.edenpractical.comms.privacy.DebugLocalHistoryStore
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.pairing.LocalPairingTestScreen
@@ -750,7 +752,7 @@ private fun SettingsScreen(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
     FieldDisclosureCard(
         title = "Conversation privacy",
-        summary = "Local disappearance works; encrypted opt-in history is in debug LAN chat only. Remembered peers remain unavailable.",
+        summary = "Live LAN chat offers separate optional encrypted history and remembered public peer identity in DEBUG only. No auto-pairing.",
         fullText = listOf(
             ConversationPrivacyContent.futureHistoryTitle + " — " +
                 ConversationPrivacyContent.futureHistoryState + "\n" +
@@ -1317,6 +1319,7 @@ private fun DeviceIdentitySetup() {
     // No identity is created at app startup. Reading existing public
     // identity state and key generation happen off the UI thread.
     val repository = remember { AndroidKeystoreIdentity() }
+    val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var fingerprint by remember { mutableStateOf<String?>(null) }
@@ -1403,9 +1406,21 @@ private fun DeviceIdentitySetup() {
                     scope.launch {
                         busy = true
                         try {
-                            withContext(Dispatchers.IO) { repository.forgetWithConsent() }
+                            val extrasErased = withContext(Dispatchers.IO) {
+                                repository.forgetWithConsent()
+                                // This phone's identity no longer matches saved
+                                // public peer records. Purge both independent
+                                // debug stores, without touching the other phone.
+                                val peers = DebugPeerMemoryStore(context).forgetAll()
+                                val history = DebugLocalHistoryStore(context).eraseAll()
+                                peers && history
+                            }
                             fingerprint = null
-                            status = "Local identity forgotten."
+                            status = if (extrasErased)
+                                "Local identity forgotten. Debug saved peers and " +
+                                    "encrypted history cleared on this phone."
+                            else "Local identity forgotten. Check local data controls: " +
+                                "some experimental saved data could not be confirmed erased."
                         } catch (_: Exception) {
                             status = "Android Keystore could not remove the identity."
                         } finally {
