@@ -74,11 +74,15 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
         self.assertIn("var showBuildEvidence by remember { mutableStateOf(false) }", self.pairing)
 
     def test_privacy_accuracy_and_release_flags(self):
-        self.assertIn("Debug Wi-Fi Direct tests may", self.privacy)
-        self.assertIn("permission on older Android versions", self.privacy)
-        self.assertIn("no coordinates are", self.privacy)
-        self.assertIn("Bluetooth and Wi-Fi Direct", self.privacy)
-        self.assertIn("debug encrypted TEXT/ACK", self.privacy)
+        for phrase in (
+            "Bluetooth SCAN/CONNECT/ADVERTISE access",
+            "on some older Android versions may be requested explicitly",
+            "read or upload location coordinates",
+            "Bluetooth Classic and Wi-Fi Direct",
+            "Wi-Fi Direct TEXT/ACK",
+            "No background microphone",
+        ):
+            self.assertIn(phrase, self.privacy)
         self.assertIn("per-conversation choice", self.privacy)
         self.assertIn("Production secure messaging remains disabled", self.privacy)
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
