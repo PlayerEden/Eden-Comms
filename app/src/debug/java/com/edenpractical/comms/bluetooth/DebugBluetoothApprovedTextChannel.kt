@@ -28,6 +28,7 @@ internal class DebugBluetoothApprovedTextChannel(
 ) : Closeable {
     sealed class Event {
         object Ready : Event()
+        object Failed : Event()
         data class Written(val id: Long, val text: String) : Event()
         data class Received(val id: Long, val text: String) : Event()
         data class Acknowledged(val id: Long) : Event()
@@ -122,6 +123,7 @@ internal class DebugBluetoothApprovedTextChannel(
         } catch (_: Exception) {
             // The real controller owns the socket; a failed writer must force
             // the receive worker to unblock and stop through its callback.
+            onEvent(Event.Failed)
             close()
         }
     }
