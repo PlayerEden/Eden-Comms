@@ -48,6 +48,37 @@ code a validated secure messenger, turn on production release capabilities,
 skip external cryptographic review, or claim reliable radios/voice before
 handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
 
+## November 9 code milestone: actual OS Wi-Fi Direct TEXT/ACK integration (F3-C)
+
+**Review PR #147; pending independent phone/security validation.** The previous
+P2P code had separate three-QR preparation, short-lived Android group creation,
+and zero-byte TCP diagnostics. F3-C now keeps the real QR coordinator in EACH
+host/join activity and performs a new user-initiated, strictly group-interface-
+bound TCP session only after the three fresh QR frames were checked locally.
+The existing full pinned SSLEngine TLS/QR-challenge/exporter/commitment/
+two-human-APPROVE/two-encrypted-CONFIRM protocol (also used for debug
+Bluetooth) runs over that exact P2P socket, then owns real bounded encrypted
+TEXT/ACK and chat UI. It is not unlocked by discovery or the old TCP test.
+
+Actual Android P2P group callbacks, group ownership, unambiguous OS-interface
+selection, foreground and permission state, socket closure, bounded expiry,
+and cancellation are checked. Android host/join cannot obtain remote
+application-message permissions from a radio name/address, a successful
+connection, a QR transcript alone or simulated engine output.
+
+The JVM suite already exercises the shared encrypted protocol end-to-end, and
+new F3-C source guards prove the Android group/socket/QR/consent/chat owner
+wiring. **Not yet proved:** physical Wi-Fi Direct interoperability, Android
+TLS exporter availability across both phones, system P2P invitation lifecycle,
+reconnection after OS disruptions, independent protocol review, reliable
+voice, or production security. Do not use for secrets or emergencies.
+Release flags remain OFF. No Preview packaging checkpoint.
+
+After merging green source checks: harden real-device lifecycle edge cases
+and unify connection method selection, then implement optional encrypted
+history, time-bounded peer memory, and P2P PTT where practical. Reserve a
+consolidated physical test for the complete debug core.
+
 ## November 9 code milestone: actual approved Bluetooth TEXT/ACK (F2-Q)
 
 **Source implementation in PR #146:** Unlike F2-F/F2-G's isolated codec/lab,
