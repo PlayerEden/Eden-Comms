@@ -11,7 +11,6 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.os.SystemClock
 import com.edenpractical.comms.protocol.DebugLanVoiceWireCodec
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -33,30 +32,16 @@ internal class DebugLanVoiceAudio(private val context: Context) {
     @Volatile private var recorder: AudioRecord? = null
     @Volatile private var track: AudioTrack? = null
     @Volatile private var livePlayback: LivePlayback? = null
+    // Access only under lock; capture worker retains its own exact gate.
+    private var liveMicFrameGate: DebugLiveMicFrameGate? = null
 
     private class LivePlayback(val token: Int) {
-        val frames = ArrayBlockingQueue<ByteArray>(12) // 240ms max
-        @Volatile var ended = false
-        @Volatile var cancelled = false
-
-        fun offer(pcm: ByteArray): Boolean {
-            if (ended || cancelled ||
-                pcm.size != DebugLanVoiceWireCodec.PCM_BYTES) return false
-            val copy = pcm.copyOf()
-            if (frames.offer(copy)) return true
-            copy.fill(0)
-            cancel()
-            return false
-        }
-        fun finish() { ended = true }
-        fun cancel() {
-            cancelled = true
-            ended = true
-            while (true) {
-                val next = frames.poll() ?: break
-                next.fill(0)
-            }
-        }
+        val frames = DebugLivePlaybackBuffer()
+        val cancelled: Boolean get() = frames.isCancelled()
+        val ended: Boolean get() = frames.isEnded()
+        fun offer(pcm: ByteArray): Boolean = frames.offer(pcm)
+        fun finish() = frames.finish()
+        fun cancel() = frames.cancel()
     }
 
     private fun permitted(): Boolean =
@@ -151,7 +136,12 @@ internal class DebugLanVoiceAudio(private val context: Context) {
     }
 
     fun finishCapture() {
-        capturing = false
+        synchronized(lock) {
+            // Stop the last 20 ms AudioRecord handoff before stopping hardware.
+            // Already accepted/sent PCM still belongs to the in-flight turn.
+            liveMicFrameGate?.stop()
+            capturing = false
+        }
         try { recorder?.stop() } catch (_: Exception) { }
     }
 
@@ -241,11 +231,13 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED) return false
         val token: Int
+        val gate = DebugLiveMicFrameGate()
         synchronized(lock) {
             if (capturing || playing) return false
             generation += 1
             token = generation
             capturing = true
+            liveMicFrameGate = gate
         }
         thread(name = "eden-debug-live-ptt-capture", isDaemon = true) {
             var own: AudioRecord? = null
@@ -282,7 +274,12 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                         taken += bytes
                     }
                     if (taken != frame.size) break
-                    val accepted = try { onFrame(frame) } catch (_: Exception) { false }
+                    // A blocking read may finish just after Release/Hide.
+                    // This atomic handoff prevents a frame being newly
+                    // queued after that stop has won the gate.
+                    val accepted = try {
+                        gate.offerIfActive(frame, onFrame)
+                    } catch (_: Exception) { false }
                     frame.fill(0)
                     if (!accepted) break
                     sent++
@@ -291,10 +288,12 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                 // Mic permissions, devices or lifecycle can fail at any time.
                 // Stop cleanly and never fallback to a different transport.
             } finally {
+                gate.stop()
                 try { own?.stop() } catch (_: Exception) { }
                 try { own?.release() } catch (_: Exception) { }
                 synchronized(lock) {
                     if (recorder === own) recorder = null
+                    if (liveMicFrameGate === gate) liveMicFrameGate = null
                     if (token == generation) capturing = false
                 }
                 frame.fill(0)
@@ -366,6 +365,10 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                     val chunk = state.frames.poll(45, TimeUnit.MILLISECONDS)
                     if (chunk != null) {
                         try {
+                            // A speaker frame can be polled just before Hide
+                            // or disconnect. Never newly write it after the
+                            // canceled stream is already known to this thread.
+                            if (state.cancelled || state.token != generation) break
                             if (!started) {
                                 speaker.play()
                                 started = true
@@ -402,6 +405,8 @@ internal class DebugLanVoiceAudio(private val context: Context) {
     /** Called on session teardown, background, navigation or new QR attempt. */
     fun cancelAll() {
         synchronized(lock) {
+            liveMicFrameGate?.stop()
+            liveMicFrameGate = null
             generation += 1
             capturing = false
             playing = false
