@@ -990,5 +990,56 @@ if grep -REn '(SharedPreferences|DataStore|openFileOutput\(|Log\.|println\(|Medi
   exit 1
 fi
 
-echo "PASS: debug-only opt-in history + release no-op; existing transport/audio boundaries"
+# F5-B: remembered PUBLIC peer metadata is a separate, optional DEBUG-only
+# ciphertext store, never a live TLS/session authorization input or release feature.
+PEER_MEMORY_POLICY="app/src/main/java/com/edenpractical/comms/privacy/PeerMemoryPolicy.kt"
+PEER_MEMORY_DEBUG="app/src/debug/java/com/edenpractical/comms/privacy/DebugPeerMemoryStore.kt"
+PEER_MEMORY_RELEASE="app/src/release/java/com/edenpractical/comms/privacy/DebugPeerMemoryStore.kt"
+PEER_MEMORY_UI="app/src/main/java/com/edenpractical/comms/pairing/DebugRememberPeerPanel.kt"
+for FILE in "$PEER_MEMORY_POLICY" "$PEER_MEMORY_DEBUG" "$PEER_MEMORY_RELEASE" "$PEER_MEMORY_UI"; do
+  test -f "$FILE"
+done
+grep -Fq 'MAX_PEERS = 8' "$PEER_MEMORY_POLICY"
+grep -Fq 'MAX_AGE_MS = PeerTrustExpiry.MAX_DAYS * ONE_DAY_MS' "$PEER_MEMORY_POLICY"
+grep -Fq 'fun retainedExpiry(' "$PEER_MEMORY_POLICY"
+grep -Fq 'minOf(existingExpiryMs, requestedExpiryMs)' "$PEER_MEMORY_POLICY"
+grep -Fq 'app.noBackupFilesDir' "$PEER_MEMORY_DEBUG"
+grep -Fq '"eden_comms_debug_peer_memory_aes_1"' "$PEER_MEMORY_DEBUG"
+grep -Fq '"eden-comms/debug-peer-memory-v1/"' "$PEER_MEMORY_DEBUG"
+grep -Fq 'LocalHistoryEnvelope.seal(' "$PEER_MEMORY_DEBUG"
+grep -Fq 'LocalHistoryEnvelope.open(' "$PEER_MEMORY_DEBUG"
+grep -Fq 'PeerMemoryPolicy.clockSafe(' "$PEER_MEMORY_DEBUG"
+grep -Fq 'state.ownPin.contentEquals(ownPin)' "$PEER_MEMORY_DEBUG"
+grep -Fq 'fun remember(' "$PEER_MEMORY_DEBUG"
+grep -Fq 'fun forgetAll()' "$PEER_MEMORY_DEBUG"
+grep -Fq 'Long? = null' "$PEER_MEMORY_RELEASE"
+grep -Fq 'Boolean = false' "$PEER_MEMORY_RELEASE"
+grep -Fq 'LanDemoSession.Phase.APPROVAL_COMPLETE ->' "$HISTORY_PAIRING"
+grep -Fq 'peerMemoryStore.rememberedUntil(' "$HISTORY_PAIRING"
+grep -Fq 'peerMemoryStore.remember(' "$HISTORY_PAIRING"
+grep -Fq 'peerMemoryStore.forget(' "$HISTORY_PAIRING"
+grep -Fq 'DebugRememberPeerPanel(' "$HISTORY_PAIRING"
+grep -Fq 'if (!privacyHidden) {' "$HISTORY_PAIRING"
+grep -Fq 'Forget all remembered phones on this device' "$PEER_MEMORY_UI"
+grep -Fq 'Forget verified phone' "$PEER_MEMORY_UI"
+grep -Fq 'DebugPeerMemoryStore(context).forgetAll()'   'app/src/main/java/com/edenpractical/comms/MainActivity.kt'
+if grep -REn '(Log\.|println\(|SharedPreferences|BluetoothSocket|WifiP2pManager|Socket\(|sendPacket\(|AudioRecord|MediaRecorder|openFileOutput\()' \
+  "$PEER_MEMORY_POLICY" "$PEER_MEMORY_DEBUG" "$PEER_MEMORY_UI" "$PEER_MEMORY_RELEASE"; then
+  echo "FAIL: F5-B peer metadata gained radio, logging, audio or outside storage" >&2
+  exit 1
+fi
+if grep -REn '(DebugPeerMemoryStore|PeerMemoryPolicy)' \
+  app/src/main/java/com/edenpractical/comms/security \
+  app/src/main/java/com/edenpractical/comms/transport \
+  app/src/debug/java/com/edenpractical/comms/bluetooth \
+  app/src/debug/java/com/edenpractical/comms/wifidirect; then
+  echo "FAIL: F5-B saved peer metadata wired into authentication/transport" >&2
+  exit 1
+fi
+if grep -REn '(KeyStore|Cipher|getSharedPreferences|FileOutputStream|noBackupFilesDir)' "$PEER_MEMORY_RELEASE"; then
+  echo "FAIL: F5-B release variant acquired remembered-peer persistence" >&2
+  exit 1
+fi
+
+echo "PASS: debug-only opt-in history and separate public peer memory; no release trust bypass"
 
