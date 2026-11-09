@@ -152,7 +152,7 @@ internal class DebugBluetoothApprovedTextChannel(
     }
 
     /**
-     * Actual 20ms PCM from AudioRecord, queued while the button is HELD.
+     * Actual 20ms PCM from the separately owned mic driver, while HELD.
      * Keep room for END and RELEASE; overload FAILS the current session
      * rather than silently truncating valid spoken audio.
      */
