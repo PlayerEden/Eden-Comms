@@ -929,4 +929,66 @@ for forbidden in 'DebugFutureLanVoiceFrameCodec' 'DebugFutureLanVoiceSequenceReh
   fi
 done
 
-echo "PASS: reviewed Bluetooth diagnostic unchanged; D1 is local-only and debug-only"
+# F5-A: actual encrypted debug-only local persistence is OPTIONAL ONLY after
+# bilateral verified LAN text events. The released variant cannot write data.
+HISTORY_POLICY="app/src/main/java/com/edenpractical/comms/privacy/LocalHistoryPolicy.kt"
+HISTORY_ENVELOPE="app/src/main/java/com/edenpractical/comms/privacy/LocalHistoryEnvelope.kt"
+HISTORY_DEBUG="app/src/debug/java/com/edenpractical/comms/privacy/DebugLocalHistoryStore.kt"
+HISTORY_RELEASE="app/src/release/java/com/edenpractical/comms/privacy/DebugLocalHistoryStore.kt"
+HISTORY_PAIRING="app/src/main/java/com/edenpractical/comms/pairing/LocalPairingTestScreen.kt"
+HISTORY_UI="app/src/main/java/com/edenpractical/comms/pairing/DebugConversationPanel.kt"
+for FILE in "$HISTORY_POLICY" "$HISTORY_ENVELOPE" "$HISTORY_DEBUG" \
+  "$HISTORY_RELEASE" "$HISTORY_PAIRING" "$HISTORY_UI"; do test -f "$FILE"; done
+grep -Fq 'SESSION_ONLY = 0L' "$HISTORY_POLICY"
+grep -Fq 'THIRTY_DAYS = 30L * ONE_DAY' "$HISTORY_POLICY"
+grep -Fq 'val choices = listOf(' "$HISTORY_POLICY"
+grep -Fq 'fun clockSafe(' "$HISTORY_POLICY"
+grep -Fq 'fun shorten(' "$HISTORY_POLICY"
+grep -Fq 'Cipher.getInstance("AES/GCM/NoPadding")' "$HISTORY_ENVELOPE"
+grep -Fq 'GCMParameterSpec(TAG_BITS, iv)' "$HISTORY_ENVELOPE"
+grep -Fq 'cipher.updateAAD(aad)' "$HISTORY_ENVELOPE"
+grep -Fq 'LocalHistoryEnvelope.open(aes, bytes, aad())' "$HISTORY_DEBUG"
+grep -Fq 'LocalHistoryEnvelope.seal(aes, plaintext, aad())' "$HISTORY_DEBUG"
+grep -Fq 'KeyStore.getInstance("AndroidKeyStore")' "$HISTORY_DEBUG"
+grep -Fq 'app.noBackupFilesDir' "$HISTORY_DEBUG"
+grep -Fq 'ApplicationInfo.FLAG_DEBUGGABLE' "$HISTORY_DEBUG"
+grep -Fq 'private const val KEY_ALIAS' "$HISTORY_DEBUG"
+grep -Fq 'fun save(' "$HISTORY_DEBUG"
+grep -Fq 'fun read(' "$HISTORY_DEBUG"
+grep -Fq 'fun erasePeer(' "$HISTORY_DEBUG"
+grep -Fq 'fun eraseAll(' "$HISTORY_DEBUG"
+grep -Fq '): Boolean = false' "$HISTORY_RELEASE"
+grep -Fq 'List<LocalHistoryPolicy.SavedMessage> = emptyList()' "$HISTORY_RELEASE"
+if grep -Fq 'AndroidKeyStore' "$HISTORY_RELEASE" ||
+   grep -Fq 'Cipher.getInstance' "$HISTORY_RELEASE" ||
+   grep -Fq 'FileOutputStream' "$HISTORY_RELEASE"; then
+  echo "FAIL: F5-A production no-op gained persistent storage" >&2
+  exit 1
+fi
+grep -Fq 'historyDurationMs by remember' "$HISTORY_PAIRING"
+grep -Fq 'LocalHistoryPolicy.SESSION_ONLY' "$HISTORY_PAIRING"
+grep -Fq 'LanDemoSession.Phase.APPROVAL_COMPLETE ->' "$HISTORY_PAIRING"
+grep -Fq 'activeHistoryPin = expected.copyOf()' "$HISTORY_PAIRING"
+grep -Fq 'LanDemoSession.Phase.TEXT_WRITTEN, LanDemoSession.Phase.TEXT_RECEIVED ->' "$HISTORY_PAIRING"
+grep -Fq 'historyDurationMs != LocalHistoryPolicy.SESSION_ONLY' "$HISTORY_PAIRING"
+grep -Fq 'disappearAfterMs == DebugLocalDisappearingPolicy.OFF' "$HISTORY_PAIRING"
+grep -Fq 'localHistoryStore.save(' "$HISTORY_PAIRING"
+grep -Fq 'localHistoryStore.erasePeer(' "$HISTORY_PAIRING"
+grep -Fq 'historyDurationMs = LocalHistoryPolicy.SESSION_ONLY' "$HISTORY_PAIRING"
+grep -Fq 'onHistoryDurationChange = { changeLocalHistoryDuration(it) }' "$HISTORY_PAIRING"
+grep -Fq 'onHistoryErase = { eraseLocalHistory() }' "$HISTORY_PAIRING"
+grep -Fq 'DELETE SAVED HISTORY FOR THIS PERSON' "$HISTORY_UI"
+grep -Fq 'Session only' "$HISTORY_UI" || grep -Fq 'LocalHistoryPolicy.label(historyDurationMs)' "$HISTORY_UI"
+grep -Fq 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+grep -Fq 'android:dataExtractionRules="@xml/data_extraction_rules"' app/src/main/AndroidManifest.xml
+grep -Fq 'android:fullBackupContent="@xml/backup_rules"' app/src/main/AndroidManifest.xml
+grep -Fq '<device-transfer>' app/src/main/res/xml/data_extraction_rules.xml
+grep -Fq '<exclude domain="root" path="." />' app/src/main/res/xml/data_extraction_rules.xml
+if grep -REn '(SharedPreferences|DataStore|openFileOutput\(|Log\.|println\(|MediaRecorder|AudioRecord|BluetoothSocket|WifiP2pManager|startService\()' \
+  "$HISTORY_DEBUG" "$HISTORY_POLICY" "$HISTORY_ENVELOPE" "$HISTORY_RELEASE"; then
+  echo "FAIL: F5-A local history added logging, audio, radios or external storage" >&2
+  exit 1
+fi
+
+echo "PASS: debug-only opt-in history + release no-op; existing transport/audio boundaries"
+
