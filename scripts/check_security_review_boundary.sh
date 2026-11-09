@@ -1272,3 +1272,42 @@ done
 
 echo "PASS: M6-B Talk-to-Text stops foreground mic and QA reports are redacted/opt-in"
 
+# M6-C: source-level usability/accessibility and privacy disclosure integrity.
+# UI changes must not touch the verified admission or production capability.
+M6_VOICE_UI="app/src/debug/java/com/edenpractical/comms/audio/DebugNearbyVoicePanel.kt"
+M6_PRIVACY="app/src/main/java/com/edenpractical/comms/privacy/PrivacyPreviewContent.kt"
+test -f docs/M6_C_USABILITY_ACCESSIBILITY_AUDIT.md
+grep -Fq 'onClick = chooseText' "$M6_CHAT"
+grep -Fq '"Text mode not selected"' "$M6_CHAT"
+grep -Fq '"Talk mode selected"' "$M6_CHAT"
+grep -Fq 'shape = CutCornerShape(7.dp)' "$M6_CHAT"
+grep -Fq 'stateDescription = if (showPrivacy)' "$M6_CHAT"
+grep -Fq 'Lifecycle.Event.ON_RESUME' "$M6_VOICE_UI"
+grep -Fq 'lifecycle?.removeObserver(observer)' "$M6_VOICE_UI"
+grep -Fq 'ContextCompat.checkSelfPermission(' "$M6_VOICE_UI"
+grep -Fq 'activate again to stop or cancel' "$M6_VOICE_UI"
+grep -Fq 'liveRegion = LiveRegionMode.Polite' "$M6_VOICE_UI"
+grep -Fq 'Session-only by default. Local encrypted history is optional' "$M6_MAIN"
+grep -Fq 'contentDescription = "Dark appearance"' "$M6_MAIN"
+grep -Fq '"ptt" -> NearbyScreen(' "$M6_MAIN"
+grep -Fq 'same' "$M6_PRIVACY"
+grep -Fq 'Bluetooth Classic' "$M6_PRIVACY"
+grep -Fq 'Wi-Fi Direct' "$M6_PRIVACY"
+grep -Fq 'live push-to-talk' "$M6_PRIVACY"
+grep -Fq 'separate encrypted local storage' "$M6_PRIVACY"
+grep -Fq 'Production secure messaging remains disabled' "$M6_PRIVACY"
+if grep -REn '(BluetoothSocket|WifiP2pManager|SSLEngine|approveForTest\(|openFileOutput\(|SharedPreferences|ProductionSessionAuthorization|startDiscovery\(|discoverPeers\()' \
+  "$M6_CHAT" "$M6_VOICE_UI" "$M6_PRIVACY"; then
+  echo "FAIL: M6-C presentation or disclosure gained transport, storage or trust authority" >&2
+  exit 1
+fi
+if grep -En '(Bluetooth and Wi-Fi Direct voice remain unavailable|DEBUG LAN-only|In debug LAN chat ONLY)' "$M6_PRIVACY"; then
+  echo "FAIL: M6-C privacy disclosure regressed to obsolete claims" >&2
+  exit 1
+fi
+for FLAG in CAN_CONNECT CAN_SEND_MESSAGES CAN_TRANSMIT_VOICE; do
+  grep -Fq "const val $FLAG = false" \
+    app/src/main/java/com/edenpractical/comms/model/ReleaseCapabilities.kt
+done
+echo "PASS: M6-C consistent debug UX, microphone permission refresh and truthful privacy"
+
