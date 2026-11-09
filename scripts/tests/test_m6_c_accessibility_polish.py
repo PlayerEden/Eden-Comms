@@ -21,7 +21,7 @@ class M6CAccessibilityPolish(unittest.TestCase):
         cls.audio = (DEBUG / "audio/DebugNearbyVoiceOwner.kt").read_text()
         cls.bt = (DEBUG / "bluetooth/DebugBluetoothDiscoveryActivity.kt").read_text()
         cls.host = (DEBUG / "wifidirect/DebugWifiDirectGroupHostActivity.kt").read_text()
-        cls.join = (DEBUG / "wifidirect/DebugWifiDirectDiscoveryActivity.kt")
+        cls.join = (DEBUG / "wifidirect/DebugWifiDirectDiscoveryActivity.kt").read_text()
 
     def test_text_button_always_releases_or_cancels_talk_before_hiding(self):
         for expected in (
