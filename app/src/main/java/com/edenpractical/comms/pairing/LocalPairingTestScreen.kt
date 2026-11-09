@@ -34,6 +34,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
 import com.edenpractical.comms.privacy.LocalHistoryPolicy
+import com.edenpractical.comms.privacy.DebugPeerMemoryStore
 import com.edenpractical.comms.privacy.DebugLocalHistoryStore
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
@@ -84,6 +85,10 @@ internal fun LocalPairingTestScreen(
     // release variant is a no-op. Never save without a confirmed session.
     val localHistoryStore = remember(context) {
         DebugLocalHistoryStore(context.applicationContext)
+    }
+    // Independent encrypted PUBLIC pin cache, never an auth/TLS/QR input.
+    val peerMemoryStore = remember(context) {
+        DebugPeerMemoryStore(context.applicationContext)
     }
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
@@ -163,6 +168,13 @@ internal fun LocalPairingTestScreen(
     }
     var historyNotice by remember {
         mutableStateOf("Session-only default. Nothing is saved until you opt in.")
+    }
+    var rememberedUntilMs by remember { mutableStateOf<Long?>(null) }
+    var peerMemoryBusy by remember { mutableStateOf(false) }
+    // A late read cannot overwrite a newer explicit Remember/Forget decision.
+    var peerMemoryRevision by remember { mutableIntStateOf(0) }
+    var peerMemoryNote by remember {
+        mutableStateOf("No public peer identity has been saved by this session.")
     }
     // E3 local-only timer: no data persistence or peer wire setting.
     var disappearAfterMs by remember { mutableLongStateOf(DebugLocalDisappearingPolicy.OFF) }
@@ -537,6 +549,93 @@ internal fun LocalPairingTestScreen(
         }
     }
 
+    // F5-B: choices occur only after the real QR/TLS/exporter + BOTH human
+    // confirmations. Saved public pins never flow into connection admission.
+    fun rememberCurrentPeer(days: Int) {
+        val ownPin = identity?.publicFingerprint() ?: return
+        val peer = activeHistoryPin?.copyOf() ?: return
+        if (stage != "demo" || peerMemoryBusy ||
+            debugText.state != DebugTextTranscript.State.ACTIVE ||
+            days !in 1..30
+        ) return
+        val attempt = attemptVersion
+        peerMemoryRevision += 1
+        val revision = peerMemoryRevision
+        peerMemoryBusy = true
+        scope.launch {
+            val expiry = withContext(Dispatchers.IO) {
+                peerMemoryStore.remember(
+                    ownPin, peer, days, System.currentTimeMillis()
+                )
+            }
+            if (DebugSessionEventAdmission.current(attempt, attemptVersion) &&
+                revision == peerMemoryRevision &&
+                stage == "demo" && debugText.state == DebugTextTranscript.State.ACTIVE
+            ) {
+                rememberedUntilMs = expiry
+                peerMemoryNote = if (expiry == null)
+                    "Could not save peer identity on this phone. No trust is inferred."
+                else "Public fingerprint saved locally. Fresh QR, TLS and two " +
+                    "human approvals are required next time."
+                peerMemoryBusy = false
+            }
+            peer.fill(0)
+            ownPin.fill(0)
+        }
+    }
+
+    fun forgetCurrentPeer() {
+        val ownPin = identity?.publicFingerprint() ?: return
+        val peer = activeHistoryPin?.copyOf() ?: return
+        if (stage != "demo" || peerMemoryBusy ||
+            debugText.state != DebugTextTranscript.State.ACTIVE
+        ) return
+        val attempt = attemptVersion
+        peerMemoryRevision += 1
+        val revision = peerMemoryRevision
+        peerMemoryBusy = true
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                peerMemoryStore.forget(ownPin, peer, System.currentTimeMillis())
+            }
+            if (DebugSessionEventAdmission.current(attempt, attemptVersion) &&
+                revision == peerMemoryRevision &&
+                stage == "demo" && debugText.state == DebugTextTranscript.State.ACTIVE
+            ) {
+                if (ok) rememberedUntilMs = null
+                peerMemoryNote = if (ok)
+                    "Public peer identity forgotten here. Live chat stays active."
+                else "Could not verify local peer identity deletion."
+                peerMemoryBusy = false
+            }
+            peer.fill(0)
+            ownPin.fill(0)
+        }
+    }
+
+    fun forgetAllPeers() {
+        if (stage != "demo" || peerMemoryBusy ||
+            debugText.state != DebugTextTranscript.State.ACTIVE
+        ) return
+        val attempt = attemptVersion
+        peerMemoryRevision += 1
+        val revision = peerMemoryRevision
+        peerMemoryBusy = true
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { peerMemoryStore.forgetAll() }
+            if (DebugSessionEventAdmission.current(attempt, attemptVersion) &&
+                revision == peerMemoryRevision &&
+                stage == "demo" && debugText.state == DebugTextTranscript.State.ACTIVE
+            ) {
+                if (ok) rememberedUntilMs = null
+                peerMemoryNote = if (ok)
+                    "All remembered public peer identities were cleared on this phone."
+                else "Could not verify deletion of all saved peer identities."
+                peerMemoryBusy = false
+            }
+        }
+    }
+
     fun stopTest() {
         // Ignore messages posted by previous or cancelled attempts.
         attemptVersion += 1
@@ -561,6 +660,10 @@ internal fun LocalPairingTestScreen(
         historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
         savedHistory = emptyList()
         historyNotice = "Session-only default. Nothing is saved until you opt in."
+        rememberedUntilMs = null
+        peerMemoryRevision += 1
+        peerMemoryBusy = false
+        peerMemoryNote = "No public peer identity has been saved by this session."
         disappearAfterMs = DebugLocalDisappearingPolicy.OFF
         ackedTextIds = emptySet()
         textDraft = ""
@@ -848,6 +951,37 @@ internal fun LocalPairingTestScreen(
                             savedHistory = emptyList()
                             historyNotice = "Session-only. You can view past saved " +
                                 "messages for this verified peer or opt in for new ones."
+                            // Read previously saved PUBLIC metadata only AFTER
+                            // this same real attempt reaches bilateral confirmation.
+                            // This observation NEVER feeds approval/connection.
+                            rememberedUntilMs = null
+                            peerMemoryRevision += 1
+                            val memoryReadRevision = peerMemoryRevision
+                            peerMemoryNote = "Checking this phone's optional saved public pin."
+                            val ownPinForMemory = own.publicFingerprint()
+                            val peerPinForMemory = expected.copyOf()
+                            scope.launch {
+                                val prior = withContext(Dispatchers.IO) {
+                                    peerMemoryStore.rememberedUntil(
+                                        ownPinForMemory, peerPinForMemory,
+                                        System.currentTimeMillis()
+                                    )
+                                }
+                                if (DebugSessionEventAdmission.current(
+                                        thisAttempt, attemptVersion
+                                    ) && memoryReadRevision == peerMemoryRevision &&
+                                    stage == "demo" &&
+                                    debugText.state == DebugTextTranscript.State.ACTIVE
+                                ) {
+                                    rememberedUntilMs = prior
+                                    peerMemoryNote = if (prior == null)
+                                        "Not remembered on this phone. No automatic pairing."
+                                    else "Previously saved public identity matched only " +
+                                        "AFTER fresh QR/TLS approval. No trust was assumed."
+                                }
+                                peerPinForMemory.fill(0)
+                                ownPinForMemory.fill(0)
+                            }
                             qaLocalApprovalWritten = true
                             qaPeerApprovalObserved = true
                             qaLocalConfirmationWritten = true
@@ -1207,6 +1341,9 @@ internal fun LocalPairingTestScreen(
             activeHistoryPin = null
             historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
             savedHistory = emptyList()
+            rememberedUntilMs = null
+            peerMemoryRevision += 1
+            peerMemoryBusy = false
             textDraft = ""
         }
     }
@@ -1607,6 +1744,16 @@ internal fun LocalPairingTestScreen(
                             }
                         }
                     )
+                    if (!privacyHidden) {
+                        DebugRememberPeerPanel(
+                            rememberedUntilMs = rememberedUntilMs,
+                            note = peerMemoryNote,
+                            busy = peerMemoryBusy,
+                            onRemember = { rememberCurrentPeer(it) },
+                            onForget = { forgetCurrentPeer() },
+                            onForgetAll = { forgetAllPeers() }
+                        )
+                    }
                     // F4-C: touch-and-hold voice capture, release to send via
                     // the same approved LAN TLS session. Accessible two-tap
                     // control remains available, with no new radio or account.

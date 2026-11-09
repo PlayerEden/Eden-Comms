@@ -54,6 +54,8 @@ import com.edenpractical.comms.model.NearbyMethodCatalog
 import com.edenpractical.comms.model.NearbyDiscoveryPolicy
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
+import com.edenpractical.comms.privacy.DebugPeerMemoryStore
+import com.edenpractical.comms.privacy.DebugLocalHistoryStore
 import com.edenpractical.comms.privacy.PrivacyPreviewContent
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.pairing.LocalPairingTestScreen
@@ -698,6 +700,11 @@ private fun SettingsScreen(
     onPrivacy: () -> Unit
 ) {
     var showHistoryHelp by remember { mutableStateOf(false) }
+    var showForgetAllPeers by remember { mutableStateOf(false) }
+    var erasingPeerCache by remember { mutableStateOf(false) }
+    var peerCacheNotice by remember { mutableStateOf("") }
+    val settingsContext = LocalContext.current.applicationContext
+    val settingsScope = rememberCoroutineScope()
     SectionLabel("APPEARANCE")
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
@@ -750,7 +757,7 @@ private fun SettingsScreen(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
     FieldDisclosureCard(
         title = "Conversation privacy",
-        summary = "Local disappearance works; encrypted opt-in history is in debug LAN chat only. Remembered peers remain unavailable.",
+        summary = "Live LAN chat offers separate optional encrypted history and remembered public peer identity in DEBUG only. No auto-pairing.",
         fullText = listOf(
             ConversationPrivacyContent.futureHistoryTitle + " — " +
                 ConversationPrivacyContent.futureHistoryState + "\n" +
@@ -763,6 +770,20 @@ private fun SettingsScreen(
                 ConversationPrivacyContent.futureTrustExplanation
         ).joinToString("\n\n")
     )
+    // F5-B is DEBUG-only, but a saved peer should be removable even when
+    // that other phone is unavailable. This does not erase chat history.
+    if (settingsContext.applicationInfo.flags and
+        ApplicationInfo.FLAG_DEBUGGABLE != 0
+    ) {
+        OutlinedButton(
+            onClick = { showForgetAllPeers = true },
+            enabled = !erasingPeerCache,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) { Text("Forget all remembered phones on this device") }
+        if (peerCacheNotice.isNotBlank()) {
+            Text(peerCacheNotice, style = MaterialTheme.typography.bodySmall)
+        }
+    }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("ADVANCED")
     NavigationRow("Device and developer tools", "Identity and connection testing", onDeveloper)
@@ -771,6 +792,39 @@ private fun SettingsScreen(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    if (showForgetAllPeers) {
+        AlertDialog(
+            onDismissRequest = { showForgetAllPeers = false },
+            title = { Text("Forget all remembered phones?") },
+            text = { Text(
+                "Delete every saved public peer fingerprint on this phone. " +
+                    "This does not delete separately saved encrypted messages " +
+                    "or remotely erase another phone."
+            ) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showForgetAllPeers = false
+                    if (!erasingPeerCache) {
+                        erasingPeerCache = true
+                        settingsScope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                DebugPeerMemoryStore(settingsContext).forgetAll()
+                            }
+                            peerCacheNotice = if (ok)
+                                "Remembered peer identities were cleared on this device."
+                            else "Could not verify removal of remembered peer identities."
+                            erasingPeerCache = false
+                        }
+                    }
+                }) { Text("Forget all saved peers") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForgetAllPeers = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
     if (showHistoryHelp) {
         AlertDialog(
             onDismissRequest = { showHistoryHelp = false },
@@ -1317,6 +1371,7 @@ private fun DeviceIdentitySetup() {
     // No identity is created at app startup. Reading existing public
     // identity state and key generation happen off the UI thread.
     val repository = remember { AndroidKeystoreIdentity() }
+    val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var fingerprint by remember { mutableStateOf<String?>(null) }
@@ -1403,9 +1458,25 @@ private fun DeviceIdentitySetup() {
                     scope.launch {
                         busy = true
                         try {
-                            withContext(Dispatchers.IO) { repository.forgetWithConsent() }
+                            val extrasErased = withContext(Dispatchers.IO) {
+                                repository.forgetWithConsent()
+                                // This phone's identity no longer matches saved
+                                // public peer records. Purge both independent
+                                // debug stores, without touching the other phone.
+                                if (context.applicationInfo.flags and
+                                    ApplicationInfo.FLAG_DEBUGGABLE == 0
+                                ) true else {
+                                    val peers = DebugPeerMemoryStore(context).forgetAll()
+                                    val history = DebugLocalHistoryStore(context).eraseAll()
+                                    peers && history
+                                }
+                            }
                             fingerprint = null
-                            status = "Local identity forgotten."
+                            status = if (extrasErased)
+                                "Local identity forgotten. Debug saved peers and " +
+                                    "encrypted history cleared on this phone."
+                            else "Local identity forgotten. Check local data controls: " +
+                                "some experimental saved data could not be confirmed erased."
                         } catch (_: Exception) {
                             status = "Android Keystore could not remove the identity."
                         } finally {

@@ -42,29 +42,46 @@ PTT and accessibility tests still need the planned consolidated on-device
 pass. **Independent security audit** is a separate requirement. Do not
 interpret a green JVM/CI run as passing either.
 
-## Active work at this handoff — F5-A
+## Completed source checkpoint — F5-A
 
-Opt-in Keystore AES-GCM history of *actual confirmed LAN chat events*,
-one peer at a time, stored only in app `noBackupFilesDir`. Session-only
-remains the default; 1h, 24h, 7d, 14d or 30d are explicit choices. Expiry
-is absolute and checked on read; shortening never extends old records;
-corruption/clock rollback fails closed. View/read requires a new actually
-approved peer; no saved pin grants reconnect. Debug and release build
-variants have real/no-op store implementations, respectively. A standalone
-work log records the exact PR and CI verification status. This is still
-experimental, unaudited storage and needs Android Keystore/backup/device QA.
+[PR #148](https://github.com/PlayerEden/Eden-Comms/pull/148) merged at
+`53e581aad2c0cc30426b9674ed603d910d5c4d70`. [Post-merge Android
+CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42582592960).
+Opt-in Keystore AES-GCM history of *actual approved LAN text events*,
+stored in app `noBackupFilesDir`. Every new session defaults to RAM-only;
+1h, 24h, 7d, 14d or 30d are explicit choices. Expiry filtering and
+per-peer delete are separate from peer memory. Independent Android storage/
+backup/security acceptance remains open; release variant is no-op.
+
+## Active source stage — F5-B (PR #149)
+
+[PR #149](https://github.com/PlayerEden/Eden-Comms/pull/149) implements a
+**separately consented** local public peer certificate fingerprint record:
+1–30 days maximum, default to no saved peer, no auto-extension on repeated
+read/reconnect, explicit Forget and Forget all, encrypted with a *different*
+Android Keystore AES-GCM key/file from F5-A. A record is associated with this
+phone's own public identity; changing or deleting the self identity invalidates
+old records. A saved public pin is read/displayed ONLY after a **fresh actual
+LAN QR/TLS + bilateral confirmed** session. The transport and approval gate
+never read peer memory, so there is **no auto-pairing, auto-trust, or shortcut
+past the next human verification**. Build variant is DEBUG-only; release is no-op.
+
+**PR acceptance:** final-head Android compile, JVM + Python policy/security
+guards, independent manual review of storage consent and identity reset.
+Real two-phone QA, Keystore/OEM backup/clock/restore negative tests, and
+independent crypto review remain open; do not call this trusted contacts or
+a production secure communication feature.
 
 ## Prioritized next source work
 
-1. Complete F5-A Android CI/security review; fix blockers; merge only green
-   exact source SHA, then check main CI.
-2. Add separately user-approved **remember peer** public-pin cache, 1–30
-   days, no silent extension, never a trust/authentication bypass.
-3. Connect the optional history/peer choices consistently to Bluetooth and
-   Wi-Fi Direct **after** accurate authenticated-session event wiring.
-4. Complete additional voice integrations and simplify Connect → Talk/Text →
-   Disconnect. Then one consolidated phone acceptance matrix and external
-   crypto audit; no production release before those pass.
+1. Finish F5-B PR #149 checks; merge only once exact-head Android CI
+   passes, then confirm the independent main-branch CI run.
+2. Port **opt-in, authenticated-session-only history/peer-memory controls**
+   to Bluetooth and Wi-Fi Direct once each method's live callback and
+   identity proof semantics are verified; avoid UI duplication.
+3. Connect voice where appropriate, unify Connect → Text/Talk → Disconnect
+   into simple nontechnical navigation, then consolidate a single hardware
+   acceptance matrix. Independent security review remains a release gate.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
