@@ -25,6 +25,7 @@
         <activity
             android:name=".bluetooth.DebugBluetoothDiscoveryActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize"
             android:label="Bluetooth development test"/>
         <activity
             android:name=".wifidirect.DebugWifiDirectPreflightActivity"
@@ -33,10 +34,12 @@
         <activity
             android:name=".wifidirect.DebugWifiDirectDiscoveryActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize"
             android:label="Wi-Fi Direct discovery development test"/>
         <activity
             android:name=".wifidirect.DebugWifiDirectGroupHostActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize"
             android:label="Wi-Fi Direct local group development test"/>
         <activity
             android:name=".wifidirect.DebugWifiDirectQrActivity"
