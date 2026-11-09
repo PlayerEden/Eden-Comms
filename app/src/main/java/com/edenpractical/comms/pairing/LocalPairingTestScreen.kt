@@ -33,6 +33,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.edenpractical.comms.privacy.ContextualPrivacyHelp
 import com.edenpractical.comms.privacy.ConversationPrivacyContent
+import com.edenpractical.comms.privacy.LocalHistoryPolicy
+import com.edenpractical.comms.privacy.DebugLocalHistoryStore
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
 import com.edenpractical.comms.security.SessionProofBinding
@@ -78,6 +80,11 @@ internal fun LocalPairingTestScreen(
     }
     val installedBuildEvidence = remember(context) { InstalledBuildEvidence.read(context) }
     val repository = remember { AndroidKeystoreIdentity() }
+    // F5-A: keystore encrypted history exists in debug build only; the
+    // release variant is a no-op. Never save without a confirmed session.
+    val localHistoryStore = remember(context) {
+        DebugLocalHistoryStore(context.applicationContext)
+    }
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
     val voiceAudio = remember(context) { DebugLanVoiceAudio(context.applicationContext) }
@@ -146,6 +153,17 @@ internal fun LocalPairingTestScreen(
     var transcript by remember { mutableStateOf(DebugSessionTranscript.fresh()) }
     // Session-only chat content; never rememberSaveable or persistent.
     var debugText by remember { mutableStateOf(DebugTextTranscript.fresh()) }
+    var activeHistoryPin by remember { mutableStateOf<ByteArray?>(null) }
+    // Never persist the user's CHOICE: the next connection defaults to RAM.
+    var historyDurationMs by remember {
+        mutableLongStateOf(LocalHistoryPolicy.SESSION_ONLY)
+    }
+    var savedHistory by remember {
+        mutableStateOf(emptyList<LocalHistoryPolicy.SavedMessage>())
+    }
+    var historyNotice by remember {
+        mutableStateOf("Session-only default. Nothing is saved until you opt in.")
+    }
     // E3 local-only timer: no data persistence or peer wire setting.
     var disappearAfterMs by remember { mutableLongStateOf(DebugLocalDisappearingPolicy.OFF) }
     LaunchedEffect(stage, debugText) {
@@ -466,6 +484,59 @@ internal fun LocalPairingTestScreen(
         else startVoiceCapture()
     }
 
+    /**
+     * F5-A: only the actual confirmed live peer pin may scope saved messages.
+     * Peer identity is not remembered or granted auto-reconnect by this store.
+     */
+    fun changeLocalHistoryDuration(newDuration: Long) {
+        val verifiedPin = activeHistoryPin ?: return
+        if (stage != "demo" ||
+            debugText.state != DebugTextTranscript.State.ACTIVE ||
+            !LocalHistoryPolicy.supported(newDuration)
+        ) return
+        val now = System.currentTimeMillis()
+        val applied = localHistoryStore.changeRetention(
+            verifiedPin, newDuration, now
+        )
+        if (!applied) {
+            historyNotice = "Local history setting couldn't be applied. Storage unchanged."
+            return
+        }
+        historyDurationMs = newDuration
+        savedHistory = if (newDuration == LocalHistoryPolicy.SESSION_ONLY)
+            emptyList() else localHistoryStore.read(verifiedPin, now)
+        historyNotice = if (newDuration == LocalHistoryPolicy.SESSION_ONLY)
+            "Session-only. This phone's saved history for this peer was deleted."
+        else "Save NEW test messages for ${LocalHistoryPolicy.label(newDuration)}. " +
+            "Short disappearing display timers pause saving."
+    }
+
+    fun readLocalHistory() {
+        val pin = activeHistoryPin ?: return
+        if (stage != "demo" ||
+            debugText.state != DebugTextTranscript.State.ACTIVE
+        ) return
+        savedHistory = localHistoryStore.read(pin, System.currentTimeMillis())
+        historyNotice = "Only unexpired local ciphertext was read. " +
+            "No peer trust, remote copy or read status is inferred."
+    }
+
+    fun eraseLocalHistory() {
+        val pin = activeHistoryPin ?: return
+        if (stage != "demo" ||
+            debugText.state != DebugTextTranscript.State.ACTIVE
+        ) return
+        val erased = localHistoryStore.erasePeer(pin, System.currentTimeMillis())
+        if (erased) {
+            savedHistory = emptyList()
+            historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
+            historyNotice = "Saved local history deleted for this verified peer. " +
+                "The live chat stays connected."
+        } else {
+            historyNotice = "Could not verify local history deletion on this phone."
+        }
+    }
+
     fun stopTest() {
         // Ignore messages posted by previous or cancelled attempts.
         attemptVersion += 1
@@ -485,6 +556,11 @@ internal fun LocalPairingTestScreen(
         voiceFinalizing = false
         voiceNote = "No voice burst sent yet."
         debugText = debugText.finish()
+        activeHistoryPin?.fill(0)
+        activeHistoryPin = null
+        historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
+        savedHistory = emptyList()
+        historyNotice = "Session-only default. Nothing is saved until you opt in."
         disappearAfterMs = DebugLocalDisappearingPolicy.OFF
         ackedTextIds = emptySet()
         textDraft = ""
@@ -764,6 +840,14 @@ internal fun LocalPairingTestScreen(
                                 event.approvalState != DebugApprovalGate.State.CONFIRMED
                             ) return@post
                             approvalStage = DebugApprovalGate.State.CONFIRMED
+                            // Only this actual approved and mutually confirmed
+                            // TLS/QR attempt permits decrypting this peer's
+                            // previously saved local test history.
+                            activeHistoryPin = expected.copyOf()
+                            historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
+                            savedHistory = emptyList()
+                            historyNotice = "Session-only. You can view past saved " +
+                                "messages for this verified peer or opt in for new ones."
                             qaLocalApprovalWritten = true
                             qaPeerApprovalObserved = true
                             qaLocalConfirmationWritten = true
@@ -799,14 +883,37 @@ internal fun LocalPairingTestScreen(
                             ) return@post
                             val text = event.text ?: return@post
                             val messageId = event.messageId ?: return@post
+                            val beforeHistory = debugText
+                            val written = event.phase == LanDemoSession.Phase.TEXT_WRITTEN
                             debugText = debugText.record(
-                                if (event.phase == LanDemoSession.Phase.TEXT_WRITTEN)
+                                if (written)
                                     DebugTextTranscript.Direction.WRITTEN_TO_TLS
                                 else DebugTextTranscript.Direction.RECEIVED_HERE,
                                 messageId, text,
                                 observedAtElapsedMs = SystemClock.elapsedRealtime(),
                                 disappearAfterMs = disappearAfterMs
                             )
+                            // Observe the ACTUAL TLS transport callback, never
+                            // a queued draft/handshake/peer ACK. Do not save when
+                            // disabled or when short local disappearing is on.
+                            val pinForHistory = activeHistoryPin
+                            if (beforeHistory !== debugText &&
+                                pinForHistory != null &&
+                                historyDurationMs != LocalHistoryPolicy.SESSION_ONLY &&
+                                disappearAfterMs == DebugLocalDisappearingPolicy.OFF
+                            ) {
+                                val saved = localHistoryStore.save(
+                                    pinForHistory,
+                                    if (written) LocalHistoryPolicy.Direction.WRITTEN_HERE
+                                    else LocalHistoryPolicy.Direction.RECEIVED_HERE,
+                                    messageId, text, historyDurationMs,
+                                    System.currentTimeMillis()
+                                )
+                                if (!saved) {
+                                    // Never claim encryption/persistence succeeded.
+                                    historyNotice = "This message could not be saved locally."
+                                }
+                            }
                         }
                         LanDemoSession.Phase.VOICE_FLOOR_GRANTED -> {
                             if (stage == "demo") {
@@ -1096,6 +1203,10 @@ internal fun LocalPairingTestScreen(
             clearTemporaryPairing()
             transcript = transcript.finish()
             debugText = debugText.finish()
+            activeHistoryPin?.fill(0)
+            activeHistoryPin = null
+            historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
+            savedHistory = emptyList()
             textDraft = ""
         }
     }
@@ -1442,6 +1553,12 @@ internal fun LocalPairingTestScreen(
                         draft = textDraft,
                         hidden = privacyHidden,
                         disappearAfterMs = disappearAfterMs,
+                        historyDurationMs = historyDurationMs,
+                        historyEntries = savedHistory,
+                        historyNotice = historyNotice,
+                        onHistoryDurationChange = { changeLocalHistoryDuration(it) },
+                        onHistoryRead = { readLocalHistory() },
+                        onHistoryErase = { eraseLocalHistory() },
                         onDisappearAfterChange = { newDuration ->
                             if (DebugLocalDisappearingPolicy.supports(newDuration)) {
                                 debugText = debugText.shortenVisibleExpiry(newDuration)
