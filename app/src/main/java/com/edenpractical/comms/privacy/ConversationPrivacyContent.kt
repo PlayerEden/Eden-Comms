@@ -1,11 +1,9 @@
 package com.edenpractical.comms.privacy
 
 /**
- * Honest, non-interactive status for the current development chat.
- *
- * No retention choice here authorizes storing any messages or peers.
- * Storage/timer options become real controls ONLY after encrypted storage,
- * expiry filtering, deletion and on-device privacy QA are implemented.
+ * Honest explanation of session-only debug chat, including a live RAM-only
+ * local disappearing display timer. No option persists messages or peers.
+ * Saved encrypted history and remembered peer identities remain unbuilt.
  */
 internal object ConversationPrivacyContent {
     const val currentTitle = "Message history"
@@ -22,10 +20,12 @@ internal object ConversationPrivacyContent {
         "phone for up to 30 days. There is no saving switch in this build."
 
     const val futureTimerTitle = "Disappearing messages"
-    const val futureTimerState = "Not available yet"
+    const val futureTimerState = "Available in nearby test chat"
     const val futureTimerExplanation =
-        "Future timers would control local copies on each person's device. " +
-        "No timer, remote deletion or guaranteed erasure is active today."
+        "In an active test chat, you can choose Off, 1, 5 or 15 minutes. " +
+        "The timer removes visible messages from this phone only; it does " +
+        "not tell the other phone to delete anything or erase Android copies. " +
+        "The choice resets when the connection ends and is never saved."
 
     const val futureTrustTitle = "Remember nearby devices"
     const val futureTrustState = "Not available yet"
