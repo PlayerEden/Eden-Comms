@@ -1041,5 +1041,56 @@ if grep -REn '(KeyStore|Cipher|getSharedPreferences|FileOutputStream|noBackupFil
   exit 1
 fi
 
-echo "PASS: debug-only opt-in history and separate public peer memory; no release trust bypass"
+# F5-C: Bluetooth and P2P retain exactly the original protocol's session
+# verification. Only after both encrypted final confirmations may the transport
+# hand public pins to a UI-only, opt-in metadata controller, which never
+# supplies admission/pin decisions to TLS, QR or network/socket code.
+NEARBY_OWNER="app/src/debug/java/com/edenpractical/comms/privacy/DebugVerifiedNearbyPrivacy.kt"
+NEARBY_UI="app/src/debug/java/com/edenpractical/comms/privacy/DebugVerifiedNearbyPrivacyPanel.kt"
+BT_LIVE_SCREEN="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothDiscoveryActivity.kt"
+P2P_HOST_SCREEN="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectGroupHostActivity.kt"
+P2P_JOIN_SCREEN="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectDiscoveryActivity.kt"
+P2P_VERIFIED_SESSION="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectApprovedTcpSession.kt"
+for FILE in "$NEARBY_OWNER" "$NEARBY_UI"; do test -f "$FILE"; done
+grep -Fq 'onApprovedIdentity(ownForUi, peerForUi)' "$BT_RFCOMM"
+grep -Fq 'onApprovedIdentity(ownForUi, peerForUi)' "$P2P_VERIFIED_SESSION"
+grep -Fq 'liveText === approved' "$BT_RFCOMM"
+grep -Fq 'text === approved' "$P2P_VERIFIED_SESSION"
+grep -Fq 'DebugVerifiedNearbyPrivacyPanel(localPrivacy)' "$BT_LIVE_SCREEN"
+grep -Fq 'DebugVerifiedNearbyPrivacyPanel(localPrivacy)' "$P2P_HOST_SCREEN"
+grep -Fq 'DebugVerifiedNearbyPrivacyPanel(localPrivacy)' "$P2P_JOIN_SCREEN"
+for FILE in "$BT_LIVE_SCREEN" "$P2P_HOST_SCREEN" "$P2P_JOIN_SCREEN"; do
+  grep -Fq 'localPrivacy.openVerified(' "$FILE"
+  grep -Fq 'localPrivacy.receiveEncryptedEvent(' "$FILE"
+  grep -Fq 'localPrivacy.close()' "$FILE"
+done
+grep -Fq 'val storageMutex = Mutex()' "$NEARBY_OWNER"
+grep -Fq 'val activeDuration = retentionMs' "$NEARBY_OWNER"
+grep -Fq 'activeDuration == LocalHistoryPolicy.SESSION_ONLY' "$NEARBY_OWNER"
+grep -Fq 'history.save(' "$NEARBY_OWNER"
+grep -Fq 'history.changeRetention(' "$NEARBY_OWNER"
+grep -Fq 'peers.remember(' "$NEARBY_OWNER"
+grep -Fq 'peers.forget(' "$NEARBY_OWNER"
+grep -Fq 'peers.forgetAll()' "$NEARBY_OWNER"
+grep -Fq 'DebugRememberPeerPanel(' "$NEARBY_UI"
+grep -Fq 'DELETE SAVED HISTORY FOR VERIFIED PHONE' "$NEARBY_UI"
+if grep -REn '(BluetoothSocket|WifiP2pManager|SSLEngine|InetSocketAddress|TestPacketCodec|createInsecure|sendDebugText\(|Log\.|println\(|SharedPreferences|openFileOutput\()' \
+  "$NEARBY_OWNER" "$NEARBY_UI"; then
+  echo "FAIL: F5-C optional metadata controller gained transport, crypto or unsafe storage" >&2
+  exit 1
+fi
+if grep -REn '(DebugVerifiedNearbyPrivacy|DebugPeerMemoryStore|DebugLocalHistoryStore)' \
+  app/src/main/java/com/edenpractical/comms/security \
+  app/src/main/java/com/edenpractical/comms/transport \
+  app/src/debug/java/com/edenpractical/comms/bluetooth/DebugRfcommTlsProbe.kt \
+  app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectQrCoordinator.kt; then
+  echo "FAIL: F5-C retained peer records entered QR/TLS authentication" >&2
+  exit 1
+fi
+if find app/src/release/java -name '*DebugVerifiedNearbyPrivacy*' -print -quit | grep -q .; then
+  echo "FAIL: F5-C experimental nearby privacy entered release source" >&2
+  exit 1
+fi
+
+echo "PASS: F5-C optional debug local storage only after actual approved Bluetooth/P2P TLS"
 
