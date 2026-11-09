@@ -95,6 +95,30 @@ counters alone does **not** show that a person heard speech. Record the
 point of failure for each: permissions, QR/approval, TLS ready, channel
 send, remote receive, or actual speaker.
 
+### M6-F keyboard and screen-capture addendum — NOT RUN
+
+During the **same** C07/C11/C12/C16 acceptance session (not an extra
+uncoordinated phone test), use harmless sample text and exercise the
+actual approved Bluetooth and Wi-Fi Direct Text fields with the Android
+keyboard open. Try a full 280-code-point emoji message, a rejected
+over-limit paste, landscape rotation, enlarged font (up to 200%),
+small-screen keyboard overlap and Jump to latest while reading back.
+The Send and Disconnect controls must remain discoverable. When
+switching Text → Talk, keyboard/focus must close and the microphone
+must **not** start on its own; when switching Talk → Text,
+pending/active mic floor must cancel or release. Verify a failed
+local queue attempt preserves the typed draft without claiming
+delivery, and any new conversation after a forced disconnect starts
+with no stale queue hint.
+
+For Bluetooth, check Android screenshot/Recents behavior in a private
+local QA session: its debug QR and chat Activity now requests
+`FLAG_SECURE`. **Do not collect, copy, publish or upload real
+QR codes, identifiers or conversation screenshots**. Record only
+`PASS / FAIL / BLOCKED / NOT RUN` and a sanitized cause. Actual
+OS/OEM privacy protection remains unverified until observed. See
+[M6-F source audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md).
+
 ## Recording one test case
 
 Copy one line per test/transport/role; do not upload raw messages or QR:

@@ -4,6 +4,44 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-F: nearby keyboard, capture and reset behavior
+
+**Base:** M6-E `main` `6dc2070692a7143c3e76e35599a16ec44a01580d`.
+[M6-E final-head PR CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42696448115);
+[independent main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42696732161).
+**Source branch:** `feature/m6-f-conversation-ime-privacy-recovery-2026-11-09`.
+
+**Why:** Three real debug nearby conversation pages lacked main app's
+IME/system-bar inset handling; entering Talk while TextField held focus
+did not explicitly hide software keyboard; Bluetooth's QR/chat screen
+lacked Wi-Fi Direct's `FLAG_SECURE`; its STOPPED link callback could
+leave a queue status from the previous session.
+
+**What:** Add outer route status/navigation/IME padding before scrolling
+on Bluetooth and both P2P host/join, and debug manifest `adjustResize`
+only for those 3 screens. Shared verified shell clears focus and hides
+IME before Talk/Disconnect without skipping real owner disconnect or
+existing Talk → Text floor cancellation. Bluetooth debug Activity
+requests screenshot/Recents protection before loading QR identity;
+Bluetooth STOPPED and newly approved Ready clear stale queue feedback.
+
+**Evidence:** [M6-F audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md);
+Python source regressions ensure insets, IME calls, release flags,
+`FLAG_SECURE`, session reset and debug-only scope. The older M6-A
+source test now asserts the real disconnect wrapper rather than an
+unwrapped button. Exact-head Android/Gradle/JVM/Python/security CI and
+separate postmerge main CI pending. **NOT RUN:** emulator screenshot/
+IME/font tests, actual two-phone LAN/Bluetooth/Wi-Fi Direct, OCR/
+TalkBack/accessibility, OEM screenshot protections or independent
+security/privacy/storage review.
+
+**Next:** green exact-head and merged-main CI; when emulator is
+available, visually test layout/IME on real Android. During the ONE
+consolidated device acceptance pass, use the C07/C11/C12/C16 addendum
+for Text/Talk, keyboard/200% font and capture without sharing real QR.
+No new cloud, auto-approval, storage or release capabilities. Roll back
+this narrow M6-F source PR if real device layout regresses.
+
 ## 2026-11-09 — M6-E: real text composer/queue/ACK accessibility
 
 **Base:** M6-D `main` `475756467698407848429def12c0ab6fd04145d3`.

@@ -25,6 +25,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +36,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -120,6 +124,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {
                     chatReady = false
                     chatDraft = ""
+                    chatSendFeedback = ""
                     chatLines = emptyList()
                     ackedChatIds = emptySet()
                     localPrivacy.close()
@@ -145,6 +150,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 when (event) {
                     is DebugBluetoothApprovedTextChannel.Event.Ready -> {
                         chatReady = true
+                        chatSendFeedback = ""
                         approvalPending = false
                         linkStatus = "Both confirmed. Encrypted Bluetooth test chat is active."
                         localVoice.activate(
@@ -338,12 +344,18 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             finish()
             return
         }
+        // Bluetooth QR and verified text deserve the same screenshot/Recents
+        // protection already applied to the Wi-Fi Direct debug activities.
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         qrCoordinator.loadExistingIdentity()
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier.fillMaxSize()
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .imePadding()
                             .verticalScroll(rememberScrollState())
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
