@@ -26,6 +26,9 @@ internal class DebugVoicePlayoutTurn {
     }
 
     @Synchronized
+    fun hasPlaybackProblem(): Boolean = playbackFailed
+
+    @Synchronized
     fun rejectedFrame(): Observation {
         if (playbackFailed) return Observation.NONE
         playbackFailed = true
