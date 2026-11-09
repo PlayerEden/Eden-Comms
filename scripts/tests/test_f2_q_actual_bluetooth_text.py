@@ -108,7 +108,9 @@ class F2QActualBluetoothText(unittest.TestCase):
             self.assertIn(marker, self.screen, marker)
         self.assertIn("Other app returned ACK", self.ui)
         self.assertIn("not mean a person read it", self.ui)
-        self.assertIn("onValueChange = { onDraft(it.take(280)) }", self.ui)
+        self.assertIn("DebugNearbyTextUiCopy.acceptsDraft(candidate)", self.ui)
+        self.assertIn("DebugNearbyTextUiCopy.canSubmit(draft)", self.ui)
+        self.assertIn("sendFeedback: String =", self.ui)
         self.assertNotIn("rememberSaveable", self.screen + self.ui)
 
     def test_bilateral_real_jvm_protocol_to_full_live_channels(self):
