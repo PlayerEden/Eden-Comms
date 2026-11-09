@@ -1003,9 +1003,10 @@ private fun DeveloperScreen(
         }
         if (showRadioExperiments) {
             Text(
-                "Optional developer diagnostics. These can request Android " +
-                    "radio permissions, scan for nearby devices or briefly form " +
-                    "an unverified OS link, but cannot send Eden Comms messages or voice.",
+                "Optional radio diagnostics. Radio discovery and Android " +
+                    "link formation do NOT authorize messaging. Only after " +
+                    "fresh QR, pinned TLS, both approvals and final checks can " +
+                    "an active DEBUG conversation send test text or live voice.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1051,17 +1052,22 @@ private fun HelpScreen(onPrivacy: () -> Unit) {
         )
     }
     SectionLabel("GETTING STARTED")
-    StepLine("01", "Use the same Wi-Fi",
-        "On one phone, tap Show a code; on the other, tap Scan a code.")
-    StepLine("02", "Check the other phone",
-        "Exchange the second code, then both people approve and confirm.")
-    StepLine("03", "Try a test conversation",
-        "Short test text is available only after both phones agree. Voice is off.")
+    StepLine("01", "Choose a connection method",
+        "Open Connect nearby on both phones; choose Same Wi-Fi, " +
+            "Bluetooth or Wi-Fi Direct. Only debug test builds can proceed.")
+    StepLine("02", "Exchange fresh codes",
+        "Follow the chosen Host/Join steps, scan the required QR codes, " +
+            "then both people must approve and confirm.")
+    StepLine("03", "Text or Talk, then disconnect",
+        "Inside the approved test conversation, choose Text or live " +
+            "hold-to-talk. Disconnect to close the local session.")
     FieldHelp(
         question = "Do we need internet?",
-        answer = "No internet service or account is needed for the same-Wi-Fi " +
-            "test. Both phones must use the same local Wi-Fi network. " +
-            "Some guest networks prevent phones from reaching each other."
+        answer = "No account or mandatory cloud service is needed. " +
+            "Same Wi-Fi requires both phones on one local network, but " +
+            "Bluetooth and Wi-Fi Direct use different local radio paths. " +
+            "A router is not required for those two debug methods. " +
+            "Some Android devices or networks may block testing."
     )
     FieldHelp(
         question = "Why do both people approve?",
@@ -1084,10 +1090,12 @@ private fun HelpScreen(onPrivacy: () -> Unit) {
     )
     FieldHelp(
         question = "Will the app save my conversations?",
-        answer = "Eden Comms does not intentionally save a permanent chat " +
-            "history in this prototype. Leaving the session clears the visible " +
-            "test messages as best effort, not guaranteed memory erasure. " +
-            "The other phone can still copy or photograph what it receives."
+        answer = "Each new debug conversation starts session-only. " +
+            "You may separately opt into encrypted local message history " +
+            "for a limited period and remember a public peer fingerprint, " +
+            "both with local delete/forget controls. No mandatory cloud. " +
+            "The other phone may still copy or photograph content, and " +
+            "Android storage deletion is not guaranteed physical erasure."
     )
     NavigationRow(
         title = "Privacy & data",
@@ -1112,10 +1120,12 @@ private fun PrivacyInfoScreen() {
         color = MaterialTheme.colorScheme.primary
     )
     Text(
-        "This build has an experimental same-Wi-Fi QR/TLS test. Short typed " +
-            "TEST messages may be transmitted after both phones approve. " +
-            "Voice is disabled. This is NOT reviewed secure messaging; " +
-            "do not use it for sensitive conversations.",
+        "This app includes development-only Same-Wi-Fi, Bluetooth Classic " +
+            "and Wi-Fi Direct tests. After real QR/TLS checks, both people's " +
+            "approvals and final confirmations, test text and short live " +
+            "push-to-talk may be transmitted. They are NOT independently " +
+            "reviewed secure communications. No production messaging or voice " +
+            "capability is enabled. Do not use them for sensitive conversations.",
         style = MaterialTheme.typography.bodyMedium
     )
     FieldHelp(
