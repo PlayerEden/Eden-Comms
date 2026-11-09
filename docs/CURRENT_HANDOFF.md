@@ -82,47 +82,60 @@ The previous DEBUG Bluetooth Classic and Wi-Fi Direct host/join voice option
 was a three-second **record-then-send** encrypted voice burst (not real-time).
 No physical radio/voice acceptance or cryptographic review.
 
-## Active source milestone — F4-V live floor-controlled nearby voice
+## Completed code checkpoint — F4-V authenticated live nearby voice
 
-[PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152),
-`feature/f4-v-floor-controlled-live-nearby-voice-2026-11-09`:
+[PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152)
+merged as `ad821579dd5f03d770f9df96e9dac1683bf8ab79`.
+[Post-merge CI SUCCESS 19/19](https://github.com/PlayerEden/Eden-Comms/actions/runs/42658640505).
+Bluetooth Classic and Wi-Fi Direct host/join reuse LAN's actual
+host-arbitrated encrypted REQUEST/GRANT/DENY/CANCEL/RELEASE floor;
+Android foreground mic sends 16kHz mono PCM 20ms frames WHILE held
+(max 3s) over the same QR/pinned TLS/dual-approved channel, streaming
+to remote AudioTrack. No verified physical radio/OEM behavior or
+independent security review; debug only. Previous F4-U whole-clip path
+is a regression-only fallback and also requires floor.
 
-- Reuse the LAN-tested `DebugLanVoiceFloor` and its strict ECFL
-  REQUEST/GRANT/DENY/CANCEL/RELEASE records **inside the same approved
-  TLS 1.3 engine** used for actual Bluetooth/P2P TEXT/ACK and ECVP audio.
-  Existing per-attempt QR pins/exporter proof, two human APPROVE and encrypted
-  CONFIRM are still mandatory. Host role is copied only from verified
-  `request.hostRole`; radio discovery cannot grant the voice floor.
-- User holds the shared DEBUG voice control: host can reserve the floor;
-  joiner requests and waits (microphone OFF) for a matching encrypted GRANT.
-  If released before GRANT, a bounded CANCEL discards late grants.
-  After a real grant, the Android `AudioRecord` streams **640 bytes / 20ms**
-  while held, at most 150 frames/3 seconds. The shared TLS writer has a
-  bounded queue, preserves START-DATA-END-RELEASE order, fails closed on
-  queue overrun and expires stale leases. Inbound sequence is validated
-  before live `AudioTrack` playout. Disconnect/background stop the mic,
-  speaker and queued PCM; user privacy/history remain independent.
-- Existing F4-U whole-clip method is regression-only and ALSO requires
-  an approved floor; it is not linked to the new voice UI. No cloud,
-  storage, raw radio socket, headless microphone, or release capability.
-- Unit tests cover strict ECFL/ECVP/text envelope validation and LAN
-  floor collisions/replay/cancel. Actual two-SSLEngine TLS JVM fixture
-  tests grant+reciprocal voice bursts followed by streamed 20ms frames.
-  Source/security tests check no changed release permission or auth gate.
-  **CI/physical acceptance not yet claimed**; check exact-head PR and main
-  Actions results after green merge.
+## Active milestone — M6-A unified debug Connect and conversation UI
 
-## Next code/acceptance priorities
+[PR #153](https://github.com/PlayerEden/Eden-Comms/pull/153),
+`feature/m6-a-unified-connect-chat-2026-11-09`:
 
-1. Fix any F4-V Android/JVM/source regression, merge only on exact green
-   PR head, then check independent main CI. Keep docs/PR QA receipts current.
-2. Simplify Connect → Text/Talk → Disconnect with one user-level
-   navigation flow, hiding most radio diagnostic controls behind Advanced.
-3. Execute real two-phone radio/voice/privacy/permission/background,
-   accessibility and OEM/Android Keystore/clock/restore QA. Independently
-   review the cryptography. Production CAN_* remain FALSE until accepted.
-4. If real-phone audio shows excessive latency or packet drop, improve
-   bounded PCM/flow control without weakening floor or session checks.
+- Home **Connect nearby**, **Text** and **Talk** choices route to one
+  method chooser instead of silently launching LAN or showing a
+  misleading disconnected voice demo. Same Wi-Fi, Bluetooth Classic and
+  Wi-Fi Direct all route to their **real, preexisting DEBUG entrypoints**.
+  The Bluetooth and Wi-Fi Direct activities are non-exported and
+  launched only in debuggable builds. Wi-Fi Direct still requires its
+  permission/capability preflight, then explicit Host/Join; no chooser
+  action scans a radio, approves another phone or establishes a session.
+  Release selection fails closed; CAN_* flags remain OFF.
+- One reusable DEBUG Compose authenticated-session-only panel presents
+  **Text / Talk / Disconnect**, with separate local history/remembered
+  peer controls behind a disclosure. Bluetooth and Wi-Fi Direct host
+  and join use it only on their ORIGINAL post-QR/TLS + both-human-confirm
+  CHAT callbacks; setup QR/permission/radio/approval paths remain
+  untouched. Disconnect invokes the original owner and teardown; the
+  UI does not manufacture a connection, auto-reconnect or bypass consent.
+- Removes stale "Bluetooth / Wi-Fi Direct future only", "voice off"
+  copy and unhelpful in-chat radio/group diagnostics. Preserves
+  optional advanced diagnostic paths for development. Adds pure
+  method-catalog gating tests and M6-A UI/source security checks.
+- **Pending:** exact-final-head Android/JVM/Python/shell CI and separate
+  postmerge `main` CI. Phone usability, real voice/radio, accessibility,
+  Android Keystore/backup/restore and independent security review
+  remain OPEN.
+
+## Next priority after M6-A
+
+1. Verify exact-head PR Android CI; repair regressions honestly and merge
+   only when all checks pass. Verify independent postmerge `main` CI.
+2. Consolidate the two-phone handset QA into a single reproducible
+   matrix: each method's QR/permissions/approval, text and ACK, live
+   half-duplex audio, stop/background, expiry, local history and
+   remembered peers, limited radio/Android OEM variations, UI rotation
+   and large-font accessibility.
+3. Fix actual device issues in focused PRs, then obtain independent
+   cryptographic/security review BEFORE enabling release features.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide

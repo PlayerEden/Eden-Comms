@@ -2,6 +2,7 @@ package com.edenpractical.comms.bluetooth
 
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
+import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
 
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
@@ -338,8 +339,32 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text("Bluetooth discovery — DEVELOPMENT TEST",
-                            style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            if (chatReady && linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN)
+                                "Bluetooth conversation" else "Connect with Bluetooth",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        if (chatReady &&
+                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
+                        ) {
+                            DebugVerifiedConversationPanel(
+                                method = "Bluetooth",
+                                onDisconnect = {
+                                    localVoice.disable()
+                                    linkController.disconnect()
+                                },
+                                textContent = {
+                                    DebugBluetoothTextPanel(
+                                        lines = chatLines,
+                                        draft = chatDraft,
+                                        onDraft = { chatDraft = it },
+                                        onSend = { sendBluetoothText() }
+                                    )
+                                },
+                                talkContent = { DebugNearbyVoicePanel(localVoice) },
+                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) }
+                            )
+                        } else {
                         val guide = DebugBluetoothJourneyCue.current(
                             qrCoordinator.stage, linkPhase,
                             selectedOrdinal != null, busy, approvalPending
@@ -400,19 +425,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (chatReady &&
-                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
-                        ) {
-                            DebugBluetoothTextPanel(
-                                lines = chatLines,
-                                draft = chatDraft,
-                                onDraft = { chatDraft = it },
-                                onSend = { sendBluetoothText() }
-                            )
-                            DebugNearbyVoicePanel(localVoice)
-                            DebugVerifiedNearbyPrivacyPanel(localPrivacy)
-                        }
-                        if (approvalPending &&
+                         if (approvalPending &&
                             linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
                         ) {
                             Text(
@@ -453,9 +466,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
                         }
                         Text(
-                            "Bluetooth Classic • two phones • debug encrypted text after " +
-                                "reciprocal QR and both approvals. Short debug voice bursts " +
-                                "are available after permission; unreviewed and not real-time.",
+                            "Bluetooth Classic • two phones • experimental encrypted text " +
+                                "and live floor-controlled talk only after fresh QR, " +
+                                "TLS, both human approvals and final confirmations.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         val showRadioSearch =
@@ -577,10 +590,11 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         Text(
                             "Only after the pinned TLS + QR + exporter proof, BOTH " +
                                 "independent human approvals, and both encrypted final confirmations " +
-                                "may the same connection carry debug TEXT/ACK. No Bluetooth voice " +
-                                "or reviewed secure messaging. Android controls discoverability."
+                                "may the same connection carry debug TEXT/ACK and live voice. " +
+                                "Not reviewed secure messaging. Android controls discoverability."
                         )
                         }
+                        } // End connection setup; hide raw diagnostics in verified chat.
                     }
                 }
             }

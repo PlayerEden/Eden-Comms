@@ -2,6 +2,7 @@ package com.edenpractical.comms.wifidirect
 
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
+import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
 import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
 
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
@@ -550,10 +551,35 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text("Wi-Fi Direct — connect to nearby person",
-                            style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT)
+                                "Wi-Fi Direct conversation" else "Join a Wi-Fi Direct connection",
+                            style = MaterialTheme.typography.titleLarge
+                        )
                         Text("DEBUG ONLY • No router required. " +
-                            "The radio candidate is NOT identity or consent.")
+                            "A radio candidate is NOT identity or consent.")
+                        if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
+                            DebugVerifiedConversationPanel(
+                                method = "Wi-Fi Direct",
+                                onDisconnect = {
+                                    localVoice.disable()
+                                    targetController?.stop(
+                                        DebugWifiDirectTargetLinkGate.End.USER_STOP
+                                    )
+                                    stopByUser()
+                                },
+                                textContent = {
+                                    DebugWifiDirectTextPanel(
+                                        lines = verifiedChat.lines,
+                                        draft = verifiedChat.draft,
+                                        onDraft = { verifiedChat.draft = it },
+                                        onSend = { sendVerifiedText() }
+                                    )
+                                },
+                                talkContent = { DebugNearbyVoicePanel(localVoice) },
+                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) }
+                            )
+                        } else {
                         if (verifiedChat.phase !in setOf(
                                 DebugWifiDirectApprovedTcpSession.Phase.CONNECTING,
                                 DebugWifiDirectApprovedTcpSession.Phase.AWAITING_APPROVAL,
@@ -600,7 +626,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                 } != null &&
                                 targetController == null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("REQUEST 18-SECOND UNVERIFIED LINK TEST") }
+                        ) { Text("JOIN SELECTED WI-FI DIRECT GROUP") }
                         Text(targetNotice)
                         Text(verifiedChat.note)
                         if (verifiedChat.approvalPending) {
@@ -621,22 +647,13 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                             ) { Text("DECLINE AND DISCONNECT") }
                         }
-                        if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
-                            DebugWifiDirectTextPanel(
-                                lines = verifiedChat.lines, draft = verifiedChat.draft,
-                                onDraft = { verifiedChat.draft = it },
-                                onSend = { sendVerifiedText() }
-                            )
-                            DebugNearbyVoicePanel(localVoice)
-                            DebugVerifiedNearbyPrivacyPanel(localPrivacy)
-                        }
-                        Button(
+                         Button(
                             onClick = { requestVerifiedP2pText() },
                             enabled = foreground &&
                                 preparation.readyForVerifiedTransport(false) &&
                                 targetController?.canStartVerifiedText() == true,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("START VERIFIED P2P TEXT") }
+                        ) { Text("START AUTHENTICATED TEST SESSION") }
                         OutlinedButton(
                             onClick = { targetController?.requestTcpJoinReachability() },
                             enabled = foreground &&
@@ -664,10 +681,11 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                             enabled = token != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP SEARCH") }
-                        Text("Android peer handles are temporary and not saved. " +
-                            "Real encrypted debug text requires the three in-person QR codes, " +
-                            "pinned TLS and both independently confirmed approvals. " +
-                            "No background connection, voice or production security claim.")
+                        Text("Android radio candidates are temporary, untrusted " +
+                            "and never remembered. Debug text and live push-to-talk " +
+                            "require fresh in-person QR, pinned TLS and both people's " +
+                            "approvals. No background connection or production security claim.")
+                        } // Hide anonymous radio diagnostics while chatting.
                     }
                 }
             }

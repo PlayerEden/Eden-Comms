@@ -47,18 +47,18 @@ class M3sBQrPreparation(unittest.TestCase):
         for marker in (
             'FLAG_DEBUGGABLE', 'WindowManager.LayoutParams.FLAG_SECURE',
             'LocalPairingQrDisplay(', 'LocalPairingQrScanner(',
-            'OPEN', 'IN-PERSON COMPARISON',
+            'ADVANCED', 'IN-PERSON COMPARISON',
             'onPayload = preparation::scanned',
             'preparation.clear()', 'override fun onStop()',
             'handler.removeCallbacks(expireCheck)',
             'CREATE MY LOCAL DEVICE IDENTITY',
             '3 — SCAN THE HOST\'S ACKNOWLEDGEMENT QR'
         ):
-            # OPEN is present in explanatory button copy on preflight, not screen
-            target = self.preflight if marker == "OPEN" else self.screen
+            # ADVANCED QR check is in preflight, not the QR scanner screen.
+            target = self.preflight if marker == "ADVANCED" else self.screen
             self.assertIn(marker, target, marker)
         self.assertIn('DebugWifiDirectQrActivity::class.java', self.preflight)
-        self.assertIn('OPEN IN-PERSON WI-FI DIRECT QR PREPARATION', self.preflight)
+        self.assertIn('ADVANCED • QR CHECK WITHOUT RADIO', self.preflight)
 
     def test_zero_radio_target_or_communication_authority(self):
         for source in (self.codec, self.coordinator, self.screen):

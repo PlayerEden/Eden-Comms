@@ -63,23 +63,29 @@ class M3jDiscoveryBoundaryTest(unittest.TestCase):
             self.assertNotIn(forbidden, self.discovery)
         self.assertIn("model-only discovery state reached a live app codepath", self.guard)
 
-    def test_future_ui_is_informational_and_current_wifi_remains_available(self):
+    def test_product_method_chooser_does_not_start_auto_discovery_or_release_radio(self):
         picker = self.screen.split("private fun NearbyScreen(", 1)[1].split(
             "private fun PushToTalkScreen()", 1
         )[0]
-        self.assertIn('title = "Other connection methods"', picker)
+        self.assertIn('FieldSectionHeader("CONNECT", "Choose how the phones connect")', picker)
+        self.assertIn('title = "Why codes and approvals?"', picker)
         self.assertIn("FieldDisclosureCard(", picker)
-        for field in ("currentStatus", "optInStep", "permissionStep",
-                      "foregroundStep", "trustStep", "privacyStep"):
+        for field in ("trustStep", "privacyStep"):
             self.assertIn("NearbyDiscoveryPolicy." + field, picker)
         self.assertIn("Automatic Eden Comms peer discovery is OFF and NOT IMPLEMENTED", self.copy)
-        future = picker.split('title = "Other connection methods"', 1)[1]
-        self.assertNotIn("Button(", future)
-        self.assertNotIn("onClick", future)
-        self.assertIn("NearbyMethodCatalog.canEnterDebugLan(debuggable)", picker)
+        # A button opens only an existing debug setup entry; this non-radio
+        # chooser still has no auto scan, socket, approval or stored trust.
         self.assertIn("NearbyMethodCatalog.Selection.LaunchDebugLanQr", picker)
-        self.assertIn("Availability.PLANNED", self.catalog)
-
+        self.assertIn("NearbyMethodCatalog.Selection.LaunchDebugBluetooth", picker)
+        self.assertIn("NearbyMethodCatalog.Selection.LaunchDebugWifiDirectPreflight", picker)
+        self.assertIn("ConnectionMethod.LAN, debuggable", picker)
+        self.assertIn("ConnectionMethod.BLUETOOTH, debuggable", picker)
+        self.assertIn("ConnectionMethod.WIFI_DIRECT, debuggable", picker)
+        self.assertIn("Availability.DEBUG_TEST_ONLY", self.catalog)
+        self.assertIn("if (!debuggable) return Selection.NotAvailable", self.catalog)
+        self.assertNotIn("startDiscovery(", picker)
+        self.assertNotIn("discoverPeers(", picker)
+        self.assertNotIn("startActivity(", picker)
     def test_android_permissions_and_release_flags_remain_unchanged(self):
         for forbidden in (
             "android.permission.BLUETOOTH",

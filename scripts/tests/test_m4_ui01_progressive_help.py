@@ -33,12 +33,12 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
 
     def test_primary_path_remains_clear_and_safety_remains_visible(self):
         self.assertIn('Text("CONNECT NEARBY"', self.main)
-        self.assertIn('onChatPreview = { navigate("pairing-test") }', self.main)
+        self.assertIn('onChatPreview = { navigate("connect") }', self.main)
         self.assertIn('question = "What can this preview do?"', self.main)
-        self.assertIn("No sensitive conversations", self.main)
+        self.assertIn("Avoid private or emergency conversations.", self.main)
         for s in (
             "FieldSectionHeader(\"TRANSPARENCY\", \"Current preview\")",
-            "do not use it for sensitive conversations.",
+            "Do not use them for sensitive conversations.",
             "FieldHelp(", "answer = PrivacyPreviewContent.introduction",
             "PrivacyPreviewContent.sections.forEach",
             "FieldDisclosureCard(",
@@ -47,13 +47,13 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
         ):
             self.assertIn(s, self.main, s)
         self.assertIn("PrivacyPreviewContent.policyNote", self.main)
-        self.assertIn("Voice is disabled.", self.main)
+        self.assertIn("No production messaging or voice", self.main)
 
     def test_long_settings_and_future_method_details_are_optional(self):
         for s in (
             'title = "Conversation privacy"',
             "futureHistoryExplanation", "futureTimerExplanation",
-            "futureTrustExplanation", 'title = "Other connection methods"',
+            "futureTrustExplanation", 'title = "Why codes and approvals?"',
             "NearbyDiscoveryPolicy.privacyStep",
         ):
             self.assertIn(s, self.main, s)

@@ -2,6 +2,7 @@ package com.edenpractical.comms.wifidirect
 
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
+import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
 import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
 
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
@@ -657,10 +658,37 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text("Wi-Fi Direct — nearby encrypted chat",
-                            style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT)
+                                "Wi-Fi Direct conversation" else "Host a Wi-Fi Direct connection",
+                            style = MaterialTheme.typography.titleLarge
+                        )
                         Text("DEBUG ONLY • Android 12+ for encrypted messaging. " +
                             "No Wi-Fi router or Internet required once a P2P group forms.")
+                        if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
+                            DebugVerifiedConversationPanel(
+                                method = "Wi-Fi Direct",
+                                onDisconnect = {
+                                    localVoice.disable()
+                                    active?.let {
+                                        endHost(
+                                            it, DebugWifiDirectGroupHostGate.End.USER_STOP,
+                                            "Disconnected. Requesting Android group cleanup."
+                                        )
+                                    }
+                                },
+                                textContent = {
+                                    DebugWifiDirectTextPanel(
+                                        lines = verifiedChat.lines,
+                                        draft = verifiedChat.draft,
+                                        onDraft = { verifiedChat.draft = it },
+                                        onSend = { sendVerifiedText() }
+                                    )
+                                },
+                                talkContent = { DebugNearbyVoicePanel(localVoice) },
+                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) }
+                            )
+                        } else {
                         if (verifiedChat.phase !in setOf(
                                 DebugWifiDirectApprovedTcpSession.Phase.CONNECTING,
                                 DebugWifiDirectApprovedTcpSession.Phase.AWAITING_APPROVAL,
@@ -690,16 +718,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 Text("DECLINE AND DISCONNECT")
                             }
                         }
-                        if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
-                            DebugWifiDirectTextPanel(
-                                lines = verifiedChat.lines, draft = verifiedChat.draft,
-                                onDraft = { verifiedChat.draft = it },
-                                onSend = { sendVerifiedText() }
-                            )
-                            DebugNearbyVoicePanel(localVoice)
-                            DebugVerifiedNearbyPrivacyPanel(localPrivacy)
-                        }
-                        Button(
+                         Button(
                             onClick = { startVerifiedHostChat() },
                             enabled = foreground && active != null &&
                                 verifiedSession == null &&
@@ -707,7 +726,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 phase == DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED &&
                                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("START VERIFIED WI-FI DIRECT TEXT") }
+                        ) { Text("START AUTHENTICATED TEST SESSION") }
                         Text(tcpNotice)
                         OutlinedButton(
                             onClick = { requestTcpHostReachability() },
@@ -721,7 +740,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 preparation.readyForVerifiedTransport(true) &&
                                 phase != DebugWifiDirectGroupHostGate.Phase.CLEANING,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("CREATE TEMPORARY P2P GROUP") }
+                        ) { Text("HOST TEMPORARY WI-FI DIRECT GROUP") }
                         OutlinedButton(
                             onClick = {
                                 active?.let {
@@ -732,10 +751,12 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             enabled = active != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP AND REMOVE TEST GROUP") }
-                        Text("Debug TEXT/ACK is available only after fresh in-person QR, " +
-                            "actual pinned TLS and both encrypted human confirmations. " +
-                            "No saved peers, voice or production security claim. " +
+                        Text("Debug text and live push-to-talk require fresh in-person " +
+                            "QR, actual pinned TLS, and both human approvals and " +
+                            "encrypted final confirmations. Optional local peer memory " +
+                            "does not confer trust. No production security claim; " +
                             "Android group cleanup is best effort.")
+                        } // Hide group diagnostics while actively chatting.
                     }
                 }
             }

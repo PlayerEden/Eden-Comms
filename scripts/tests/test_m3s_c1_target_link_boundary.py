@@ -56,12 +56,12 @@ class M3sC1TargetLinkBoundary(unittest.TestCase):
             "candidateLedger.selectedOrdinal(selectedToken) == null",
             "candidateLedger.consumeForOneShotLink(selectedToken)",
             "finishAttempt(", "DebugWifiDirectTargetLinkController(",
-            "REQUEST 18-SECOND UNVERIFIED LINK TEST",
+            "JOIN SELECTED WI-FI DIRECT GROUP",
             "STOP LINK AND REQUEST GROUP REMOVAL",
             "targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)",
             "QR preparation does NOT bind this",
             "targetController == null",
-            "No background connection, voice or production security claim",
+            "No background connection or production security claim",
         ):
             self.assertIn(marker, self.discovery, marker)
         for marker in ("fun consumeForOneShotLink", "token !== current",
