@@ -462,8 +462,9 @@ internal fun DebugConversationPanel(
         Text(
             "Session-only is the default. The live screen clears when you " +
                 "disconnect. Saved local history exists only if explicitly enabled. " +
-                "Clear my screen doesn't delete saved history. Your keyboard or " +
-                "screenshots may still retain text; the other person may keep copies.",
+                "Clear my screen doesn't delete saved history. " +
+                "Your keyboard or screenshots may still retain text; " +
+                "the other person may keep copies.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
