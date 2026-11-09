@@ -582,7 +582,7 @@ grep -Fq 'engine.wrap(ByteBuffer.wrap(frame), encrypted)' "$BT_TLS_TEXT_LAB"
 grep -Fq 'engine.unwrap(ByteBuffer.wrap(record), plaintext)' "$BT_TLS_TEXT_LAB"
 grep -Fq 'DebugTlsRecordBoundary.requireSingleCiphertext(record)' "$BT_TLS_TEXT_LAB"
 grep -Fq 'DebugTlsProviderReadiness.requireControlReady(engine)' "$BT_TLS_TEXT_LAB"
-grep -Fq 'DebugBluetoothTextFrameCodec.decode(frame)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'DebugNearbyApplicationFrame.inspect(frame)' "$BT_TLS_TEXT_LAB"
 grep -Fq 'DebugTlsControlTransport.MAX_NO_PLAINTEXT_RECORDS' "$BT_TLS_TEXT_LAB"
 grep -Fq 'pairedTlsEnginesExchangeEncryptedTextAndPeerAppAckBothDirections()' "$BT_TLS_PAIRS"
 grep -Fq 'pairedTlsLabRejectsMalformedEncryptedRecordAndClosesItself()' "$BT_TLS_PAIRS"
@@ -1092,5 +1092,47 @@ if find app/src/release/java -name '*DebugVerifiedNearbyPrivacy*' -print -quit |
   exit 1
 fi
 
-echo "PASS: F5-C optional debug local storage only after actual approved Bluetooth/P2P TLS"
+# F4-U: small microphone BURSTS on verified Bluetooth/P2P TLS only.
+# PCM is carried by the existing approved text engine, never raw RFCOMM,
+# unauthenticated TCP, a second socket, production capability or disk storage.
+NEARBY_VOICE_FRAME="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugNearbyApplicationFrame.kt"
+NEARBY_VOICE_CHANNEL="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothApprovedTextChannel.kt"
+NEARBY_VOICE_OWNER="app/src/debug/java/com/edenpractical/comms/audio/DebugNearbyVoiceOwner.kt"
+NEARBY_VOICE_UI="app/src/debug/java/com/edenpractical/comms/audio/DebugNearbyVoicePanel.kt"
+for FILE in "$NEARBY_VOICE_FRAME" "$NEARBY_VOICE_CHANNEL" "$NEARBY_VOICE_OWNER" "$NEARBY_VOICE_UI"; do
+  test -f "$FILE"
+done
+grep -Fq 'DebugLanVoiceWireCodec.decode(bytes).clear()' "$NEARBY_VOICE_FRAME"
+grep -Fq 'DebugBluetoothTextFrameCodec.decode(bytes)' "$NEARBY_VOICE_FRAME"
+grep -Fq 'DebugNearbyApplicationFrame.inspect(frame)' "$BT_TLS_TEXT_LAB"
+grep -Fq 'fun offerVoiceClip(pcm: ByteArray)' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'val incomingVoice = DebugLanVoiceAssembler()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'private fun writeVoice(pcm: ByteArray)' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'DebugLanVoiceWireCodec.MAX_FRAMES' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'pending.voiceClip?.fill(0)' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'incomingVoice.clear()' "$NEARBY_VOICE_CHANNEL"
+grep -Fq 'fun offerVoiceClip(pcm: ByteArray)' "$BT_RFCOMM"
+grep -Fq 'fun offerVoiceClip(pcm: ByteArray)' "$P2P_VERIFIED"
+grep -Fq 'event.pcm.fill(0)' "$BT_RFCOMM"
+grep -Fq 'event.pcm.fill(0)' "$P2P_VERIFIED"
+grep -Fq 'DebugNearbyVoicePanel(localVoice)' "$BT_LIVE_SCREEN"
+grep -Fq 'DebugNearbyVoicePanel(localVoice)' "$P2P_HOST_SCREEN"
+grep -Fq 'DebugNearbyVoicePanel(localVoice)' "$P2P_JOIN_SCREEN"
+grep -Fq 'DebugHoldToTalkControl(' "$NEARBY_VOICE_UI"
+grep -Fq 'ActivityResultContracts.RequestPermission()' "$NEARBY_VOICE_UI"
+grep -Fq 'audio.startCapture(' "$NEARBY_VOICE_OWNER"
+grep -Fq 'audio.playReceived(pcm)' "$NEARBY_VOICE_OWNER"
+grep -Fq 'audio.cancelAll()' "$NEARBY_VOICE_OWNER"
+grep -Fq 'sender?.invoke(pcm)' "$NEARBY_VOICE_OWNER"
+if grep -REn '(BluetoothSocket|WifiP2pManager|ServerSocket|DatagramSocket|SharedPreferences|DataStore|openFileOutput\(|FileOutputStream|Log\.|println\(|ProductionSessionAuthorization|startService\()' \
+  "$NEARBY_VOICE_OWNER" "$NEARBY_VOICE_UI" "$NEARBY_VOICE_FRAME" "$NEARBY_VOICE_CHANNEL"; then
+  echo "FAIL: F4-U voice model gained raw radio, persistence or release authorization" >&2
+  exit 1
+fi
+if find app/src/release -name '*DebugNearbyVoice*' -print -quit | grep -q .; then
+  echo "FAIL: unreviewed F4-U voice model entered release source" >&2
+  exit 1
+fi
+
+echo "PASS: F4-U verified session-only debug voice bursts with capture/playback cleanup"
 
