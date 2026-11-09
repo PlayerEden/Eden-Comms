@@ -4,6 +4,46 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-A: one honest Connect → Text/Talk → Disconnect
+
+**Who/what/why:** The app's Home and connection chooser still described
+LAN as the only working debug option, and Bluetooth/Wi-Fi Direct as
+future-only, despite F3-C/F2-Q/F4-V real source integration. In-chat
+Bluetooth/P2P also buried the useful text/talk behind QR/radio/group
+diagnostics. Simplify the visible workflow without inventing a
+new transport or taking shortcuts through approval. Implement in
+[PR #153](https://github.com/PlayerEden/Eden-Comms/pull/153).
+
+**Changes:** The root Home Connect, Text and Talk routes first select
+an actual transport from three clearly labeled debug-only methods:
+same-Wi-Fi LAN → existing app-local QR page; Bluetooth Classic →
+nonexported debug QR/discovery/connection activity; Wi-Fi Direct →
+debug capability/permission preflight followed by Host/Join. All
+non-LAN launching is guarded by Android FLAG_DEBUGGABLE and
+`NearbyMethodCatalog.select()`; runtime launch failures do not
+pretend a connection. Release CAN_* remains false and no main
+Bluetooth/location/mic permissions are added. A reusable,
+debug-only `DebugVerifiedConversationPanel` creates the same Text
+and live Talk tabs, visible Disconnect and independently opened
+local privacy settings across existing authenticated Bluetooth/P2P
+host/join chats. Its parent renders it ONLY after real post-QR/
+pinned TLS/exporter/dual-confirmed CHAT state. Original radio/QR,
+authentication/approval and stop handlers still own permissions,
+connections and cleanup; low-level controls stay in setup/Advanced.
+
+**QA and acceptance:** New method unit tests and M6-A Python security
+contracts, plus updated formerly LAN-only UX source tests and shell
+review-only boundary. [PR #153](https://github.com/PlayerEden/Eden-Comms/pull/153)
+records exact build evidence AFTER full CI green; do not assert
+success before checking the final head. Device screenshot, screen
+reader/large fonts, physical two-phone sessions, OEM audio/radio/
+backup and external cryptographic review remain OPEN.
+
+**Next/rollback:** Fix exact-head CI, merge and confirm main, then
+run one consolidated real-phone test/bugfix pass. Revert PR #153
+alone to restore old routing/UI, not F2/F3/F4/F5 security/storage.
+Existing session state/keys/history are not migrated or deleted.
+
 ## 2026-11-09 — F4-V: live floor-controlled Bluetooth and Wi-Fi Direct
 
 **Source:** [PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152),
