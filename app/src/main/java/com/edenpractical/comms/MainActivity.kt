@@ -1411,9 +1411,13 @@ private fun DeviceIdentitySetup() {
                                 // This phone's identity no longer matches saved
                                 // public peer records. Purge both independent
                                 // debug stores, without touching the other phone.
-                                val peers = DebugPeerMemoryStore(context).forgetAll()
-                                val history = DebugLocalHistoryStore(context).eraseAll()
-                                peers && history
+                                if (context.applicationInfo.flags and
+                                    ApplicationInfo.FLAG_DEBUGGABLE == 0
+                                ) true else {
+                                    val peers = DebugPeerMemoryStore(context).forgetAll()
+                                    val history = DebugLocalHistoryStore(context).eraseAll()
+                                    peers && history
+                                }
                             }
                             fingerprint = null
                             status = if (extrasErased)
