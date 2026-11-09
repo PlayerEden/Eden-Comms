@@ -524,6 +524,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                                         localPrivacy.close()
                                         localVoice.disable()
+                                        qaEvidence.end()
                                     }
                                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
                                         // Group remains alive only for the bounded live session.
