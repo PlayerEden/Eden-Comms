@@ -103,7 +103,7 @@ internal fun DebugVerifiedConversationPanel(
                 } else {
                     OutlinedButton(
                         // The same safe path as the selected button. Hiding
-                        // Talk must never leave an AudioRecord turn invisible.
+                        // Talk must never leave a recording turn invisible.
                         onClick = chooseText,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                             .semantics { stateDescription = "Text mode not selected" }
