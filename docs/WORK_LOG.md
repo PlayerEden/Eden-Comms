@@ -4,6 +4,47 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-G: observed state recovery, clean explicit restart
+
+**Base:** M6-F merged `main` `ef155509e55125be11eef7e75c864c39594d29c6`.
+[M6-F exact PR-head CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42702688134);
+[independent main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42702975134).
+**Source branch:** `feature/m6-g-failure-recovery-guidance-2026-11-09`.
+
+**Why:** After real Bluetooth/P2P stopped links, failures,
+permissions/radio changes, and Android P2P group cleanup, the
+developer-facing status could leave ordinary users uncertain
+whether a channel was active, whether cleanup completed, and
+which fresh verified steps to take. The Wi-Fi Direct chat UI's
+prior STOPPED label could persist when starting a new radio attempt.
+
+**What:** Added read-only, accessible `DebugNearbyRecoveryGuide`
+and `DebugNearbyRecoveryPanel` in debug source only; Bluetooth
+STOPPED/permission guidance, P2P host group CLEANING/STOPPED/
+unconfirmed cleanup/verified session ended, and P2P join
+discovery/radio/verified session ended. Guidance does **not**
+claim group removal before Android confirms it, create one-click
+trust/retry or infer a verified peer from a radio signal.
+The existing UI owners are unchanged. New **user-initiated**
+P2P host/search attempts clear the previous terminal, queue,
+draft and ACK view to IDLE; only real approved-channel Ready
+enables chat. Added Kotlin/JVM coverage of guide and P2P UI
+reset plus Python source/production boundary tests and one-pass
+negative device-QA matrix addendum.
+
+**Evidence:** [M6-G audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
+Exact final-head Android/JVM/Python/security CI and separate
+main CI pending. **NOT RUN:** emulator/real phone recovery,
+Bluetooth/P2P permission/radio/cleanup interoperability,
+TalkBack and independent security/privacy/Keystore testing.
+
+**Next:** pass CI before merge, test actual Android behavior
+once available, follow the consolidated two-phone matrix.
+Production `CAN_CONNECT`, `CAN_SEND_MESSAGES`,
+`CAN_TRANSMIT_VOICE` remain FALSE. Roll back this narrow
+presentation/ephemeral-state PR if real hardware contradicts
+its recovery wording; never weaken QR/TLS/both approvals.
+
 ## 2026-11-09 — M6-F: nearby keyboard, capture and reset behavior
 
 **Base:** M6-E `main` `6dc2070692a7143c3e76e35599a16ec44a01580d`.
