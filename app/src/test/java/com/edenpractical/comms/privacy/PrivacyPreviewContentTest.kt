@@ -10,7 +10,8 @@ class PrivacyPreviewContentTest {
         assertEquals("DEVELOPMENT PREVIEW", PrivacyPreviewContent.status)
         assertTrue(PrivacyPreviewContent.introduction.contains("short typed TEST messages"))
         assertTrue(PrivacyPreviewContent.introduction.contains("both phones approve and confirm"))
-        assertTrue(PrivacyPreviewContent.introduction.contains("Voice is disabled"))
+        assertTrue(PrivacyPreviewContent.introduction.contains("Debug LAN push-to-talk"))
+        assertTrue(PrivacyPreviewContent.introduction.contains("not a production feature"))
         assertTrue(PrivacyPreviewContent.introduction.contains("unreviewed"))
         assertFalse(PrivacyPreviewContent.introduction.contains("cannot send your own messages"))
         assertTrue(PrivacyPreviewContent.policyNote.contains("not the published"))
@@ -31,7 +32,10 @@ class PrivacyPreviewContentTest {
             "other phone receives",
             "local-only",
             "sandbox",
-            "does not intentionally save a chat history",
+            "per-conversation choice",
+            "Keystore AES-GCM",
+            "no-backup storage",
+            "no saved peer",
             "keyboard",
             "Camera",
             "INTERNET",
@@ -42,14 +46,14 @@ class PrivacyPreviewContentTest {
             "operating system",
             "no"
         ).forEach { word ->
-            assertTrue("Missing current privacy disclosure: $word", text.contains(word))
+            assertTrue("Missing current privacy disclosure: $word", text.contains(word, ignoreCase = true))
         }
     }
 
     @Test fun unavailableFeaturesAreNotRepresentedAsActive() {
         val future = PrivacyPreviewContent.sections.last().description
-        listOf("saved conversations", "remembered", "disappearing",
-            "Bluetooth", "voice", "Production secure messaging remains disabled"
+        listOf("no Eden Comms accounts", "remembered", "encrypted test text",
+            "disappearing", "Bluetooth", "voice", "Production secure messaging remains disabled"
         ).forEach { assertTrue("Missing future limitation: $it", future.contains(it)) }
         val all = PrivacyPreviewContent.introduction + " " +
             PrivacyPreviewContent.sections.joinToString(" ") { it.description }

@@ -1,6 +1,6 @@
 # Eden Comms — Data Minimization and 30-Day Retention Policy (Design v0.1)
 
-Status: **future persistent encrypted retention design remains proposed, unimplemented and unaudited**. As of M3g (2026-11-06), the *development-only* two-phone text test is session-only in RAM, with a working Hide conversation curtain and explicit Clear my screen. There is **no user-enabled persistent message history, disappearing timer or saved peer trust**. The future 1-hour to 30-day storage choices below are design proposals only. See [M3g](M3G_SESSION_PRIVACY_CONTROLS.md).
+Status (2026-11-09): **F5-A experimental DEBUG LAN-only encrypted local history implemented in PR #148; Android device/security acceptance remains OPEN**. Every new session defaults to RAM-only text. Explicit 1h/24h/7d/14d/30d per-conversation choices persist future confirmed LAN text only, encrypted with Android Keystore AES-GCM, with in-app read/delete for the currently reverified peer. The 1/5/15-minute screen-only disappearing timer already exists; when enabled it suppresses history saving. No Bluetooth/Wi-Fi Direct history integration and **NO remembered peer trust**. The feature uses an isolated debug variant; release storage is no-op. The policy below remains the accepted goal, not proof of cryptographic security, exact deletion or device QA. See [M3g](M3G_SESSION_PRIVACY_CONTROLS.md) and [current handoff](CURRENT_HANDOFF.md).
 Date: 2026-11-03.
 Related: [Product Vision](PRODUCT_VISION.md), [Privacy and Security Charter](PRIVACY_SECURITY_CHARTER.md), [Decisions](DECISIONS.md).
 

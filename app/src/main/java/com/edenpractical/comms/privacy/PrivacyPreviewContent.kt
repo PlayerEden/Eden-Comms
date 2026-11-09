@@ -14,7 +14,8 @@ internal object PrivacyPreviewContent {
         "After both phones approve and confirm, short typed TEST messages can " +
         "travel between the phones over the test connection. A separate " +
         "local-only text layout sandbox never transmits. This is unreviewed, " +
-        "not physically accepted secure messaging. Voice is disabled. " +
+        "not physically accepted secure messaging. Debug LAN push-to-talk " +
+        "is experimental and voice is not a production feature. " +
         "Do not use the development build for sensitive conversations."
 
     data class Section(val heading: String, val description: String)
@@ -25,11 +26,15 @@ internal object PrivacyPreviewContent {
             "If you explicitly create a device identity, its private key stays " +
                 "in Android Keystore until reset or removal. The app also stores " +
                 "your light or dark appearance setting. Short typed test chat " +
-                "and fixed test phrases are temporary in-memory session content: " +
-                "the app does not intentionally save a chat history. Ending, " +
-                "leaving or backgrounding the session clears visible messages " +
-                "and drafts as best effort. Clearing the chat screen is not " +
-                "guaranteed erasure of device memory."
+                "and fixed test phrases are temporary in-memory session content " +
+                "by default. In debug LAN chat ONLY, a separate explicit " +
+                "per-conversation choice can save up to 30 days of message " +
+                "ciphertext in app-private no-backup storage using Android " +
+                "Keystore AES-GCM. The option resets to session-only every " +
+                "new connection. Leaving clears the live view but does not " +
+                "delete expressly saved history. Use Delete saved history " +
+                "for that verified person. File deletion cannot guarantee " +
+                "physical erasure of Android/flash, recipient copies or screenshots."
         ),
         Section(
             "Shared when pairing and chatting",
@@ -61,12 +66,13 @@ internal object PrivacyPreviewContent {
                 "exchange can prepare public device certificate pins/nonces in " +
                 "RAM; the scanned Bluetooth signal is NOT authenticated by these codes. " +
                 "A separate explicit host/join " +
-                "test can briefly open a Bluetooth socket to perform a pinned TLS 1.3 " +
-                "debug diagnostic, exchanging only fixed encrypted QR " +
-                "challenge, channel exporter, transcript commitment and " +
-                "bilateral human APPROVE/DECLINE plus final confirmation " +
-                "controls; it then closes the socket. NO chat, audio, " +
-                "saved peer identity or production connection is enabled. " +
+                "test can open a Bluetooth socket, require pinned TLS 1.3, " +
+                "mutual QR proof, exporter/commitment and bilateral approval, " +
+                "and exchange short debug encrypted TEXT/ACK after both " +
+                "confirmations. Wi-Fi Direct also has experimental verified " +
+                "group/socket/TLS text. Neither path has independently passed " +
+                "two-phone or cryptographic review. There is NO saved peer " +
+                "trust, Bluetooth voice, or production messaging permission. " +
                 "This test is not an independently reviewed secure messenger. " +
                 "Android may continue device discoverability for its approved " +
                 "duration after a socket closes. All these tools are absent " +
@@ -95,11 +101,13 @@ internal object PrivacyPreviewContent {
         ),
         Section(
             "What is not available",
-            "There are no Eden Comms accounts, saved conversations, remembered " +
-                "peer connections, encrypted on-device chat history, disappearing " +
-                "timers or voice calls. Bluetooth and Wi-Fi Direct have " +
-                "debug-only radio/link diagnostics, not a reviewed " +
-                "user messaging transport. " +
+            "There are no Eden Comms accounts, server backups or remembered " +
+                "peer connections. An explicit DEBUG LAN-only history option " +
+                "can retain locally encrypted test text for at most 30 days; " +
+                "the default remains session-only. Short in-memory disappearing " +
+                "timers and debug LAN PTT exist; Bluetooth and Wi-Fi Direct " +
+                "text are experimental debug paths, not reviewed services. " +
+                "Bluetooth and Wi-Fi Direct voice remain unavailable. " +
                 "Production secure messaging remains disabled pending independent " +
                 "protocol review and real two-phone tests. Clearing this phone " +
                 "cannot remotely delete another person's messages."

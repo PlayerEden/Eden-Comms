@@ -57,7 +57,7 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
             "NearbyDiscoveryPolicy.privacyStep",
         ):
             self.assertIn(s, self.main, s)
-        self.assertIn('summary = "A local disappearing timer works in the test chat. Saved history and remembered peers are planned."', self.main)
+        self.assertIn('summary = "Local disappearance works; encrypted opt-in history is in debug LAN chat only. Remembered peers remain unavailable."', self.main)
 
     def test_pairing_buttons_first_not_technical_signer_identifiers(self):
         section = self.pairing.split('Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {', 1)[1]
@@ -77,7 +77,9 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
         self.assertIn("Debug Wi-Fi Direct tests may", self.privacy)
         self.assertIn("permission on older Android versions", self.privacy)
         self.assertIn("no coordinates are", self.privacy)
-        self.assertIn("debug-only radio/link diagnostics", self.privacy)
+        self.assertIn("Bluetooth and Wi-Fi Direct", self.privacy)
+        self.assertIn("debug encrypted TEXT/ACK", self.privacy)
+        self.assertIn("per-conversation choice", self.privacy)
         self.assertIn("Production secure messaging remains disabled", self.privacy)
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn("const val " + flag + " = false", self.capabilities)

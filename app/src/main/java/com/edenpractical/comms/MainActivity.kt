@@ -750,7 +750,7 @@ private fun SettingsScreen(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
     FieldDisclosureCard(
         title = "Conversation privacy",
-        summary = "A local disappearing timer works in the test chat. Saved history and remembered peers are planned.",
+        summary = "Local disappearance works; encrypted opt-in history is in debug LAN chat only. Remembered peers remain unavailable.",
         fullText = listOf(
             ConversationPrivacyContent.futureHistoryTitle + " — " +
                 ConversationPrivacyContent.futureHistoryState + "\n" +

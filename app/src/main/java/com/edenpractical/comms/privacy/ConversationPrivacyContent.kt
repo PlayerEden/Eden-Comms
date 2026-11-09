@@ -1,9 +1,10 @@
 package com.edenpractical.comms.privacy
 
 /**
- * Honest explanation of session-only debug chat, including a live RAM-only
- * local disappearing display timer. No option persists messages or peers.
- * Saved encrypted history and remembered peer identities remain unbuilt.
+ * Honest explanation of session-only DEFAULT debug chat and the F5-A
+ * separately opt-in LOCAL encrypted history. The short RAM disappearing
+ * timer remains independent and cannot remotely erase anything. Remembered
+ * peers/trust remain unbuilt; no reviewed security assurance.
  */
 internal object ConversationPrivacyContent {
     const val currentTitle = "Message history"
@@ -14,10 +15,14 @@ internal object ConversationPrivacyContent {
         "Disconnecting or leaving the app clears the visible session text."
 
     const val futureHistoryTitle = "Encrypted history"
-    const val futureHistoryState = "Not available yet"
+    const val futureHistoryState = "Opt-in test • LAN debug only"
     const val futureHistoryExplanation =
-        "Future per-conversation opt-in may keep encrypted messages on this " +
-        "phone for up to 30 days. There is no saving switch in this build."
+        "After genuine bilateral LAN approval, you can explicitly save NEW " +
+        "short test text in encrypted local device storage for 1 hour, 24 hours, " +
+        "7, 14 or 30 days. Session-only is the default for every connection. " +
+        "Viewing saved messages requires reconnecting to the verified peer, " +
+        "and you can delete that phone's saved history. The feature is NOT " +
+        "security-reviewed, never saves voice, and is unavailable in release."
 
     const val futureTimerTitle = "Disappearing messages"
     const val futureTimerState = "Available in nearby test chat"
@@ -41,9 +46,10 @@ internal object ConversationPrivacyContent {
 
     const val clearTitle = "Clear messages on this phone?"
     const val clearExplanation =
-        "Remove visible test messages and the unsent draft from this phone. " +
-        "The connection stays active, so newly arriving or pending test " +
-        "messages may appear afterward. This cannot delete another person's " +
+        "Remove only the live visible messages and unsent draft from this phone. " +
+        "If you explicitly saved encrypted local history, this button DOES " +
+        "NOT erase that history; use Delete saved history separately. " +
+        "The connection stays active. Nothing deletes the other phone's " +
         "copies, keyboard history or screenshots."
 
     const val privacyLimits =
