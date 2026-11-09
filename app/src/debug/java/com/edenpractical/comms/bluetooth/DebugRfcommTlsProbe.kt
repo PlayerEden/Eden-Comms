@@ -3,6 +3,7 @@ package com.edenpractical.comms.bluetooth
 import android.bluetooth.BluetoothSocket
 import android.net.ssl.SSLEngines
 import android.os.Build
+import android.os.SystemClock
 import com.edenpractical.comms.security.DebugApprovalCommitment
 import com.edenpractical.comms.security.DebugExporterBindingFrame
 import com.edenpractical.comms.security.PinnedTlsPeer
@@ -146,7 +147,8 @@ internal object DebugRfcommTlsProbe {
             return DebugBluetoothProbeCompletion.afterVerifiedDiagnostic(
                 hostRole = request.hostRole,
                 issuedAtSeconds = nowSeconds,
-                qrExpiresAtSeconds = request.expiresAtSeconds
+                qrExpiresAtSeconds = request.expiresAtSeconds,
+                issuedAtElapsedMs = SystemClock.elapsedRealtime()
             )
         } finally {
             transport?.clear()

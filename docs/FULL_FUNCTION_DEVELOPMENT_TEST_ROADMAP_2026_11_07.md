@@ -25,6 +25,20 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F2-L monotonic Bluetooth post-consent receipt (November 8):**
+The actual debug Bluetooth RFCOMM/TLS worker now issues its existing
+non-authorizing, one-use consent completion with an Android monotonic
+elapsed-time stamp; the real active controller consumes it with a second
+elapsedRealtime sample inside its socket-token, role, foreground and
+permission gate. Both QR wall-clock expiry and ≤3000ms monotonic age
+must pass: moving the wall clock cannot revive a stale receipt. JUnit
+negative-clock, QR-expiry and one-use tests and real-callsite source guards
+added. The diagnostic **still closes the exact RFCOMM socket** immediately
+after confirmation; no Bluetooth text/voice, stored trust, new permissions,
+signing change or production capability. External same-channel TLS owner
+review and physical Android 12+ Bluetooth provider tests remain blocking.
+[F2-L handoff](F2_L_MONOTONIC_BLUETOOTH_CONSENT_COMPLETION_2026_11_08.md).
+
 **F4-S non-blocking live microphone reads (November 8):**
 The approved foreground LAN hold-to-talk AudioRecord worker previously used
 a blocking read even though F4-O prevented post-Stop PCM enqueue. F4-S uses

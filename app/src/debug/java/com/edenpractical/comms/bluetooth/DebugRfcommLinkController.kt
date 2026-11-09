@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
 import android.os.Handler
+import android.os.SystemClock
 import java.io.Closeable
 import java.io.IOException
 import java.util.UUID
@@ -229,6 +230,7 @@ internal class DebugRfcommLinkController(
                         completion.acknowledgeOnce(
                             expectedHostRole = token.role == DebugRfcommAttemptGate.Role.HOST,
                             observedAtSeconds = System.currentTimeMillis() / 1000,
+                            observedAtElapsedMs = SystemClock.elapsedRealtime(),
                             foreground = isForeground(),
                             connectPermission = hasConnectPermission()
                         )
