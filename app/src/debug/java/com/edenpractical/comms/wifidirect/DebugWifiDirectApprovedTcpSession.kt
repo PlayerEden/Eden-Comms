@@ -244,18 +244,34 @@ internal class DebugWifiDirectApprovedTcpSession(
         return current.offerText(message)
     }
 
+    /** P2P uses the exact same confirmed text/voice TLS writer, never TCP raw. */
+    fun offerVoiceClip(pcm: ByteArray): Boolean {
+        val current = synchronized(lock) {
+            if (active == null || !canContinue() || phase != Phase.CHAT)
+                null else text
+        } ?: return false
+        return current.offerVoiceClip(pcm)
+    }
+
     private fun textEvent(token: Attempt, event: DebugBluetoothApprovedTextChannel.Event) {
         if (event is DebugBluetoothApprovedTextChannel.Event.Failed) {
             stop(token, "Wi-Fi Direct encrypted writer failed; connection closed.")
             return
         }
         handler.post {
-            synchronized(lock) {
-                if (active !== token || phase != Phase.CHAT ||
-                    !canContinue() || text == null
-                ) return@post
+            try {
+                synchronized(lock) {
+                    if (active !== token || phase != Phase.CHAT ||
+                        !canContinue() || text == null
+                    ) return@post
+                }
+                onText(event)
+            } finally {
+                // Playback copies PCM immediately; stale callbacks must
+                // neither play nor retain sensitive uncompressed audio.
+                if (event is DebugBluetoothApprovedTextChannel.Event.VoiceReceived)
+                    event.pcm.fill(0)
             }
-            onText(event)
         }
     }
 
