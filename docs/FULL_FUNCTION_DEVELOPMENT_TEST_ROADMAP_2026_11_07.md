@@ -25,6 +25,21 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F2-P real Bluetooth consent timeout is terminal (November 8):**
+Hardened the **actual** debug Bluetooth consent decision used by the
+real RFCOMM/TLS controller: once its 25-second wait times out, it
+consumes the decision, and later APPROVE/DECLINE callbacks cannot
+appear accepted. A monotonic nanoTime bound also rejects a late tap
+if the worker has not yet awakened. Clock rollback, interruption,
+duplicate waiters, foreground/permission closure and just-in-time
+approval stay fail-closed with deterministic JVM tests and source
+guards. This fixes a real lifecycle ambiguity, not a mock future owner.
+The same verified diagnostic still closes after both confirmations.
+No Bluetooth TEXT/ACK, TLS retention, new permissions or production
+communication authority. Two-phone Android testing and independent
+same-channel security review remain open.
+[F2-P late-tap acceptance gate](F2_P_TERMINAL_BLUETOOTH_CONSENT_DEADLINE_2026_11_08.md).
+
 **F2-O actual QR, transcript and consent over same JVM TLS session (November 8):**
 Extends the genuine two-peer pinned JDK TLS 1.3 integration fixture
 beyond F2-N's synthetic control *sizes*. It now runs the actual ordered
