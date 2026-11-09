@@ -40,6 +40,8 @@ internal fun DebugConversationPanel(
     peerAckIds: Set<Long>,
     draft: String,
     hidden: Boolean,
+    disappearAfterMs: Long,
+    onDisappearAfterChange: (Long) -> Unit,
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
     onToggleHidden: () -> Unit,
@@ -49,6 +51,7 @@ internal fun DebugConversationPanel(
     val scope = rememberCoroutineScope()
     var followNewest by remember { mutableStateOf(true) }
     var autoScrolling by remember { mutableStateOf(false) }
+    var showDisappearOptions by remember { mutableStateOf(false) }
     LaunchedEffect(scroll) {
         snapshotFlow { Triple(scroll.value, scroll.maxValue, scroll.isScrollInProgress) }
             .collect { (position, maximum, moving) ->
@@ -131,6 +134,43 @@ internal fun DebugConversationPanel(
                         transcript.visible.isNotEmpty() || draft.isNotEmpty(),
                         onClearRequested, Modifier.weight(1f)
                     )
+                }
+            }
+        }
+        if (!hidden) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Disappear on this phone",
+                        style = MaterialTheme.typography.labelLarge)
+                    Text("Local display timer, not remote deletion",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Box {
+                    OutlinedButton(
+                        onClick = { showDisappearOptions = true },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text(DebugLocalDisappearingPolicy.label(disappearAfterMs))
+                    }
+                    DropdownMenu(
+                        expanded = showDisappearOptions,
+                        onDismissRequest = { showDisappearOptions = false }
+                    ) {
+                        DebugLocalDisappearingPolicy.choices.forEach { choice ->
+                            DropdownMenuItem(
+                                text = { Text(choice.label) },
+                                onClick = {
+                                    showDisappearOptions = false
+                                    onDisappearAfterChange(choice.durationMs)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

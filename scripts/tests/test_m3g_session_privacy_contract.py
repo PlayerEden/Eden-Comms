@@ -49,7 +49,15 @@ class SessionPrivacyContractTest(unittest.TestCase):
         for future in ("futureHistoryState", "futureTimerState", "futureTrustState"):
             self.assertIn("ConversationPrivacyContent." + future, self.settings)
         self.assertIn('const val currentState = "Session only • currently active"', self.future)
-        self.assertEqual(3, self.future.count('State = "Not available yet"'))
+        self.assertEqual(2, self.future.count('State = "Not available yet"'))
+        self.assertIn('const val futureTimerState = "Available in nearby test chat"', self.future)
+        self.assertIn("onDisappearAfterChange = { newDuration ->", self.pairing)
+        self.assertIn(".pruneExpired(SystemClock.elapsedRealtime())", self.pairing)
+        self.assertIn("LaunchedEffect(stage, debugText)", self.pairing)
+        self.assertIn("shortenVisibleExpiry(newDuration)", self.pairing)
+        self.assertIn("disappearAfterMs = disappearAfterMs", self.pairing)
+        self.assertIn("onDisappearAfterChange: (Long) -> Unit", self.chat)
+        self.assertIn("DebugLocalDisappearingPolicy.choices.forEach", self.chat)
         self.assertNotIn("openFileOutput", self.chat + self.pairing)
         self.assertNotIn("SQLiteDatabase", self.chat + self.pairing)
 

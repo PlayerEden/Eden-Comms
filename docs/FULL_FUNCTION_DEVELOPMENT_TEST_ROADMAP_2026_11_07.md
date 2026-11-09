@@ -2,6 +2,52 @@
 
 **Updated November 8, 2026. Source of truth:** `main` plus small reviewed PRs. [Original core feature plan](CORE_FEATURE_COMPLETION_PLAN_2026_11_06.md) remains the long-term specification; this is its prioritized execution schedule, not a replacement for earlier safety decisions.
 
+## Revised development priority — complete usable core code before the next phone test
+
+**Owner direction, November 9, 2026:** Stop spending development cycles on
+Preview/APK checkpoints and simulated features while real core paths remain
+unavailable. Continue small, reviewable source PRs with actual Android wiring
+and automated tests, then run one consolidated physical test of the complete
+core. Only request another signed Preview when the owner is ready to test.
+Green CI establishes a source/build checkpoint, **not** hardware success.
+
+**Core completion queue (implementations before consolidated device QA):**
+
+1. **Same-Wi-Fi:** Keep the existing real mutually approved text/ACK + live
+   voice. Fix real bugs; no more mock-only LAN milestones. E3 now brings an
+   actual selectable RAM-only local message expiry timer to the live chat,
+   with monotonic deadlines and no hidden persistence or remote erasure claim.
+2. **Bluetooth Classic:** Bridge the real QR/TLS/exporter/both-confirmed
+   RFCOMM worker into a single bounded, cancelable, same-engine encrypted
+   TEXT/ACK chat owner and actual conversation UI. Do not make a diagnostic
+   completion receipt or caller-supplied boolean into authorization.
+   Retaining a live authenticated channel needs independent protocol review
+   before even experimental use; implement the reviewed design in debug
+   with negative-case tests. Bluetooth voice follows text and throughput QA.
+3. **Wi-Fi Direct:** Complete actual OS group/socket -> pinned mutual TLS ->
+   QR/challenge/exporter -> both human approvals -> TEXT/ACK and route it to
+   the same clear chat UI, no router or IP input. No mocked READY, no
+   unrelated default Wi-Fi route or plaintext fallback.
+4. **Core privacy:** Implement opt-in encrypted local history (never default),
+   expiry choices capped at 30 days, disappearing messages and an optional
+   separately expiring verified peer identity. Every read checks expiration;
+   backup/device transfer and deletion behavior need review. E3 session
+   disappearing is **not** encrypted saved history or remote deletion.
+5. **PTT across available authenticated transports:** Existing LAN half-duplex
+   voice must remain cancelable and accessible; add Wi-Fi Direct after its
+   encrypted text session works. Bluetooth voice only if measured radio
+   bandwidth/latency permits. No background mic and no fake transmit status.
+6. **App finish:** One obvious Connect -> Communicate -> Disconnect path,
+   real transport availability indicators, readable state/permissions and
+   actionable recovery. Keep telemetry, accounts, relay and mandatory cloud
+   out of first release.
+
+**Non-negotiable separation:** It is fine to write and CI-check all core
+experimental code before physical testing. It is **not** fine to label that
+code a validated secure messenger, turn on production release capabilities,
+skip external cryptographic review, or claim reliable radios/voice before
+handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
+
 ## Current delivery status and next integration queue (November 8, 2026)
 
 **No duplicate roadmap:** this document is the active execution plan for the user's complete core application test. The [core feature completion plan](CORE_FEATURE_COMPLETION_PLAN_2026_11_06.md) remains the full long-term scope. A green GitHub workflow confirms source/build gates only; neither it nor a debug APK constitutes physical radio acceptance or security review.
