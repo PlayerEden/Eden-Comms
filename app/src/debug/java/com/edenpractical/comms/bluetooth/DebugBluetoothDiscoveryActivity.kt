@@ -1,5 +1,8 @@
 package com.edenpractical.comms.bluetooth
 
+import com.edenpractical.comms.qa.DebugNearbyQaEvidence
+import com.edenpractical.comms.qa.DebugNearbyQaPanel
+
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
 import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
@@ -70,6 +73,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val qrCoordinator = DebugBluetoothQrCoordinator()
     private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
     private val localVoice by lazy { DebugNearbyVoiceOwner(applicationContext) }
+    private val qaEvidence = DebugNearbyQaEvidence("Bluetooth")
     private val discoveryState = NearbyDiscoverySession()
     private val candidateLedger = DebugBluetoothCandidateLedger<BluetoothDevice>()
     private var candidateToken: DebugBluetoothCandidateLedger.Token? = null
@@ -119,6 +123,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     ackedChatIds = emptySet()
                     localPrivacy.close()
                     localVoice.disable()
+                    qaEvidence.end()
                     // No reusable QR or anonymous radio candidate on retry:
                     // restart the actual two-phone flow with fresh codes.
                     qrCoordinator.clear()
@@ -135,6 +140,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             },
             onTextEvent = { event ->
                 localPrivacy.receiveEncryptedEvent(event)
+                qaEvidence.observe(event)
                 when (event) {
                     is DebugBluetoothApprovedTextChannel.Event.Ready -> {
                         chatReady = true
@@ -353,6 +359,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                     localVoice.disable()
                                     linkController.disconnect()
                                 },
+                                onLeaveTalk = { localVoice.release() },
                                 textContent = {
                                     DebugBluetoothTextPanel(
                                         lines = chatLines,
@@ -362,7 +369,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                     )
                                 },
                                 talkContent = { DebugNearbyVoicePanel(localVoice) },
-                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) }
+                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) },
+                                qaContent = { DebugNearbyQaPanel(qaEvidence) }
                             )
                         } else {
                         val guide = DebugBluetoothJourneyCue.current(
@@ -634,6 +642,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         ackedChatIds = emptySet()
         localPrivacy.close()
         localVoice.disable()
+        qaEvidence.end()
         handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE

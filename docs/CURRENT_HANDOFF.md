@@ -95,47 +95,57 @@ to remote AudioTrack. No verified physical radio/OEM behavior or
 independent security review; debug only. Previous F4-U whole-clip path
 is a regression-only fallback and also requires floor.
 
-## Active milestone — M6-A unified debug Connect and conversation UI
+## Completed code checkpoint — M6-A unified Connect → Text/Talk
 
-[PR #153](https://github.com/PlayerEden/Eden-Comms/pull/153),
-`feature/m6-a-unified-connect-chat-2026-11-09`:
+[PR #153](https://github.com/PlayerEden/Eden-Comms/pull/153)
+merged to `main` at `b9166cdc4f2809146c5aeeb8eac4f34397a860a7`.
+[Independent postmerge CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42663929342).
+One debug Connect chooser routes to already authenticated Same Wi-Fi LAN,
+Bluetooth Classic and Wi-Fi Direct entrypoints. Existing nearby verified
+sessions show the shared **Text/Talk/Disconnect** shell and optional
+privacy under a disclosure; low-level diagnostics moved to Advanced.
+Choosing a radio never authorizes or verifies it, and production switches
+are still FALSE. Physical two-phone UX and real OEM/security acceptance OPEN.
 
-- Home **Connect nearby**, **Text** and **Talk** choices route to one
-  method chooser instead of silently launching LAN or showing a
-  misleading disconnected voice demo. Same Wi-Fi, Bluetooth Classic and
-  Wi-Fi Direct all route to their **real, preexisting DEBUG entrypoints**.
-  The Bluetooth and Wi-Fi Direct activities are non-exported and
-  launched only in debuggable builds. Wi-Fi Direct still requires its
-  permission/capability preflight, then explicit Host/Join; no chooser
-  action scans a radio, approves another phone or establishes a session.
-  Release selection fails closed; CAN_* flags remain OFF.
-- One reusable DEBUG Compose authenticated-session-only panel presents
-  **Text / Talk / Disconnect**, with separate local history/remembered
-  peer controls behind a disclosure. Bluetooth and Wi-Fi Direct host
-  and join use it only on their ORIGINAL post-QR/TLS + both-human-confirm
-  CHAT callbacks; setup QR/permission/radio/approval paths remain
-  untouched. Disconnect invokes the original owner and teardown; the
-  UI does not manufacture a connection, auto-reconnect or bypass consent.
-- Removes stale "Bluetooth / Wi-Fi Direct future only", "voice off"
-  copy and unhelpful in-chat radio/group diagnostics. Preserves
-  optional advanced diagnostic paths for development. Adds pure
-  method-catalog gating tests and M6-A UI/source security checks.
-- **Pending:** exact-final-head Android/JVM/Python/shell CI and separate
-  postmerge `main` CI. Phone usability, real voice/radio, accessibility,
-  Android Keystore/backup/restore and independent security review
-  remain OPEN.
+## Active source milestone — M6-B tab mic safety + consolidated QA
 
-## Next priority after M6-A
+[PR #154](https://github.com/PlayerEden/Eden-Comms/pull/154),
+`feature/m6-b-talk-tab-safety-and-qa-matrix-2026-11-09`:
 
-1. Verify exact-head PR Android CI; repair regressions honestly and merge
-   only when all checks pass. Verify independent postmerge `main` CI.
-2. Consolidate the two-phone handset QA into a single reproducible
-   matrix: each method's QR/permissions/approval, text and ACK, live
-   half-duplex audio, stop/background, expiry, local history and
-   remembered peers, limited radio/Android OEM variations, UI rotation
-   and large-font accessibility.
-3. Fix actual device issues in focused PRs, then obtain independent
-   cryptographic/security review BEFORE enabling release features.
+- On verified Bluetooth/P2P chat, **switching from Talk to Text** or
+  unmounting Talk calls the live voice owner `release()`: pending encrypted
+  floor requests are CANCELed; an active AudioRecord stops and its worker
+  queues END/RELEASE in order. Never simply hide a still-active microphone
+  behind a Text tab or call `disable()` and strand a live floor.
+  Session Disconnect/background retains the original hard teardown.
+- A small optional **Advanced: This phone's test counts** panel in those
+  existing authenticated chat screens exposes an *explicit* clipboard copy
+  of RAM-only redacted counters for text sent/received, peer ACK, floor
+  grant/deny and inbound/outbound voice frames. Never store payload text,
+  PCM, QR, peer fingerprints, IPs, credentials or contact details. Counts
+  are NOT read receipts, proof of audible speech or cryptographic assurance.
+  Existing LAN result-screen QA report remains separate and unchanged.
+- [One consolidated two-phone acceptance matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+  describes 18 repeatable connection/auth/text/PTT/privacy/lifecycle/
+  accessibility cases across all 3 methods, one redacted evidence format,
+  FAIL/BLOCKED/retest procedure and explicit **NOT RUN** status. No user
+  device tests are asserted. Kotlin redaction tests and Python/shell
+  UI/security gates accompany the change.
+- **Pending:** exact-final-head PR Android/JVM/security CI, then postmerge
+  `main` CI. No new APK or production capability enabled.
+
+## Next milestone after M6-B
+
+1. Resolve all CI regressions on PR #154, then merge only after final
+   head green; independently verify postmerge main and update the work log.
+2. Execute the [single two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   when the owner has both phones and wants a field build, rather than
+   generating repeated Preview apps. Record real PASS/FAIL/BLOCKED evidence
+   for each method and role, including audible live PTT and background stops.
+3. Fix actual physical-device issues in narrow PRs and repeat negative
+   QR/approval/mic/background regressions. Independent crypto and privacy
+   review, accessibility and OEM Keystore/backup validation are mandatory
+   BEFORE enabling release CAN_* or claiming secure production messenger.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide

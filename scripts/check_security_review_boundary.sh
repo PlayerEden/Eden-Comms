@@ -1225,5 +1225,50 @@ for F in \
   fi
 done
 
-echo "PASS: M6-A debug only method selection and verified Text/Talk/Disconnect presentation"
+# M6-B: exiting the Talk tab must release/cancel an authenticated floor.
+# Evidence is RAM-only and redacted, copied only by explicit advanced click.
+M6_QA_OWNER="app/src/debug/java/com/edenpractical/comms/qa/DebugNearbyQaEvidence.kt"
+M6_QA_PANEL="app/src/debug/java/com/edenpractical/comms/qa/DebugNearbyQaPanel.kt"
+test -f "$M6_QA_OWNER" && test -f "$M6_QA_PANEL"
+test -f docs/TWO_PHONE_ACCEPTANCE_MATRIX.md
+grep -Fq 'onLeaveTalk: () -> Unit' "$M6_CHAT"
+grep -Fq 'DisposableEffect(selection)' "$M6_CHAT"
+grep -Fq 'if (selection == "talk") onLeaveTalk()' "$M6_CHAT"
+grep -Fq 'onClick = chooseText' "$M6_CHAT"
+grep -Fq 'if (showQa) qaContent()' "$M6_CHAT"
+for F in "$BT_LIVE_SCREEN" "$P2P_HOST_SCREEN" "$P2P_JOIN_SCREEN"; do
+  grep -Fq 'onLeaveTalk = { localVoice.release() }' "$F"
+  grep -Fq 'qaEvidence.observe(event)' "$F"
+  grep -Fq 'qaEvidence.end()' "$F"
+  grep -Fq 'qaContent = { DebugNearbyQaPanel(qaEvidence) }' "$F"
+done
+grep -Fq 'DebugBluetoothApprovedTextChannel.Event.Ready ->' "$M6_QA_OWNER"
+grep -Fq 'if (!active) return' "$M6_QA_OWNER"
+grep -Fq 'fun summary()' "$M6_QA_OWNER"
+grep -Fq 'LOCAL OBSERVATIONS ONLY' "$M6_QA_OWNER"
+grep -Fq 'evidence.summary()' "$M6_QA_PANEL"
+grep -Fq 'ClipboardManager' "$M6_QA_PANEL"
+grep -Fq 'onClick = {' "$M6_QA_PANEL"
+grep -Fq 'COPY THIS PHONE' "$M6_QA_PANEL"
+if grep -REn '(Socket\(|BluetoothAdapter|WifiP2pManager|AudioRecord|AudioTrack|Log\.|println\(|openFileOutput\(|SharedPreferences|FileOutputStream)' \
+  "$M6_QA_OWNER" "$M6_QA_PANEL" "$M6_CHAT"; then
+  echo "FAIL: M6-B UI/QA model gained raw radio, audio device, sensitive logging or disk" >&2
+  exit 1
+fi
+if grep -REn '(event\.text|event\.pcm|event\.id|qrPayload|peerFingerprint)' "$M6_QA_OWNER"; then
+  echo "FAIL: M6-B local QA counts attempt to save or display message/audio/peer payloads" >&2
+  exit 1
+fi
+for F in \
+  app/src/main/java/com/edenpractical/comms/qa/DebugNearbyQaEvidence.kt \
+  app/src/release/java/com/edenpractical/comms/qa/DebugNearbyQaEvidence.kt \
+  app/src/main/java/com/edenpractical/comms/qa/DebugNearbyQaPanel.kt \
+  app/src/release/java/com/edenpractical/comms/qa/DebugNearbyQaPanel.kt; do
+  if test -e "$F"; then
+    echo "FAIL: M6-B experimental local QA evidence entered non-debug source" >&2
+    exit 1
+  fi
+done
+
+echo "PASS: M6-B Talk-to-Text stops foreground mic and QA reports are redacted/opt-in"
 

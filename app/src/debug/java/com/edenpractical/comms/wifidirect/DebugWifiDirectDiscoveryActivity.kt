@@ -1,5 +1,8 @@
 package com.edenpractical.comms.wifidirect
 
+import com.edenpractical.comms.qa.DebugNearbyQaEvidence
+import com.edenpractical.comms.qa.DebugNearbyQaPanel
+
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
 import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
@@ -63,6 +66,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private val verifiedChat = DebugWifiDirectChatUiState()
     private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
     private val localVoice by lazy { DebugNearbyVoiceOwner(applicationContext) }
+    private val qaEvidence = DebugNearbyQaEvidence("Wi-Fi Direct • join")
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var foreground = false
     private var registered = false
@@ -318,12 +322,14 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                         localPrivacy.close()
                         localVoice.disable()
+                        qaEvidence.end()
                     }
                 },
                 onVerifiedApproval = { verifiedChat.approval(it) },
                 onVerifiedText = { event ->
                     verifiedChat.event(event)
                     localPrivacy.receiveEncryptedEvent(event)
+                    qaEvidence.observe(event)
                     when (event) {
                         DebugBluetoothApprovedTextChannel.Event.Ready ->
                             localVoice.activate(
@@ -568,6 +574,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                     )
                                     stopByUser()
                                 },
+                                onLeaveTalk = { localVoice.release() },
                                 textContent = {
                                     DebugWifiDirectTextPanel(
                                         lines = verifiedChat.lines,
@@ -577,7 +584,8 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                     )
                                 },
                                 talkContent = { DebugNearbyVoicePanel(localVoice) },
-                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) }
+                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) },
+                                qaContent = { DebugNearbyQaPanel(qaEvidence) }
                             )
                         } else {
                         if (verifiedChat.phase !in setOf(
@@ -719,6 +727,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         verifiedChat.clear()
         localPrivacy.close()
         localVoice.disable()
+        qaEvidence.end()
         preparation.clear()
         token?.let {
             finishAttempt(it, DebugWifiDirectDiscoveryGate.End.BACKGROUND,

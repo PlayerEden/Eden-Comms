@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,12 +37,29 @@ import androidx.compose.ui.unit.dp
 internal fun DebugVerifiedConversationPanel(
     method: String,
     onDisconnect: () -> Unit,
+    /** Called when the user exits Talk; must stop a live mic or cancel pending floor. */
+    onLeaveTalk: () -> Unit,
     textContent: @Composable () -> Unit,
     talkContent: @Composable () -> Unit,
-    privacyContent: @Composable () -> Unit
+    privacyContent: @Composable () -> Unit,
+    qaContent: @Composable () -> Unit
 ) {
     var selection by remember { mutableStateOf("text") }
     var showPrivacy by remember { mutableStateOf(false) }
+    var showQa by remember { mutableStateOf(false) }
+
+    // Switching tabs must never leave the microphone transmitting invisibly.
+    // Also release if the verified conversation UI is unmounted while on Talk.
+    // Owner.release() is idempotent and keeps END/RELEASE in the TLS FIFO.
+    DisposableEffect(selection) {
+        onDispose {
+            if (selection == "talk") onLeaveTalk()
+        }
+    }
+    val chooseText = {
+        if (selection == "talk") onLeaveTalk()
+        selection = "text"
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -68,7 +86,7 @@ internal fun DebugVerifiedConversationPanel(
             ) {
                 if (selection == "text") {
                     Button(
-                        onClick = { selection = "text" },
+                        onClick = chooseText,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                     ) { Text("TEXT") }
                 } else {
@@ -89,6 +107,12 @@ internal fun DebugVerifiedConversationPanel(
                     ) { Text("TALK") }
                 }
             }
+            if (selection == "talk") {
+                Text(
+                    "Changing to Text stops the microphone or cancels a pending talk request.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             // Neither child receives a synthetic "connected" flag: the owner
             // has already authenticated and gated composition of this panel.
             if (selection == "text") textContent()
@@ -108,6 +132,14 @@ internal fun DebugVerifiedConversationPanel(
                      else "SHOW LOCAL PRIVACY OPTIONS")
             }
             if (showPrivacy) privacyContent()
+            TextButton(
+                onClick = { showQa = !showQa },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text(if (showQa) "HIDE ADVANCED TEST COUNTS"
+                     else "ADVANCED: THIS PHONE'S TEST COUNTS")
+            }
+            if (showQa) qaContent()
         }
     }
 }

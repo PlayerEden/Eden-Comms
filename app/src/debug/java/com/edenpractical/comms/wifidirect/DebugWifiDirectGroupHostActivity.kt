@@ -1,5 +1,8 @@
 package com.edenpractical.comms.wifidirect
 
+import com.edenpractical.comms.qa.DebugNearbyQaEvidence
+import com.edenpractical.comms.qa.DebugNearbyQaPanel
+
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
 import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
@@ -62,6 +65,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val verifiedChat = DebugWifiDirectChatUiState()
     private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
     private val localVoice by lazy { DebugNearbyVoiceOwner(applicationContext) }
+    private val qaEvidence = DebugNearbyQaEvidence("Wi-Fi Direct • host")
     private var verifiedSession: DebugWifiDirectApprovedTcpSession? = null
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var foreground = false
@@ -121,6 +125,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedChat.clear()
         localPrivacy.close()
         localVoice.disable()
+        qaEvidence.end()
         preparation.clear()
         active = null
         timeout?.let(handler::removeCallbacks)
@@ -519,6 +524,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                                         localPrivacy.close()
                                         localVoice.disable()
+                                        qaEvidence.end()
                                     }
                                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
                                         // Group remains alive only for the bounded live session.
@@ -543,6 +549,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 if (active === token && verifiedSession === owned) {
                                     verifiedChat.event(event)
                                     localPrivacy.receiveEncryptedEvent(event)
+                                    qaEvidence.observe(event)
                                     when (event) {
                                         DebugBluetoothApprovedTextChannel.Event.Ready ->
                                             localVoice.activate(
@@ -677,6 +684,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                         )
                                     }
                                 },
+                                onLeaveTalk = { localVoice.release() },
                                 textContent = {
                                     DebugWifiDirectTextPanel(
                                         lines = verifiedChat.lines,
@@ -686,7 +694,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                     )
                                 },
                                 talkContent = { DebugNearbyVoicePanel(localVoice) },
-                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) }
+                                privacyContent = { DebugVerifiedNearbyPrivacyPanel(localPrivacy) },
+                                qaContent = { DebugNearbyQaPanel(qaEvidence) }
                             )
                         } else {
                         if (verifiedChat.phase !in setOf(

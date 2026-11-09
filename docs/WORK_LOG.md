@@ -4,6 +4,52 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-B: Talk tab microphone cleanup and one physical QA plan
+
+**PR/source:** [#154](https://github.com/PlayerEden/Eden-Comms/pull/154),
+`feature/m6-b-talk-tab-safety-and-qa-matrix-2026-11-09`, based on
+verified M6-A `main` commit `b9166cdc4f2809146c5aeeb8eac4f34397a860a7`.
+M6-A [postmerge CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42663929342).
+
+**Why:** The unified Talk tab could be hidden while an AudioRecord turn
+was active or an encrypted floor GRANT still pending. A new chat tab does
+not itself stop a microphone. Also LAN had a redacted copyable QA report,
+but Bluetooth/P2P required guesswork during the planned two-phone test.
+
+**Implementation:** The DEBUG-only verified conversation panel now
+calls an explicit `onLeaveTalk` on Talk→Text and Talk unmount.
+Bluetooth and Wi-Fi Direct host/join map it to their live owner
+`release()`, which cancels a pending floor or stops live capture and
+queues its final END/RELEASE. Existing Disconnect and onStop still
+disable recording, clear sensitive RAM and close connections.
+
+A shared, debug-only, RAM-only `DebugNearbyQaEvidence` stores only
+local event counts and never peeks at `Event.text`, PCM bytes, TLS,
+QR, peer pins, IP or credentials. Its optional Advanced panel copies
+a compact **local observation only** report to Android clipboard on
+explicit tap; clipboard privacy warning is visible. All real
+Bluetooth/P2P owners observe only events in their already-verified
+session and mark evidence ended on activity stop. Added pure JVM
+redaction/session reset tests and Python/security source checks.
+
+[Consolidated two-phone QA matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md):
+18 core cases per transport, clear role swap and offline tests, expected
+proof for C04 wrong/expired QR, C05 asymmetric approval, C07 text/ACK,
+C08–C11 audible voice/talk-floor/tab exit, C12 hard stop, C13–C15
+history and remember-peer consent, and C16–C18 accessibility/cleanup/
+redacted evidence. **Every physical case remains NOT RUN.** Neither
+GitHub CI nor the report can establish audibility, security or OEM QA.
+
+**QA receipt:** PR #154 and GitHub Actions hold the final exact-head
+build results. Require a green Android debug/release/JUnit/Python/shell
+run before merge and an independent main run after. No preview APK
+created or real phone results asserted.
+
+**Next/rollback:** fix CI and merge; run single two-phone matrix only
+when the owner is ready; repair observed issues and obtain separate
+independent crypto/security review. Revert PR #154 alone for rollback.
+No saved history, local key material or production capability changes.
+
 ## 2026-11-09 — M6-A: one honest Connect → Text/Talk → Disconnect
 
 **Who/what/why:** The app's Home and connection chooser still described
