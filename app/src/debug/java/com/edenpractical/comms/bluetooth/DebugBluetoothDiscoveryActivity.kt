@@ -103,7 +103,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     // F2-K: only the last sanitised stage emitted by the real TLS worker.
     // No peer IDs, certificate material, message content or history.
     private var verifiedProof by mutableStateOf<DebugBluetoothVerifiedStage?>(null)
-    private val linkController by lazy {
+    private val linkController: DebugRfcommLinkController by lazy {
         DebugRfcommLinkController(
             handler = handler,
             isForeground = { foreground },
