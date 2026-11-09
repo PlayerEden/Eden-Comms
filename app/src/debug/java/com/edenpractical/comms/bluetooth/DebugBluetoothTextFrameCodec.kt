@@ -8,7 +8,8 @@ import java.nio.charset.StandardCharsets
 /**
  * F2-F: DEBUG-ONLY future encrypted Bluetooth TEXT/ACK plaintext frames.
  *
- * Not connected to a BluetoothSocket, SSLEngine, UI or real message transport.
+ * F2-Q: used by the actual post-confirmation debug encrypted Bluetooth
+ * channel. This codec ALONE is still never proof of a verified peer.
  * The bytes returned by this codec are NOT encrypted/authenticated; a future
  * separately reviewed TLS adapter must gate actual I/O on a live, mutually
  * approved, identity-bound connection. NEVER send these bytes over bare RFCOMM.
