@@ -568,6 +568,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                     )
                                     stopByUser()
                                 },
+                                onLeaveTalk = { localVoice.release() },
                                 textContent = {
                                     DebugWifiDirectTextPanel(
                                         lines = verifiedChat.lines,
