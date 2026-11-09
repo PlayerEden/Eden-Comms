@@ -31,9 +31,12 @@ thread-safe close:
 
 - Takes exclusive custody of the three references, clears retained fields
   and marks the bundle closed atomically.
-- Closes the record adapter, then socket, then engine outbound independently
-  with best-effort exception handling. It never pretends a hard disconnect
-  received a TLS close_notify; real TLS truncation handling needs review.
+- Closes the record adapter, then socket, then requests TLS engine outbound
+  closure independently with best-effort exception handling. On an
+  established SSLEngine, closeOutbound() may leave a pending unsent
+  close_notify; isOutboundDone need not become true immediately. It never
+  pretends a hard disconnect completed graceful TLS shutdown; real TLS
+  truncation handling needs review.
 - Refuses reference matching after closure. Matching references is **only
   correlation of caller-supplied objects**, never identity, TLS, QR,
   consent or send authorization.

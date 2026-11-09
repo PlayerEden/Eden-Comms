@@ -25,6 +25,22 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F2-N exact same-engine TLS control-to-text JVM rehearsal (November 8):**
+The two real, mutually pinned JVM TLS 1.3 engines and their original
+byte pipes now traverse all five strict encrypted control **record
+lengths**, retire the old control adapter, and exchange encrypted
+TEXT/peer-app ACK in both directions on the **same** TLS engines and
+byte streams. The F2-M bundled future owner then closes both engine
+outbound and its pipes on expiry/cancel; an encrypted leftover
+control packet is rejected as invalid application text.
+This provides stronger continuity regression, **not proof of real
+Bluetooth QR/exporter/consent**: control payloads and owner booleans
+in this fixture are synthetic. No RFCOMM controller/probe wiring, new
+Android permission, actual socket retention, UI, or production chat.
+Physical Android provider tests and independent protocol review still
+block live Bluetooth messages.
+[F2-N test/review handoff](F2_N_SAME_ENGINE_CONTROL_TO_TEXT_HANDOFF_JVM_2026_11_08.md).
+
 **F2-M future same-channel resource teardown bundle (November 8):**
 A debug-only, **unwired** `DebugBluetoothFutureChannelBundle` now models
 one owner closing its caller-supplied TLS record adapter, RFCOMM-like

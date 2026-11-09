@@ -57,7 +57,11 @@ internal class DebugBluetoothFutureChannelBundle(
         try { toClose.first?.close() } catch (_: Exception) { }
         try { toClose.second?.close() } catch (_: Exception) { }
         try { toClose.third?.closeOutbound() } catch (_: Exception) { }
-        // Inbound TLS closeNotify may be missing after a hard radio loss;
-        // do not claim a graceful closeInbound() handshake occurred.
+        // F2-N: on an established SSLEngine, closeOutbound merely begins
+        // shutdown; isOutboundDone can remain false until close_notify is
+        // emitted by wrap(). The adapter was already invalidated and the
+        // underlying radio was closed, so do NOT claim a graceful TLS
+        // close or try to wrap TLS on an abandoned connection.
+        // Inbound close_notify may likewise never arrive on hard radio loss.
     }
 }
