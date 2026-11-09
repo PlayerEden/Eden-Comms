@@ -333,6 +333,17 @@ internal class DebugRfcommLinkController(
         return channel.offerText(text)
     }
 
+    /** Send only a bounded microphone clip on the currently approved TLS engine. */
+    fun offerVoiceClip(pcm: ByteArray): Boolean {
+        val channel = synchronized(lock) {
+            if (active == null ||
+                gate.snapshot().phase != DebugRfcommAttemptGate.Phase.LINK_OPEN ||
+                !isForeground() || !hasConnectPermission()
+            ) null else liveText
+        } ?: return false
+        return channel.offerVoiceClip(pcm)
+    }
+
     private fun textEvent(
         token: DebugRfcommAttemptGate.Token,
         event: DebugBluetoothApprovedTextChannel.Event
@@ -342,12 +353,20 @@ internal class DebugRfcommLinkController(
             return
         }
         handler.post {
-            synchronized(lock) {
-                if (active !== token ||
-                    gate.snapshot().phase != DebugRfcommAttemptGate.Phase.LINK_OPEN ||
-                    liveText == null || !isForeground() || !hasConnectPermission()
-                ) return@post
-                onTextEvent(event)
+            try {
+                synchronized(lock) {
+                    if (active !== token ||
+                        gate.snapshot().phase != DebugRfcommAttemptGate.Phase.LINK_OPEN ||
+                        liveText == null || !isForeground() || !hasConnectPermission()
+                    ) return@post
+                    onTextEvent(event)
+                }
+            } finally {
+                // Audio PCM is sensitive. The Android playback owner makes
+                // its own bounded copy synchronously; never retain in a
+                // stale delayed callback or diagnostics/transcript.
+                if (event is DebugBluetoothApprovedTextChannel.Event.VoiceReceived)
+                    event.pcm.fill(0)
             }
         }
     }
