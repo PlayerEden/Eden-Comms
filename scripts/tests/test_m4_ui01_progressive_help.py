@@ -51,13 +51,13 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
 
     def test_long_settings_and_future_method_details_are_optional(self):
         for s in (
-            'title = "Planned privacy features"',
+            'title = "Conversation privacy"',
             "futureHistoryExplanation", "futureTimerExplanation",
             "futureTrustExplanation", 'title = "Other connection methods"',
             "NearbyDiscoveryPolicy.privacyStep",
         ):
             self.assertIn(s, self.main, s)
-        self.assertIn('summary = "Saved history, disappearing messages and remembered peers are not available."', self.main)
+        self.assertIn('summary = "A local disappearing timer works in the test chat. Saved history and remembered peers are planned."', self.main)
 
     def test_pairing_buttons_first_not_technical_signer_identifiers(self):
         section = self.pairing.split('Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {', 1)[1]
