@@ -171,6 +171,8 @@ internal fun LocalPairingTestScreen(
     }
     var rememberedUntilMs by remember { mutableStateOf<Long?>(null) }
     var peerMemoryBusy by remember { mutableStateOf(false) }
+    // A late read cannot overwrite a newer explicit Remember/Forget decision.
+    var peerMemoryRevision by remember { mutableIntStateOf(0) }
     var peerMemoryNote by remember {
         mutableStateOf("No public peer identity has been saved by this session.")
     }
@@ -557,6 +559,8 @@ internal fun LocalPairingTestScreen(
             days !in 1..30
         ) return
         val attempt = attemptVersion
+        peerMemoryRevision += 1
+        val revision = peerMemoryRevision
         peerMemoryBusy = true
         scope.launch {
             val expiry = withContext(Dispatchers.IO) {
@@ -565,6 +569,7 @@ internal fun LocalPairingTestScreen(
                 )
             }
             if (DebugSessionEventAdmission.current(attempt, attemptVersion) &&
+                revision == peerMemoryRevision &&
                 stage == "demo" && debugText.state == DebugTextTranscript.State.ACTIVE
             ) {
                 rememberedUntilMs = expiry
@@ -586,12 +591,15 @@ internal fun LocalPairingTestScreen(
             debugText.state != DebugTextTranscript.State.ACTIVE
         ) return
         val attempt = attemptVersion
+        peerMemoryRevision += 1
+        val revision = peerMemoryRevision
         peerMemoryBusy = true
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
                 peerMemoryStore.forget(ownPin, peer, System.currentTimeMillis())
             }
             if (DebugSessionEventAdmission.current(attempt, attemptVersion) &&
+                revision == peerMemoryRevision &&
                 stage == "demo" && debugText.state == DebugTextTranscript.State.ACTIVE
             ) {
                 if (ok) rememberedUntilMs = null
@@ -610,10 +618,13 @@ internal fun LocalPairingTestScreen(
             debugText.state != DebugTextTranscript.State.ACTIVE
         ) return
         val attempt = attemptVersion
+        peerMemoryRevision += 1
+        val revision = peerMemoryRevision
         peerMemoryBusy = true
         scope.launch {
             val ok = withContext(Dispatchers.IO) { peerMemoryStore.forgetAll() }
             if (DebugSessionEventAdmission.current(attempt, attemptVersion) &&
+                revision == peerMemoryRevision &&
                 stage == "demo" && debugText.state == DebugTextTranscript.State.ACTIVE
             ) {
                 if (ok) rememberedUntilMs = null
@@ -650,6 +661,7 @@ internal fun LocalPairingTestScreen(
         savedHistory = emptyList()
         historyNotice = "Session-only default. Nothing is saved until you opt in."
         rememberedUntilMs = null
+        peerMemoryRevision += 1
         peerMemoryBusy = false
         peerMemoryNote = "No public peer identity has been saved by this session."
         disappearAfterMs = DebugLocalDisappearingPolicy.OFF
@@ -943,6 +955,8 @@ internal fun LocalPairingTestScreen(
                             // this same real attempt reaches bilateral confirmation.
                             // This observation NEVER feeds approval/connection.
                             rememberedUntilMs = null
+                            peerMemoryRevision += 1
+                            val memoryReadRevision = peerMemoryRevision
                             peerMemoryNote = "Checking this phone's optional saved public pin."
                             val ownPinForMemory = own.publicFingerprint()
                             val peerPinForMemory = expected.copyOf()
@@ -955,7 +969,8 @@ internal fun LocalPairingTestScreen(
                                 }
                                 if (DebugSessionEventAdmission.current(
                                         thisAttempt, attemptVersion
-                                    ) && stage == "demo" &&
+                                    ) && memoryReadRevision == peerMemoryRevision &&
+                                    stage == "demo" &&
                                     debugText.state == DebugTextTranscript.State.ACTIVE
                                 ) {
                                     rememberedUntilMs = prior
@@ -1327,6 +1342,7 @@ internal fun LocalPairingTestScreen(
             historyDurationMs = LocalHistoryPolicy.SESSION_ONLY
             savedHistory = emptyList()
             rememberedUntilMs = null
+            peerMemoryRevision += 1
             peerMemoryBusy = false
             textDraft = ""
         }
