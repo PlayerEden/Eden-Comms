@@ -30,7 +30,7 @@ internal class DebugBluetoothFutureTlsTextLab(
     private val wireInput: InputStream,
     private val wireOutput: OutputStream
 ) {
-    private var closed = false
+    @Volatile private var closed = false
 
     fun transmit(frame: ByteArray) {
         try {
