@@ -445,6 +445,23 @@ internal class DebugWifiDirectTargetLinkController(
     fun offerVerifiedText(text: String): Boolean =
         verifiedSession?.offerText(text) ?: false
 
+    fun requestVerifiedVoiceFloor(): com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask =
+        verifiedSession?.requestVoiceFloor()
+            ?: com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY
+
+    fun cancelVerifiedVoiceFloor() {
+        verifiedSession?.cancelUnstartedVoiceFloor()
+    }
+
+    fun beginVerifiedLiveVoice(): Boolean =
+        verifiedSession?.beginLiveVoice() == true
+
+    fun offerVerifiedLiveVoiceFrame(pcm: ByteArray): Boolean =
+        verifiedSession?.offerLiveVoiceFrame(pcm) == true
+
+    fun finishVerifiedLiveVoice(): Boolean =
+        verifiedSession?.finishLiveVoice() == true
+
     /** Audio has NO alternate P2P socket or bypass around confirmed TLS. */
     fun offerVerifiedVoiceClip(pcm: ByteArray): Boolean =
         verifiedSession?.offerVoiceClip(pcm) ?: false
