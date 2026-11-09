@@ -10,7 +10,7 @@ internal class DebugRfcommAttemptGate {
     enum class Phase { IDLE, CONNECTING, LINK_OPEN, STOPPED }
     enum class End {
         USER, BACKGROUND, PERMISSION_LOST, TIMEOUT, FAILED, EXPIRED,
-        CONSENT_CONFIRMED, CONSENT_DECLINED
+        CONSENT_CONFIRMED, CONSENT_DECLINED, CHAT_ENDED
     }
     class Token internal constructor(val generation: Long, val role: Role)
     data class Snapshot(val phase: Phase, val role: Role?, val reason: End?)
