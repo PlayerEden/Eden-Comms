@@ -21,6 +21,7 @@ import kotlin.math.roundToInt
 internal fun DebugRememberPeerPanel(
     rememberedUntilMs: Long?,
     note: String,
+    busy: Boolean,
     onRemember: (Int) -> Unit,
     onForget: () -> Unit,
     onForgetAll: () -> Unit
@@ -54,6 +55,7 @@ internal fun DebugRememberPeerPanel(
         Text(note, style = MaterialTheme.typography.labelSmall)
         Button(
             onClick = { showRemember = true },
+            enabled = !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             shape = CutCornerShape(6.dp)
         ) { Text(if (rememberedUntilMs == null) "REMEMBER VERIFIED PHONE"
@@ -61,11 +63,13 @@ internal fun DebugRememberPeerPanel(
         if (rememberedUntilMs != null) {
             OutlinedButton(
                 onClick = { showForget = true },
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) { Text("FORGET THIS PHONE") }
         }
         TextButton(
             onClick = { showForgetAll = true },
+            enabled = !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
         ) { Text("Forget all remembered phones on this device") }
         Text(
@@ -102,7 +106,7 @@ internal fun DebugRememberPeerPanel(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(enabled = !busy, onClick = {
                     showRemember = false
                     onRemember(requestedDays.roundToInt())
                 }) { Text("Remember on this phone") }
@@ -121,7 +125,7 @@ internal fun DebugRememberPeerPanel(
                     "Saved message history is independent and is not deleted."
             ) },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(enabled = !busy, onClick = {
                     showForget = false
                     onForget()
                 }) { Text("Forget verified phone") }
@@ -141,7 +145,7 @@ internal fun DebugRememberPeerPanel(
                     "or this phone's own Keystore identity."
             ) },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(enabled = !busy, onClick = {
                     showForgetAll = false
                     onForgetAll()
                 }) { Text("Forget all on this phone") }
