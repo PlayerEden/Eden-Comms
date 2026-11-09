@@ -86,6 +86,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var chatReady by mutableStateOf(false)
     private var chatDraft by mutableStateOf("")
     private var chatLines by mutableStateOf(emptyList<DebugBluetoothChatLine>())
+    // Peer-app ACK may arrive before the sender's posted WRITTEN UI callback.
+    // Keep bounded, content-free ids so the eventual bubble is accurate.
+    private var ackedChatIds by mutableStateOf(emptySet<Long>())
     private var linkStatus by mutableStateOf(
         "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
     )
@@ -104,6 +107,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     chatReady = false
                     chatDraft = ""
                     chatLines = emptyList()
+                    ackedChatIds = emptySet()
                     // No reusable QR or anonymous radio candidate on retry:
                     // restart the actual two-phone flow with fresh codes.
                     qrCoordinator.clear()
@@ -123,17 +127,20 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     }
                     is DebugBluetoothApprovedTextChannel.Event.Written ->
                         chatLines = (chatLines + DebugBluetoothChatLine(
-                            outgoing = true, id = event.id, text = event.text
+                            outgoing = true, id = event.id, text = event.text,
+                            acknowledged = event.id in ackedChatIds
                         )).takeLast(24)
                     is DebugBluetoothApprovedTextChannel.Event.Received ->
                         chatLines = (chatLines + DebugBluetoothChatLine(
                             outgoing = false, id = event.id, text = event.text
                         )).takeLast(24)
-                    is DebugBluetoothApprovedTextChannel.Event.Acknowledged ->
+                    is DebugBluetoothApprovedTextChannel.Event.Acknowledged -> {
+                        ackedChatIds = (ackedChatIds + event.id).toList().takeLast(128).toSet()
                         chatLines = chatLines.map { line ->
                             if (line.outgoing && line.id == event.id)
                                 line.copy(acknowledged = true) else line
                         }
+                    }
                     is DebugBluetoothApprovedTextChannel.Event.Failed -> Unit
                 }
             }
@@ -569,6 +576,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         chatReady = false
         chatDraft = ""
         chatLines = emptyList()
+        ackedChatIds = emptySet()
         handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE
