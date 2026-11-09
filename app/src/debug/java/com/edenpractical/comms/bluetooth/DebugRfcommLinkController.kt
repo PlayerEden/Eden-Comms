@@ -16,8 +16,9 @@ import java.util.UUID
  * M3n-C1: this RFCOMM socket runs pinned TLS 1.3, fresh QR proof,
  * same-channel exporter and transcript commitments, then requires explicit
  * APPROVE from EACH person and exchanges two encrypted final CONFIRM records.
- * It still closes after diagnostic success, with no text, audio, saved peers
- * or production connection. Only a bounded, foreground debug experiment.
+ * F2-Q: the SAME verified TLS engine can carry bounded typed test TEXT/ACK
+ * on an owned, foreground, time-limited RFCOMM socket after both final CONFIRM
+ * frames. No audio, stored peer or production connection capability.
  * No plaintext or insecure RFCOMM fallback.
  *
  * Socket accept/connect always run off the UI thread. Closing the socket/server
@@ -30,7 +31,8 @@ internal class DebugRfcommLinkController(
     private val hasConnectPermission: () -> Boolean,
     private val onState: (DebugRfcommAttemptGate.Phase, String) -> Unit,
     private val onApprovalReady: (Boolean) -> Unit,
-    private val onVerificationStage: (DebugBluetoothVerifiedStage?) -> Unit = {}
+    private val onVerificationStage: (DebugBluetoothVerifiedStage?) -> Unit = {},
+    private val onTextEvent: (DebugBluetoothApprovedTextChannel.Event) -> Unit = {}
 ) {
     companion object {
         // Fixed DEMO SDP UUID, not a secret or a peer identity.
@@ -39,6 +41,7 @@ internal class DebugRfcommLinkController(
         const val HOST_WAIT_MS = 60_000L
         const val JOIN_TIMEOUT_MS = 18_000L
         const val LINK_LIFETIME_MS = 45_000L
+        const val TEXT_LIFETIME_MS = 10L * 60_000L
     }
 
     private val lock = Any()
@@ -47,6 +50,7 @@ internal class DebugRfcommLinkController(
     private var server: BluetoothServerSocket? = null
     private var socket: BluetoothSocket? = null
     private var consent: DebugBluetoothConsentDecision? = null
+    private var liveText: DebugBluetoothApprovedTextChannel? = null
     private var deadline: Runnable? = null
     // UI closure callbacks must belong to the most recently stopped attempt.
     private var lastStoppedToken: DebugRfcommAttemptGate.Token? = null
@@ -188,14 +192,43 @@ internal class DebugRfcommLinkController(
             )
             return
         }
-        announce(token, "RFCOMM open: testing strict pinned mutual TLS 1.3. No app messages.")
+        announce(token, "RFCOMM open: verifying the pinned TLS 1.3 and fresh in-person QR proof.")
         try {
-            // Worker thread. After fully agreeing on the pinned session,
-            // solicit one explicit per-person decision, then exchange
-            // encrypted approvals and final confirmations. Never enable chat.
+            // Worker thread. The ONLY text handoff is inside the same real
+            // pinned/QR-bound TLS engine after both encrypted confirmations.
+            // The socket and TLS engine are never reconstructed from a receipt.
             val completion = DebugRfcommTlsProbe.run(
                 created, request,
-                onVerifiedStage = { step -> verified(token, step) }
+                onVerifiedStage = { step -> verified(token, step) },
+                onApprovedChannel = { engine, wireInput, wireOutput ->
+                    val approved = DebugBluetoothApprovedTextChannel(
+                        engine, wireInput, wireOutput
+                    ) { event -> textEvent(token, event) }
+                    val admitted = synchronized(lock) {
+                        if (active === token &&
+                            gate.snapshot().phase == DebugRfcommAttemptGate.Phase.LINK_OPEN &&
+                            isForeground() && hasConnectPermission() && liveText == null
+                        ) {
+                            liveText = approved
+                            cancelTimer()
+                            armTimer(token, TEXT_LIFETIME_MS, DebugRfcommAttemptGate.End.EXPIRED)
+                            true
+                        } else false
+                    }
+                    if (!admitted) {
+                        approved.close()
+                        throw IOException("Verified Bluetooth session no longer current")
+                    }
+                    try {
+                        approved.runUntilClosed()
+                        stop(token, DebugRfcommAttemptGate.End.CHAT_ENDED)
+                    } catch (failure: Exception) {
+                        stop(token, DebugRfcommAttemptGate.End.FAILED)
+                        throw failure
+                    } finally {
+                        approved.close()
+                    }
+                }
             ) { decision ->
                 synchronized(lock) {
                     if (active !== token || !gate.isLive(token) ||
@@ -259,6 +292,39 @@ internal class DebugRfcommLinkController(
             stop(token, DebugRfcommAttemptGate.End.CONSENT_DECLINED)
         } catch (_: Exception) {
             stop(token, DebugRfcommAttemptGate.End.FAILED)
+        }
+    }
+
+    /**
+     * Queue typed text on the currently verified real TLS session only.
+     * The UI never touches SSLEngine, Bluetooth streams, or raw RFCOMM bytes.
+     */
+    fun offerText(text: String): Boolean {
+        val channel = synchronized(lock) {
+            if (active == null ||
+                gate.snapshot().phase != DebugRfcommAttemptGate.Phase.LINK_OPEN ||
+                !isForeground() || !hasConnectPermission()
+            ) null else liveText
+        } ?: return false
+        return channel.offerText(text)
+    }
+
+    private fun textEvent(
+        token: DebugRfcommAttemptGate.Token,
+        event: DebugBluetoothApprovedTextChannel.Event
+    ) {
+        if (event is DebugBluetoothApprovedTextChannel.Event.Failed) {
+            stop(token, DebugRfcommAttemptGate.End.FAILED)
+            return
+        }
+        handler.post {
+            synchronized(lock) {
+                if (active !== token ||
+                    gate.snapshot().phase != DebugRfcommAttemptGate.Phase.LINK_OPEN ||
+                    liveText == null || !isForeground() || !hasConnectPermission()
+                ) return@post
+                onTextEvent(event)
+            }
         }
     }
 
@@ -345,6 +411,7 @@ internal class DebugRfcommLinkController(
         val oldServer: BluetoothServerSocket?
         val oldSocket: BluetoothSocket?
         val oldConsent: DebugBluetoothConsentDecision?
+        val oldText: DebugBluetoothApprovedTextChannel?
         val lastProof: DebugBluetoothVerifiedStage?
         synchronized(lock) {
             if (active !== token) return
@@ -360,12 +427,15 @@ internal class DebugRfcommLinkController(
             oldServer = server
             oldSocket = socket
             oldConsent = consent
+            oldText = liveText
             lastProof = lastVerifiedStage
             lastVerifiedStage = null
             server = null
             socket = null
             consent = null
+            liveText = null
         }
+        oldText?.close()
         // Wake any human-consent waiter before closing its TLS socket.
         oldConsent?.close()
         // Socket closure may unblock accept() / connect() on worker threads.
@@ -386,9 +456,10 @@ internal class DebugRfcommLinkController(
                 DebugRfcommAttemptGate.End.BACKGROUND -> "Link closed when the app left the screen."
                 DebugRfcommAttemptGate.End.PERMISSION_LOST -> "Bluetooth permission lost; link closed."
                 DebugRfcommAttemptGate.End.TIMEOUT -> "Bluetooth connection attempt timed out."
-                DebugRfcommAttemptGate.End.EXPIRED -> "Debug link reached its 45-second limit and closed."
+                DebugRfcommAttemptGate.End.EXPIRED -> "Bluetooth debug link reached its time limit and closed."
                 DebugRfcommAttemptGate.End.FAILED ->
-                    "Bluetooth link/TLS probe failed or peer pin mismatched. No messages sent."
+                    "Bluetooth verification failed or the encrypted test link ended unexpectedly. " +
+                        "Session closed; reconnect only with fresh QR and both approvals."
                 DebugRfcommAttemptGate.End.CONSENT_CONFIRMED ->
                     "Both people approved this exact QR + TLS session, and " +
                         "both final confirmations were exchanged. Test socket " +
@@ -396,6 +467,9 @@ internal class DebugRfcommLinkController(
                 DebugRfcommAttemptGate.End.CONSENT_DECLINED ->
                     "Bluetooth test was declined or approval timed out. " +
                         "Connection closed; no messages sent."
+                DebugRfcommAttemptGate.End.CHAT_ENDED ->
+                    "Bluetooth encrypted test chat ended. A fresh QR exchange " +
+                        "and both approvals are required to reconnect."
             }
             onState(DebugRfcommAttemptGate.Phase.STOPPED, reason)
         }

@@ -1,7 +1,8 @@
 """M3n-B1: strict debug TLS 1.3 SSLEngine handshake over RFCOMM.
 
-The live probe only exchanges TLS-protected, fixed-width protocol controls.
-It does not authorize text or voice, saved peers or bilateral human approval.
+The live probe verifies pinned TLS and its ordered encrypted control frames.
+After the separately confirmed bilateral approvals, F2-Q may continue on the
+same engine for bounded debug-only TEXT/ACK; no production, saved peers or voice.
 Physical Android interoperability and independent security review are open.
 """
 from pathlib import Path
@@ -40,7 +41,7 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
                          "InsecureTrustManager", 'enabledProtocols = arrayOf("TLSv1.2")'):
             self.assertNotIn(insecure, self.context)
 
-    def test_real_rfccomm_worker_runs_pinned_tls_before_closing_and_never_messages(self):
+    def test_real_rfccomm_worker_verifies_tls_before_any_bounded_debug_text(self):
         for marker in (
             "val wireIn = socket.inputStream",
             "val wireOut = socket.outputStream",
@@ -63,7 +64,9 @@ class BluetoothTlsEngineBoundaryTest(unittest.TestCase):
             "closeQuietly(oldSocket)",
             "closeQuietly(oldServer)",
             "if (!gate.stop(token, why) &&",
-            "No app messages.",
+            "onApprovedChannel = { engine, wireInput, wireOutput ->",
+            "DebugBluetoothApprovedTextChannel(",
+            "approved.runUntilClosed()",
         ):
             self.assertIn(marker, self.controller, marker)
         for insecure in ("sendDebugText(", "TestPacketCodec", "DataOutputStream",

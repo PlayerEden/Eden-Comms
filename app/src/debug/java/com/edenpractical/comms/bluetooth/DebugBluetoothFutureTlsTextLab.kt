@@ -7,7 +7,9 @@ import javax.net.ssl.SSLEngine
 import javax.net.ssl.SSLException
 
 /**
- * F2-G: UNWIRED, DEBUG-ONLY encrypted TEXT/ACK integration rehearsal.
+ * F2-G/F2-Q: encrypted TEXT/ACK record adapter, debug only. F2-Q's live
+ * channel owns one writer and one reader only AFTER the actual authenticated
+ * approval protocol completes on the same TLS engine.
  *
  * Exercises one F2-F frame inside exactly one SSLEngine-produced TLS 1.3
  * encrypted record and recovers the same exact authenticated plaintext on
@@ -30,7 +32,7 @@ internal class DebugBluetoothFutureTlsTextLab(
     private val wireInput: InputStream,
     private val wireOutput: OutputStream
 ) {
-    private var closed = false
+    @Volatile private var closed = false
 
     fun transmit(frame: ByteArray) {
         try {

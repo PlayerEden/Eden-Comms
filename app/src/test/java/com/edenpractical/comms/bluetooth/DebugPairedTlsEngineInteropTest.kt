@@ -16,6 +16,8 @@ import java.nio.file.Path
 import java.security.KeyStore
 import java.security.cert.X509Certificate
 import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -933,4 +935,104 @@ class DebugPairedTlsEngineInteropTest {
             try { join.closeOutbound() } catch (_: Exception) { }
         }
     }
+
+    /**
+     * F2-Q: actual live-queue/writer/reader/ACK plumbing after the full
+     * existing QR, transcript and both-confirmation protocol fixture.
+     * Synthetic exporter and auto-approval are JVM ONLY; no Android radio.
+     */
+    @Test fun realApprovedTextWorkersExchangeBothDirectionsAndAckOnSameEngines() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2q-approved-channel-jvm-only").apply { isDaemon = true }
+        }
+        val approvals = AtomicInteger(0)
+        val ready = CountDownLatch(2)
+        val joinedText = CountDownLatch(1)
+        val hostAck = CountDownLatch(1)
+        val hostedText = CountDownLatch(1)
+        val joinAck = CountDownLatch(1)
+        val hostChannel = AtomicReference<DebugBluetoothApprovedTextChannel>()
+        val joinChannel = AtomicReference<DebugBluetoothApprovedTextChannel>()
+        val hostNonce = ByteArray(16) { (it + 5).toByte() }
+        val joinNonce = ByteArray(16) { (it + 40).toByte() }
+        val testOnlyExporter = ByteArray(32) { (it + 60).toByte() }
+        try {
+            val a = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                val commitment = fullJvmControlSequence(
+                    host, pipe.hostInput, pipe.hostOutput, true,
+                    hostNonce, joinNonce, testOnlyExporter
+                ) { approvals.incrementAndGet() }
+                commitment.fill(0)
+                val channel = DebugBluetoothApprovedTextChannel(
+                    host, pipe.hostInput, pipe.hostOutput
+                ) { event ->
+                    when (event) {
+                        is DebugBluetoothApprovedTextChannel.Event.Ready -> ready.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.Received -> {
+                            if (event.text == "reply from join") hostedText.countDown()
+                        }
+                        is DebugBluetoothApprovedTextChannel.Event.Acknowledged ->
+                            if (event.id == 1L) hostAck.countDown()
+                        else -> Unit
+                    }
+                }
+                hostChannel.set(channel)
+                try { channel.runUntilClosed() }
+                catch (_: Exception) { /* Expected when the test closes the pipes. */ }
+            })
+            val b = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                val commitment = fullJvmControlSequence(
+                    join, pipe.joinInput, pipe.joinOutput, false,
+                    hostNonce, joinNonce, testOnlyExporter
+                ) { approvals.incrementAndGet() }
+                commitment.fill(0)
+                val channel = DebugBluetoothApprovedTextChannel(
+                    join, pipe.joinInput, pipe.joinOutput
+                ) { event ->
+                    when (event) {
+                        is DebugBluetoothApprovedTextChannel.Event.Ready -> ready.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.Received ->
+                            if (event.text == "hello from host") joinedText.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.Acknowledged ->
+                            if (event.id == 1L) joinAck.countDown()
+                        else -> Unit
+                    }
+                }
+                joinChannel.set(channel)
+                try { channel.runUntilClosed() }
+                catch (_: Exception) { /* Expected when the test closes the pipes. */ }
+            })
+            assertTrue("Both encrypted channels never reached ready",
+                ready.await(12, TimeUnit.SECONDS))
+            assertEquals(2, approvals.get())
+            assertTrue(hostChannel.get().offerText("hello from host"))
+            assertTrue(joinedText.await(5, TimeUnit.SECONDS))
+            assertTrue(hostAck.await(5, TimeUnit.SECONDS))
+            assertTrue(joinChannel.get().offerText("reply from join"))
+            assertTrue(hostedText.await(5, TimeUnit.SECONDS))
+            assertTrue(joinAck.await(5, TimeUnit.SECONDS))
+            hostChannel.get().close()
+            joinChannel.get().close()
+            pipe.close()
+            await(a)
+            await(b)
+            assertTrue(!hostChannel.get().offerText("late message"))
+            assertTrue(!joinChannel.get().offerText("late message"))
+        } finally {
+            hostChannel.get()?.close()
+            joinChannel.get()?.close()
+            pipe.close()
+            workers.shutdownNow()
+            testOnlyExporter.fill(0)
+            hostNonce.fill(0)
+            joinNonce.fill(0)
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
 }

@@ -48,6 +48,32 @@ code a validated secure messenger, turn on production release capabilities,
 skip external cryptographic review, or claim reliable radios/voice before
 handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
 
+## November 9 code milestone: actual approved Bluetooth TEXT/ACK (F2-Q)
+
+**Source implementation in PR #146:** Unlike F2-F/F2-G's isolated codec/lab,
+F2-Q links the **real Android RFCOMM worker** to a bounded debug text session
+on the **same** actually pinned TLS engine and original socket streams, only
+after fresh QR challenges, exporter/commitment proofs, both human approvals,
+and both encrypted final confirmations. It now has a visible Bluetooth text
+composer, inbound message display, actual peer-app ACK states, 10-minute
+foreground budget, current-attempt fencing, cancellation and RAM cleanup.
+The existing two-engine JVM tests exercise real encrypted TEXT/ACK both ways
+after the full control protocol. The JVM exporter/consent inputs are test
+fixtures; Android's actual provider, Bluetooth radio and humans are not.
+
+This supersedes the dated F2-A–O historical rows below that said Bluetooth
+text is `unwired` or `not available`. **Still open:** independent review
+of exact same-engine transition, Android 12+ OEM/Conscrypt/RFCOMM two-phone
+acceptance, cancellation races and real audibility/latency for any later
+Bluetooth voice. The debug path is unreviewed and not for private/emergency
+communication; release `CAN_*` flags remain false. No new Preview build.
+
+**Next code milestone:** Wi-Fi Direct Android OS group -> bound local socket
+-> real mutually pinned TLS/QR/exporter -> both explicit human approvals ->
+encrypted TEXT/ACK and unified chat UI. No anonymous P2P discovery or TCP
+handshake alone authorizes data. Then finish optional encrypted local
+retention/trust and share the completed core for one consolidated device test.
+
 ## Current delivery status and next integration queue (November 8, 2026)
 
 **No duplicate roadmap:** this document is the active execution plan for the user's complete core application test. The [core feature completion plan](CORE_FEATURE_COMPLETION_PLAN_2026_11_06.md) remains the full long-term scope. A green GitHub workflow confirms source/build gates only; neither it nor a debug APK constitutes physical radio acceptance or security review.

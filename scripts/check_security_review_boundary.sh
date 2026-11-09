@@ -668,6 +668,40 @@ for forbidden in 'import android.bluetooth.' 'import javax.net.ssl.' \
   fi
 done
 
+# F2-Q: real typed debug Bluetooth chat must originate ONLY from the actual
+# freshly verified RFCOMM TLS engine AFTER QR/exporter/commitment and BOTH
+# encrypted confirmation records. No receipt, caller claim or plaintext send.
+# This is not an independent protocol assessment or Android hardware QA.
+BT_LIVE_TEXT="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothApprovedTextChannel.kt"
+BT_LIVE_UI="app/src/debug/java/com/edenpractical/comms/bluetooth/DebugBluetoothTextPanel.kt"
+for FILE in "$BT_LIVE_TEXT" "$BT_LIVE_UI"; do test -f "$FILE"; done
+grep -Fq 'onApprovedChannel(approvedEngine, wireIn, wireOut)' "$BT_TLS_PROBE"
+grep -Fq 'onVerifiedStage(DebugBluetoothVerifiedStage.HUMAN_CONFIRMATIONS)' "$BT_TLS_PROBE"
+grep -Fq 'transport.clear()' "$BT_TLS_PROBE"
+grep -Fq 'onApprovedChannel = { engine, wireInput, wireOutput ->' "$BT_RFCOMM"
+grep -Fq 'DebugBluetoothApprovedTextChannel(' "$BT_RFCOMM"
+grep -Fq 'isForeground() && hasConnectPermission() && liveText == null' "$BT_RFCOMM"
+grep -Fq 'oldText?.close()' "$BT_RFCOMM"
+grep -Fq 'closeQuietly(oldSocket)' "$BT_RFCOMM"
+grep -Fq 'ArrayBlockingQueue<Pending>(10)' "$BT_LIVE_TEXT"
+grep -Fq 'encrypted.transmit(pending.bytes)' "$BT_LIVE_TEXT"
+grep -Fq 'encrypted.receive()' "$BT_LIVE_TEXT"
+grep -Fq 'ledger.acceptAck(frame)' "$BT_LIVE_TEXT"
+grep -Fq 'onTextEvent = { event ->' "$BT_DEBUG"
+grep -Fq 'linkController.offerText(draft)' "$BT_DEBUG"
+grep -Fq 'chatLines = emptyList()' "$BT_DEBUG"
+for FILE in DebugBluetoothApprovedTextChannel.kt DebugBluetoothTextPanel.kt; do
+  if find "$MAIN" -name "$FILE" -print -quit | grep -q .; then
+    echo "FAIL: F2-Q live Bluetooth test moved into release sources" >&2
+    exit 1
+  fi
+done
+if grep -REn '(SharedPreferences|DataStore|openFileOutput\(|AudioRecord|MediaRecorder|ProductionSessionAuthorization|TestPacketCodec)' \
+  "$BT_LIVE_TEXT" "$BT_LIVE_UI"; then
+  echo "FAIL: F2-Q live Bluetooth channel gained persistence, audio or release authority" >&2
+  exit 1
+fi
+
 # F3-A/B3 Wi-Fi Direct TCP reachability: bind to Android P2P group interface,
 # one bounded TCP handshake, zero application bytes and no trust grant.
 P2P_TCP="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTcpProbe.kt"

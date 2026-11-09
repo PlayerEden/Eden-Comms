@@ -10,7 +10,8 @@ import java.io.IOException
  * Human APPROVE is required independently on BOTH devices. Once both
  * approvals arrive, each endpoint sends a separate explicit protocol CONFIRM
  * (not an additional button) and checks the peer CONFIRM on the same TLS link.
- * No chat/voice API is exposed even on CONFIRMED; the caller closes the socket.
+ * Consent itself grants NO chat API. F2-Q allows a separate bounded debug
+ * channel on the SAME engine only after this function returns successfully.
  */
 internal object DebugBluetoothConsentExchange {
     const val CONSENT_WAIT_MS = 25_000L

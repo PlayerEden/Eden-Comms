@@ -55,8 +55,9 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
  * inquiry and unregisters broadcasts. This M3l debug experiment holds up to
  * 12 anonymous BluetoothDevice object handles in memory, as numbered signals.
  * Selecting one stops scanning and can now support a SEPARATE user-tapped,
- * permission-gated debug RFCOMM link. No messages, trusted peer, identity
- * approval or encrypted app session exist over Bluetooth. No physical QA.
+ * permission-gated debug RFCOMM link. F2-Q adds actual encrypted test TEXT
+ * only after full QR/TLS/exporter + bilateral CONFIRM. No saved peer or
+ * public secure messaging; real Android radio QA is still pending.
  */
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val qrCoordinator = DebugBluetoothQrCoordinator()
@@ -82,6 +83,12 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var connectPermissionPromptOpen = false
     private var approvalPending by mutableStateOf(false)
     private var linkPhase by mutableStateOf(DebugRfcommAttemptGate.Phase.IDLE)
+    private var chatReady by mutableStateOf(false)
+    private var chatDraft by mutableStateOf("")
+    private var chatLines by mutableStateOf(emptyList<DebugBluetoothChatLine>())
+    // Peer-app ACK may arrive before the sender's posted WRITTEN UI callback.
+    // Keep bounded, content-free ids so the eventual bubble is accurate.
+    private var ackedChatIds by mutableStateOf(emptySet<Long>())
     private var linkStatus by mutableStateOf(
         "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
     )
@@ -97,6 +104,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 linkPhase = phase
                 linkStatus = description
                 if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {
+                    chatReady = false
+                    chatDraft = ""
+                    chatLines = emptyList()
+                    ackedChatIds = emptySet()
                     // No reusable QR or anonymous radio candidate on retry:
                     // restart the actual two-phone flow with fresh codes.
                     qrCoordinator.clear()
@@ -106,7 +117,33 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             onApprovalReady = { available ->
                 approvalPending = available
             },
-            onVerificationStage = { step -> verifiedProof = step }
+            onVerificationStage = { step -> verifiedProof = step },
+            onTextEvent = { event ->
+                when (event) {
+                    is DebugBluetoothApprovedTextChannel.Event.Ready -> {
+                        chatReady = true
+                        approvalPending = false
+                        linkStatus = "Both confirmed. Encrypted Bluetooth test chat is active."
+                    }
+                    is DebugBluetoothApprovedTextChannel.Event.Written ->
+                        chatLines = (chatLines + DebugBluetoothChatLine(
+                            outgoing = true, id = event.id, text = event.text,
+                            acknowledged = event.id in ackedChatIds
+                        )).takeLast(24)
+                    is DebugBluetoothApprovedTextChannel.Event.Received ->
+                        chatLines = (chatLines + DebugBluetoothChatLine(
+                            outgoing = false, id = event.id, text = event.text
+                        )).takeLast(24)
+                    is DebugBluetoothApprovedTextChannel.Event.Acknowledged -> {
+                        ackedChatIds = (ackedChatIds + event.id).toList().takeLast(128).toSet()
+                        chatLines = chatLines.map { line ->
+                            if (line.outgoing && line.id == event.id)
+                                line.copy(acknowledged = true) else line
+                        }
+                    }
+                    is DebugBluetoothApprovedTextChannel.Event.Failed -> Unit
+                }
+            }
         )
     }
 
@@ -325,6 +362,16 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        if (chatReady &&
+                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
+                        ) {
+                            DebugBluetoothTextPanel(
+                                lines = chatLines,
+                                draft = chatDraft,
+                                onDraft = { chatDraft = it },
+                                onSend = { sendBluetoothText() }
+                            )
+                        }
                         if (approvalPending &&
                             linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
                         ) {
@@ -332,7 +379,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "Both phones completed the encrypted QR + TLS " +
                                     "identity checks. APPROVE only if you are " +
                                     "physically with the person you intended. " +
-                                    "This is a diagnostic, not permission to chat."
+                                    "Text stays off until both final confirmations."
                             )
                             Button(
                                 onClick = {
@@ -366,9 +413,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
                         }
                         Text(
-                            "Bluetooth Classic • two phones • experimental link only. " +
-                                "QR plus both approvals are required. " +
-                                "Bluetooth TEXT and voice are NOT available yet.",
+                            "Bluetooth Classic • two phones • debug encrypted text after " +
+                                "reciprocal QR and both approvals. Voice remains unavailable.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         val showRadioSearch =
@@ -435,7 +481,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                             Text(
                                 "Signal $selectedOrdinal is staged locally ONLY. Its owner " +
                                     "and identity have NOT been verified. A separate debug " +
-                                    "RFCOMM socket test is possible, but no messages are sent."
+                                    "RFCOMM still requires mutual TLS, QR proofs and both approvals before text."
                             )
                             OutlinedButton(
                                 onClick = { clearCandidateMemory() },
@@ -488,16 +534,29 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         }
                         if (showRawScanner) {
                         Text(
-                            "A successful pinned TLS + QR nonce/channel agreement " +
-                                "is followed by explicit approval from EACH person " +
-                                "and two encrypted final confirmations. The test " +
-                                "then ends; NO app text or voice is sent or accepted. " +
-                                "A host may become discoverable beyond this screen under Android control."
+                            "Only after the pinned TLS + QR + exporter proof, BOTH " +
+                                "independent human approvals, and both encrypted final confirmations " +
+                                "may the same connection carry debug TEXT/ACK. No Bluetooth voice " +
+                                "or reviewed secure messaging. Android controls discoverability."
                         )
                         }
                     }
                 }
             }
+        }
+    }
+
+    private fun sendBluetoothText() {
+        if (!foreground || !chatReady ||
+            linkPhase != DebugRfcommAttemptGate.Phase.LINK_OPEN
+        ) return
+        val draft = chatDraft
+        if (draft.isBlank()) return
+        if (linkController.offerText(draft)) {
+            chatDraft = ""
+            linkStatus = "Test text queued for encrypted Bluetooth sending."
+        } else {
+            linkStatus = "Couldn't queue text. Check length, link or outstanding messages."
         }
     }
 
@@ -514,6 +573,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         clearCandidateMemory()
         linkController.background()
         approvalPending = false
+        chatReady = false
+        chatDraft = ""
+        chatLines = emptyList()
+        ackedChatIds = emptySet()
         handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE
