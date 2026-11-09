@@ -19,11 +19,11 @@ class ChatFirstUiContractTests(unittest.TestCase):
         cls.session = (ROOT / "app/src/main/java/com/edenpractical/comms/transport/LanDemoSession.kt").read_text()
 
     def test_home_text_goes_to_nearby_chat_and_sandbox_remains_in_developer_tools(self):
-        self.assertEqual(2, self.main.count('onChatPreview = { navigate("pairing-test") }'))
+        self.assertEqual(2, self.main.count('onChatPreview = { navigate("connect") }'))
         # M4-UI08 clarifies that this is an unreviewed development test,
         # while keeping the original Home -> pairing navigation contract.
-        self.assertEqual(2, self.main.count('detail = "Development test only"'))
-        self.assertEqual(2, self.main.count('detail = "Not available"'))
+        self.assertEqual(2, self.main.count('detail = "Connect first • test text"'))
+        self.assertEqual(2, self.main.count('detail = "Connect first • test talk"'))
         self.assertIn('onChatSandbox = { navigate("chat-preview") }', self.main)
         self.assertIn('title = "Text layout sandbox"', self.main)
         self.assertIn('onPairingTest = { navigate("pairing-test") }', self.main)
