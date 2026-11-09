@@ -938,7 +938,11 @@ internal fun LocalPairingTestScreen(
                                 when (observation) {
                                     DebugVoicePlayoutTurn.Observation.SPEAKER_STARTED -> {
                                         if (qaVoiceSpeakerStarts < 10_000) qaVoiceSpeakerStarts += 1
-                                        voiceNote = "Live speaker started on this phone (audibility not verified)."
+                                        // Never overwrite a later queued
+                                        // speaker-drop warning with a delayed
+                                        // AudioTrack-start callback.
+                                        if (turn?.hasPlaybackProblem() != true)
+                                            voiceNote = "Live speaker started on this phone (audibility not verified)."
                                     }
                                     DebugVoicePlayoutTurn.Observation.LOCAL_PLAYBACK_FAILED -> {
                                         if (qaVoicePlaybackProblemTurns < 10_000)
