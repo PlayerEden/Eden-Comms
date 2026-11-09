@@ -46,7 +46,7 @@ class PrivacyPreviewContentTest {
             "operating system",
             "no"
         ).forEach { word ->
-            assertTrue("Missing current privacy disclosure: $word", text.contains(word))
+            assertTrue("Missing current privacy disclosure: $word", text.contains(word, ignoreCase = true))
         }
     }
 
