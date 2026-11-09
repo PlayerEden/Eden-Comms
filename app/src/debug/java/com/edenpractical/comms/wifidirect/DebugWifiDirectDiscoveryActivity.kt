@@ -1,5 +1,8 @@
 package com.edenpractical.comms.wifidirect
 
+import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
+import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
+
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -53,6 +56,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
     private val gate = DebugWifiDirectDiscoveryGate()
     private val preparation = DebugWifiDirectQrCoordinator()
     private val verifiedChat = DebugWifiDirectChatUiState()
+    private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var foreground = false
     private var registered = false
@@ -297,14 +301,23 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                 onFinished = {
                     targetController = null
                     verifiedChat.clear()
+                    localPrivacy.close()
                     preparation.clear()
                     targetNotice += " Fresh QR and discovery required for another session."
                 },
                 onVerifiedStatus = { phase, message ->
                     verifiedChat.status(phase, message)
+                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED)
+                        localPrivacy.close()
                 },
                 onVerifiedApproval = { verifiedChat.approval(it) },
-                onVerifiedText = { verifiedChat.event(it) }
+                onVerifiedText = {
+                    verifiedChat.event(it)
+                    localPrivacy.receiveEncryptedEvent(it)
+                },
+                onApprovedIdentity = { self, peer ->
+                    localPrivacy.openVerified(self, peer)
+                }
             )
             targetController = controller
             if (!controller.startSelected(selectedDevice, verifiedQrPrepared = true)) {
@@ -566,6 +579,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                 onDraft = { verifiedChat.draft = it },
                                 onSend = { sendVerifiedText() }
                             )
+                            DebugVerifiedNearbyPrivacyPanel(localPrivacy)
                         }
                         Button(
                             onClick = { requestVerifiedP2pText() },
@@ -636,6 +650,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         foreground = false
         targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)
         verifiedChat.clear()
+        localPrivacy.close()
         preparation.clear()
         token?.let {
             finishAttempt(it, DebugWifiDirectDiscoveryGate.End.BACKGROUND,
@@ -646,5 +661,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
             registered = false
         }
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        localPrivacy.dispose()
+        super.onDestroy()
     }
 }
