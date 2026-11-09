@@ -6,6 +6,8 @@ import com.edenpractical.comms.qa.DebugNearbyQaPanel
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
 import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
+import com.edenpractical.comms.ui.DebugNearbyRecoveryGuide
+import com.edenpractical.comms.ui.DebugNearbyRecoveryPanel
 
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
@@ -392,6 +394,19 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 qaContent = { DebugNearbyQaPanel(qaEvidence) }
                             )
                         } else {
+                        // Only an actual stopped link earns restart instructions.
+                        // A fresh QR attempt still follows the existing two-code UI.
+                        if (linkPhase == DebugRfcommAttemptGate.Phase.STOPPED) {
+                            DebugNearbyRecoveryPanel(
+                                DebugNearbyRecoveryGuide.forSituation(
+                                    if (hasConnectPermission()) {
+                                        DebugNearbyRecoveryGuide.Situation.BLUETOOTH_ENDED
+                                    } else {
+                                        DebugNearbyRecoveryGuide.Situation.BLUETOOTH_PERMISSION
+                                    }
+                                )
+                            )
+                        }
                         val guide = DebugBluetoothJourneyCue.current(
                             qrCoordinator.stage, linkPhase,
                             selectedOrdinal != null, busy, approvalPending

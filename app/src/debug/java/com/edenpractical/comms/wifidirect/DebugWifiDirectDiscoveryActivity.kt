@@ -6,6 +6,8 @@ import com.edenpractical.comms.qa.DebugNearbyQaPanel
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
 import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
+import com.edenpractical.comms.ui.DebugNearbyRecoveryGuide
+import com.edenpractical.comms.ui.DebugNearbyRecoveryPanel
 import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
 
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
@@ -470,6 +472,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         }
         val active = gate.begin(foreground, prerequisites()) ?: return
         token = active
+        verifiedChat.beginNewAttempt()
         candidateLedger.clear()
         candidateToken = candidateLedger.begin()
         candidateReader = DebugWifiDirectCandidateReader()
@@ -602,6 +605,27 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                 qaContent = { DebugNearbyQaPanel(qaEvidence) }
                             )
                         } else {
+                        // These cues describe real terminal states only. An
+                        // ongoing scan/link never becomes a synthetic failure
+                        // or an invitation to skip fresh QR/dual approval.
+                        val recoverySituation = when {
+                            verifiedChat.phase ==
+                                DebugWifiDirectApprovedTcpSession.Phase.STOPPED &&
+                                token == null ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_JOIN_LINK_ENDED
+                            phase == DebugWifiDirectDiscoveryGate.Phase.STOPPED &&
+                                token == null && radioState == false ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_JOIN_RADIO_OFF
+                            phase == DebugWifiDirectDiscoveryGate.Phase.STOPPED &&
+                                token == null && targetController == null ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_JOIN_SEARCH_ENDED
+                            else -> null
+                        }
+                        recoverySituation?.let {
+                            DebugNearbyRecoveryPanel(
+                                DebugNearbyRecoveryGuide.forSituation(it)
+                            )
+                        }
                         if (verifiedChat.phase !in setOf(
                                 DebugWifiDirectApprovedTcpSession.Phase.CONNECTING,
                                 DebugWifiDirectApprovedTcpSession.Phase.AWAITING_APPROVAL,

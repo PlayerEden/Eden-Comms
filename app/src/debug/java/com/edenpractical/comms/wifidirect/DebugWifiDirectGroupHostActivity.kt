@@ -6,6 +6,8 @@ import com.edenpractical.comms.qa.DebugNearbyQaPanel
 import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
 import com.edenpractical.comms.audio.DebugNearbyVoicePanel
 import com.edenpractical.comms.ui.DebugVerifiedConversationPanel
+import com.edenpractical.comms.ui.DebugNearbyRecoveryGuide
+import com.edenpractical.comms.ui.DebugNearbyRecoveryPanel
 import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
 
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
@@ -320,6 +322,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         val current = gate.start(humanTap = true, foreground = foreground,
             ready = ready(), api = Build.VERSION.SDK_INT) ?: return
         active = current
+        verifiedChat.beginNewAttempt()
         tcpAttempted = false
         tcpNotice = "No TCP reachability test has been attempted."
         refreshPhase()
@@ -713,6 +716,28 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 qaContent = { DebugNearbyQaPanel(qaEvidence) }
                             )
                         } else {
+                        // Radio/group phase is observed locally, not guessed from
+                        // platform error strings or an unverified peer's claim.
+                        val recoverySituation = when {
+                            phase == DebugWifiDirectGroupHostGate.Phase.CLEANING ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_HOST_CLEANING
+                            phase == DebugWifiDirectGroupHostGate.Phase.STOPPED &&
+                                gate.snapshot().reason ==
+                                    DebugWifiDirectGroupHostGate.End.CLEANUP_UNCONFIRMED ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_HOST_CLEANUP_UNCONFIRMED
+                            phase == DebugWifiDirectGroupHostGate.Phase.STOPPED ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_HOST_ENDED
+                            phase == DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED &&
+                                verifiedChat.phase ==
+                                    DebugWifiDirectApprovedTcpSession.Phase.STOPPED ->
+                                DebugNearbyRecoveryGuide.Situation.P2P_HOST_LINK_ENDED
+                            else -> null
+                        }
+                        recoverySituation?.let {
+                            DebugNearbyRecoveryPanel(
+                                DebugNearbyRecoveryGuide.forSituation(it)
+                            )
+                        }
                         if (verifiedChat.phase !in setOf(
                                 DebugWifiDirectApprovedTcpSession.Phase.CONNECTING,
                                 DebugWifiDirectApprovedTcpSession.Phase.AWAITING_APPROVAL,

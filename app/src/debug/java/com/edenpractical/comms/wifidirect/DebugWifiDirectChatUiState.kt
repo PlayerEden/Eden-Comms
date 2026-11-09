@@ -29,6 +29,21 @@ internal class DebugWifiDirectChatUiState {
         private set
     private var ackedIds = emptySet<Long>()
 
+    /**
+     * A new OS host/search attempt is NOT a restored TLS/chat connection.
+     * Clear the previous terminal label and all RAM message/ACK state;
+     * only the actual approved-channel Ready event may later enter CHAT.
+     */
+    fun beginNewAttempt() {
+        phase = DebugWifiDirectApprovedTcpSession.Phase.IDLE
+        note = "New nearby attempt. No verified conversation yet."
+        approvalPending = false
+        draft = ""
+        sendFeedback = ""
+        lines = emptyList()
+        ackedIds = emptySet()
+    }
+
     fun status(next: DebugWifiDirectApprovedTcpSession.Phase, message: String) {
         phase = next
         note = message
