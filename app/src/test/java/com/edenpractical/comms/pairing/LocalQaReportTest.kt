@@ -170,6 +170,38 @@ class LocalQaReportTest {
         assertTrue(absent.contains("Peer-app ACK events for debug text observed here: 0"))
     }
 
+    @Test fun localVoiceObservationsAreCountedNotMisrepresentedAsSoundOrDelivery() {
+        val report = LocalQaReport.format(sample().copy(
+            voiceSpeakerStarts = 2,
+            voicePlaybackProblemTurns = 1
+        ))
+        assertTrue(report.contains("Local live speaker-start callbacks observed here: 2"))
+        assertTrue(report.contains("Live voice turns with local speaker failure or dropped PCM: 1"))
+        assertTrue(report.contains("NOT proof of audible sound or delivery"))
+        assertTrue(report.contains("Voice counts can be incomplete"))
+        assertTrue(report.contains("No audio, PCM, speech content, peer identities"))
+        assertFalse(report.contains("AudioRecord bytes="))
+        assertFalse(report.contains("Voice sound heard: YES"))
+    }
+
+    @Test fun localVoiceCountsRejectNegativeAndUnboundedValues() {
+        for (invalid in listOf(-1, 10_001)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                LocalQaReport.format(sample().copy(voiceSpeakerStarts = invalid))
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                LocalQaReport.format(sample().copy(voicePlaybackProblemTurns = invalid))
+            }
+        }
+        val maximum = LocalQaReport.format(sample().copy(
+            voiceSpeakerStarts = 10_000, voicePlaybackProblemTurns = 10_000
+        ))
+        assertTrue(maximum.contains("observed here: 10000"))
+        val absent = LocalQaReport.format(sample())
+        assertTrue(absent.contains("Local live speaker-start callbacks observed here: 0"))
+        assertTrue(absent.contains("Live voice turns with local speaker failure or dropped PCM: 0"))
+    }
+
     @Test fun developmentTextReportContainsCountsNeverTypedContent() {
         val report = LocalQaReport.format(sample().copy(
             testTextWrittenToTls = 2,

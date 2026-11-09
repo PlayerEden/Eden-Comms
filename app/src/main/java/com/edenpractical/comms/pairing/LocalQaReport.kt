@@ -44,7 +44,9 @@ internal object LocalQaReport {
         val apkSignerSha256: String? = null,
         val testTextWrittenToTls: Int = 0,
         val testTextReceivedHere: Int = 0,
-        val testTextPeerAckEvents: Int = 0
+        val testTextPeerAckEvents: Int = 0,
+        val voiceSpeakerStarts: Int = 0,
+        val voicePlaybackProblemTurns: Int = 0
     )
 
     /** No free-form status or exception strings are accepted as report fields. */
@@ -56,6 +58,9 @@ internal object LocalQaReport {
             observation.testTextReceivedHere in 0..10_000 &&
             observation.testTextPeerAckEvents in 0..10_000
         ) { "Invalid debug text counters" }
+        require(observation.voiceSpeakerStarts in 0..10_000 &&
+            observation.voicePlaybackProblemTurns in 0..10_000
+        ) { "Invalid bounded local voice observations" }
         return listOf(
             "EDEN COMMS — LOCAL TEST OBSERVATION",
             "One phone only; NOT a security certification or a completed two-phone test.",
@@ -84,6 +89,11 @@ internal object LocalQaReport {
             "Peer-app ACK events for debug text observed here: ${observation.testTextPeerAckEvents}",
             "ACK means the other app responded; NOT message display, human reading or guaranteed delivery.",
             "ACK counts can be incomplete if the link ended before events reached this screen.",
+            "Local live speaker-start callbacks observed here: ${observation.voiceSpeakerStarts}",
+            "Live voice turns with local speaker failure or dropped PCM: ${observation.voicePlaybackProblemTurns}",
+            "These are local Android app observations, NOT proof of audible sound or delivery.",
+            "Voice counts can be incomplete after interruption or if the UI stopped observing.",
+            "No audio, PCM, speech content, peer identities or delivery receipts copied.",
             "No debug typed text content, peer IDs or delivery/read receipts copied.",
             "Finish: ${observation.finish.label}",
             "Last connection operation STARTED: " +
