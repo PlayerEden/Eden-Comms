@@ -173,39 +173,52 @@ and stale Bluetooth queue feedback clears on STOPPED/Ready.
 No actual Android emulator/phone/TalkBack/privacy or crypto acceptance.
 [M6-F source audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md).
 
-## Active source milestone — M6-G observed failure recovery
+## Completed source checkpoint — M6-G observed failure recovery
 
-Branch `feature/m6-g-failure-recovery-guidance-2026-11-09`.
-[Source audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
+[PR #159](https://github.com/PlayerEden/Eden-Comms/pull/159)
+merged as `bca8156d53806e0deb1d98b68770d198d22d3200`.
+[Exact PR-head Android/JVM/Python/security CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42705244355);
+[independent merged-main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42705668476).
+Debug Bluetooth/P2P observed STOPPED, radio, and group-cleanup
+states now show separate, concrete instructions without auto-retry.
+Fresh explicitly started Wi-Fi Direct host/discovery clears stale
+RAM chat/queue/ACK and remains unverified until actual approved
+channel Ready. Physical QA/TalkBack, OEM cleanup and external crypto
+review still NOT RUN.
+[M6-G audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
 
-- Read-only debug nearby recovery guidance is shown **only after real**
-  Bluetooth link STOPPED, Wi-Fi Direct host group stopped/cleaning or
-  stopped authenticated chat, or Wi-Fi Direct join discovery/verified
-  session stopped. Permission and radio-loss hints come from local
-  actual state, not invented network/peer reports.
-- Host `CLEANING` never claims group removal. Real
-  `CLEANUP_UNCONFIRMED` requests an explicit Android Wi-Fi Direct
-  settings check, not another blind connect. Fresh QR/TLS and two
-  human approvals remain required for all attempts.
-- New **explicit** Wi-Fi Direct host/search attempts clear the
-  previous STOPPED/queue/draft/ACK RAM UI and begin in unverified IDLE.
-  Only the real approved-channel Ready event can establish chat;
-  no auto-retry, remembered peer shortcut or restored authority.
-- JVM/pure-copy and P2P new-attempt tests plus Python
-  observed-state/source boundary checks added. Physical QA remains
-  deferred to the single consolidated acceptance matrix.
+## Active source milestone — M6-H one-use P2P three-QR request
+
+Branch `feature/m6-h-one-use-p2p-qr-transport-2026-11-09`.
+[Source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md).
+
+- Found a real gap: Wi-Fi Direct's documented **one-use**
+  three-QR TLS preparation could issue unlimited new transport
+  request objects from the same still-valid QR proof.
+- Added debug-only synchronized one-shot gate. Actual coordinator
+  checks it and **claims exactly once after a valid request is
+  constructed**, closes duplicate requests, and marks prepared
+  proof unavailable. Existing QR cleanup/new explicit exchange
+  resets the gate; socket failure or human refusal does not.
+- Host and Join use the original coordinator for the real
+  OS-selected group interface, mutual pinned TLS, QR/exporter,
+  bilateral approval and encrypted final confirmations.
+  No bypass or automatic retry. New copy tells users to
+  exchange all three codes again after a failure.
+- JVM repeated/concurrent claim tests and Python source
+  boundary checks added; no real hardware evidence claimed.
 
 ## Next priorities
 
-1. Run M6-G exact PR-head Android debug build/JVM/Python/security CI.
-   Merge only green final SHA and separately verify merged-main CI.
-2. Finish actual emulator/keyboard/200%-font and TalkBack QA when
-   available. Current manual emulator workflow covers only disconnected
-   states; no fake verified screenshot.
-3. Run **one** consolidated two-phone acceptance including
-   [M6-F keyboard and M6-G recovery addenda](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   when devices are available. Obtain independent crypto/storage/
-   backup/privacy and accessibility review before release.
+1. Run M6-H exact PR-head Android/JVM/Python/security CI;
+   merge only after success, independently verify merged-main CI.
+2. Preserve the [one consolidated two-phone test](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   to verify QR single use on failed host/join sessions as
+   well as existing text, voice, 200% font, background and
+   group-cleanup acceptance. **NOT RUN** on devices.
+3. Run manual emulator UI/TalkBack and independent crypto,
+   backup/storage deletion/privacy review before production
+   release. No `CAN_*` flags may be enabled from green CI alone.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
