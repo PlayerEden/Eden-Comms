@@ -28,6 +28,24 @@ class DebugNearbyApplicationFrameTest {
         sample.fill(0)
     }
 
+    @Test fun encryptedFloorControlsAreStrictlyDisjointFromTextAndPcm() {
+        for (kind in com.edenpractical.comms.protocol.DebugLanVoiceFloorCodec.Kind.entries) {
+            val frame = com.edenpractical.comms.protocol.DebugLanVoiceFloorCodec.Frame(
+                kind, 12L
+            )
+            val encryptedApplicationPlaintext =
+                com.edenpractical.comms.protocol.DebugLanVoiceFloorCodec.encode(frame)
+            assertEquals(DebugNearbyApplicationFrame.Kind.FLOOR,
+                DebugNearbyApplicationFrame.inspect(encryptedApplicationPlaintext))
+            val forged = encryptedApplicationPlaintext.copyOf().also { it[6] = 1 }
+            assertThrows(Exception::class.java) {
+                DebugNearbyApplicationFrame.inspect(forged)
+            }
+            encryptedApplicationPlaintext.fill(0)
+            forged.fill(0)
+        }
+    }
+
     @Test fun malformedVoiceAndTextNeverReachReader() {
         val sample = ByteArray(DebugLanVoiceWireCodec.PCM_BYTES)
         val frame = DebugLanVoiceWireCodec.data(2L, 0, sample)
