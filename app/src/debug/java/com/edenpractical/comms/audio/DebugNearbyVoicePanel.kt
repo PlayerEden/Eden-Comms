@@ -34,12 +34,13 @@ internal fun DebugNearbyVoicePanel(owner: DebugNearbyVoiceOwner) {
     if (!owner.isActive()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
-        Text("SHORT ENCRYPTED VOICE • DEBUG", style = MaterialTheme.typography.titleMedium)
+        Text("LIVE HOLD-TO-TALK • DEBUG", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Hold to capture up to 3 seconds on this phone. On release, the clip " +
-                "is sent on this exact approved TLS connection and played on the other " +
-                "phone. NOT live streaming. No voice is intentionally saved. " +
-                "Both phones must approve first; avoid private or emergency use.",
+            "Hold to request the talk channel, then send live 20ms audio " +
+                "for up to 3 seconds while held. Only one phone has the floor " +
+                "at a time; the joiner waits for the host's encrypted GRANT. " +
+                "Releasing sends END and releases the floor. Test-quality audio: " +
+                "no voice is intentionally saved. Not for private or emergency use.",
             style = MaterialTheme.typography.bodySmall
         )
         if (!micAllowed) {
@@ -51,7 +52,7 @@ internal fun DebugNearbyVoicePanel(owner: DebugNearbyVoiceOwner) {
                 style = MaterialTheme.typography.bodySmall)
         } else {
             DebugHoldToTalkControl(
-                enabled = micAllowed && owner.isActive(),
+                enabled = micAllowed && owner.isActive() && !owner.finalizing,
                 recording = owner.capturing,
                 onPressStart = { owner.beginCapture() },
                 onRelease = { owner.release() },
