@@ -33,7 +33,7 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
 
     def test_primary_path_remains_clear_and_safety_remains_visible(self):
         self.assertIn('Text("CONNECT NEARBY"', self.main)
-        self.assertIn('onChatPreview = { navigate("pairing-test") }', self.main)
+        self.assertIn('onChatPreview = { navigate("connect") }', self.main)
         self.assertIn('question = "What can this preview do?"', self.main)
         self.assertIn("Avoid private or emergency conversations.", self.main)
         for s in (
