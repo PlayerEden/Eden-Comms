@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.WindowManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -49,6 +50,9 @@ import java.security.SecureRandom
  */
 class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val gate = DebugWifiDirectGroupHostGate()
+    private val preparation = DebugWifiDirectQrCoordinator()
+    private val verifiedChat = DebugWifiDirectChatUiState()
+    private var verifiedSession: DebugWifiDirectApprovedTcpSession? = null
     private val handler = Handler(Looper.getMainLooper())
     private var foreground = false
     private var registered = false
@@ -102,6 +106,9 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         gate.stop(current, reason)
         tcpProbe?.close()
         tcpProbe = null
+        verifiedSession?.close()
+        verifiedSession = null
+        verifiedChat.clear()
         active = null
         timeout?.let(handler::removeCallbacks)
         poll?.let(handler::removeCallbacks)
@@ -122,6 +129,9 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         if (active !== current || !gate.active(current)) return
         val submitted = gate.snapshot().creationSubmitted
         gate.stop(current, why)
+        verifiedSession?.close()
+        verifiedSession = null
+        verifiedChat.clear()
         tcpProbe?.close()
         tcpProbe = null
         active = null // no stale callback may resume radio work
@@ -315,10 +325,12 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                 "Android did not supply a P2P channel.")
             return
         }
+        val hostBudget = if (preparation.readyForVerifiedTransport(hostRole = true))
+            120_000L else 20_000L
         timeout = Runnable {
             endHost(current, DebugWifiDirectGroupHostGate.End.TIMEOUT,
-                "20-second group host limit reached. Requesting cleanup.")
-        }.also { handler.postDelayed(it, 20_000L) }
+                "Temporary group lifetime ended. Requesting Android cleanup.")
+        }.also { handler.postDelayed(it, hostBudget) }
 
         fun schedulePoll() {
             poll = Runnable {
@@ -435,6 +447,116 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * F3-C: user explicitly starts one real P2P-bound, fully verified
+     * TLS+QR+two-approval TEXT/ACK socket. No guessed interface, typed IP or
+     * diagnostic TCP result is reused as an authenticated conversation.
+     */
+    private fun startVerifiedHostChat() {
+        val token = active ?: return
+        if (verifiedSession != null || tcpProbe != null || !foreground || !ready() ||
+            gate.snapshot().phase != DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED ||
+            !preparation.readyForVerifiedTransport(hostRole = true) ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+        ) return
+        val m = manager ?: return
+        val ch = channel ?: return
+        try {
+            m.requestConnectionInfo(ch) { info ->
+                if (active !== token || !foreground || !ready() ||
+                    !info.groupFormed || !info.isGroupOwner ||
+                    gate.snapshot().phase != DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED
+                ) return@requestConnectionInfo
+                try {
+                    m.requestGroupInfo(ch) { group ->
+                        if (active !== token || !foreground || !ready() ||
+                            group?.isGroupOwner != true ||
+                            gate.snapshot().phase !=
+                                DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED ||
+                            verifiedSession != null
+                        ) return@requestGroupInfo
+                        val local = DebugWifiDirectP2pInterface.resolve(
+                            group.getInterface(), isHost = true,
+                            groupOwnerAddress = info.groupOwnerAddress
+                        ) ?: run {
+                            verifiedChat.status(
+                                DebugWifiDirectApprovedTcpSession.Phase.STOPPED,
+                                "Android's exact P2P group interface is unavailable; no socket."
+                            )
+                            return@requestGroupInfo
+                        }
+                        val request = preparation.newVerifiedTransportRequest(true)
+                            ?: run {
+                                verifiedChat.status(
+                                    DebugWifiDirectApprovedTcpSession.Phase.STOPPED,
+                                    "Fresh reciprocal QR proof required. No TCP opened."
+                                )
+                                return@requestGroupInfo
+                            }
+                        var owned: DebugWifiDirectApprovedTcpSession? = null
+                        val session = DebugWifiDirectApprovedTcpSession(
+                            handler, canContinue = {
+                                active === token && foreground && ready() &&
+                                gate.active(token)
+                            },
+                            onStatus = { phase, note ->
+                                if (active === token && verifiedSession === owned) {
+                                    verifiedChat.status(phase, note)
+                                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
+                                        // Group remains alive only for the bounded live session.
+                                        timeout?.let(handler::removeCallbacks)
+                                        timeout = Runnable {
+                                            endHost(token,
+                                                DebugWifiDirectGroupHostGate.End.TIMEOUT,
+                                                "10-minute chat limit reached; group cleanup.")
+                                        }.also {
+                                            handler.postDelayed(
+                                                it, DebugWifiDirectApprovedTcpSession.CHAT_DEADLINE_MS
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            onApprovalReady = {
+                                if (active === token && verifiedSession === owned)
+                                    verifiedChat.approval(it)
+                            },
+                            onText = { if (active === token && verifiedSession === owned)
+                                verifiedChat.event(it)
+                            }
+                        )
+                        owned = session
+                        verifiedSession = session
+                        if (!session.host(local, request)) {
+                            verifiedSession = null
+                            verifiedChat.status(
+                                DebugWifiDirectApprovedTcpSession.Phase.STOPPED,
+                                "Verified P2P host socket could not start."
+                            )
+                        }
+                    }
+                } catch (_: RuntimeException) {
+                    verifiedChat.status(
+                        DebugWifiDirectApprovedTcpSession.Phase.STOPPED,
+                        "Could not inspect Android P2P group interface."
+                    )
+                }
+            }
+        } catch (_: RuntimeException) {
+            verifiedChat.status(
+                DebugWifiDirectApprovedTcpSession.Phase.STOPPED,
+                "Cannot inspect Android Wi-Fi Direct endpoint."
+            )
+        }
+    }
+
+    private fun sendVerifiedText() {
+        if (verifiedChat.phase != DebugWifiDirectApprovedTcpSession.Phase.CHAT) return
+        val draft = verifiedChat.draft
+        if (draft.isBlank()) return
+        if (verifiedSession?.offerText(draft) == true) verifiedChat.draft = ""
+    }
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (!foreground) return
@@ -463,6 +585,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
             finish()
             return
         }
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        preparation.loadExistingIdentity()
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
@@ -470,15 +594,55 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text("Wi-Fi Direct — temporary local group",
+                        Text("Wi-Fi Direct — nearby encrypted chat",
                             style = MaterialTheme.typography.titleLarge)
-                        Text("DEBUG ONLY • Android 10+. This phone may broadcast an " +
-                            "ephemeral Wi-Fi Direct group for 20 seconds. " +
-                            "Use only in a controlled test environment.")
-                        Text("A local Wi-Fi group is NOT an Eden Comms connection, " +
-                            "verified identity or private conversation.")
+                        Text("DEBUG ONLY • Android 12+ for encrypted messaging. " +
+                            "No Wi-Fi router or Internet required once a P2P group forms.")
+                        if (verifiedChat.phase !in setOf(
+                                DebugWifiDirectApprovedTcpSession.Phase.CONNECTING,
+                                DebugWifiDirectApprovedTcpSession.Phase.AWAITING_APPROVAL,
+                                DebugWifiDirectApprovedTcpSession.Phase.CHAT
+                            )) {
+                            DebugWifiDirectInlineQrPanel(preparation, hostRole = true)
+                        } else {
+                            Text("Fresh QR preparation locked while the P2P session runs.")
+                        }
+                        Text("A Wi-Fi Direct group alone is NOT verified identity or permission to chat.")
                         Text("State: $phase")
                         Text(notice)
+                        Text(verifiedChat.note)
+                        if (verifiedChat.approvalPending) {
+                            Text("TLS, QR, and exporter checks passed. " +
+                                "Approve only while physically with the intended person.")
+                            Button(onClick = {
+                                if (verifiedSession?.approve() == true)
+                                    verifiedChat.approval(false)
+                            }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                                Text("APPROVE THIS P2P SESSION")
+                            }
+                            OutlinedButton(onClick = {
+                                if (verifiedSession?.decline() == true)
+                                    verifiedChat.approval(false)
+                            }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                                Text("DECLINE AND DISCONNECT")
+                            }
+                        }
+                        if (verifiedChat.phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
+                            DebugWifiDirectTextPanel(
+                                lines = verifiedChat.lines, draft = verifiedChat.draft,
+                                onDraft = { verifiedChat.draft = it },
+                                onSend = { sendVerifiedText() }
+                            )
+                        }
+                        Button(
+                            onClick = { startVerifiedHostChat() },
+                            enabled = foreground && active != null &&
+                                verifiedSession == null &&
+                                preparation.readyForVerifiedTransport(true) &&
+                                phase == DebugWifiDirectGroupHostGate.Phase.HOST_OBSERVED &&
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        ) { Text("START VERIFIED WI-FI DIRECT TEXT") }
                         Text(tcpNotice)
                         OutlinedButton(
                             onClick = { requestTcpHostReachability() },
@@ -489,9 +653,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                         Button(
                             onClick = { startHost() },
                             enabled = foreground && registered && active == null &&
+                                preparation.readyForVerifiedTransport(true) &&
                                 phase != DebugWifiDirectGroupHostGate.Phase.CLEANING,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        ) { Text("START 20-SECOND GROUP HOST TEST") }
+                        ) { Text("CREATE TEMPORARY P2P GROUP") }
                         OutlinedButton(
                             onClick = {
                                 active?.let {
@@ -502,11 +667,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             enabled = active != null,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         ) { Text("STOP AND REMOVE TEST GROUP") }
-                        Text("No peer identities, IP addresses or group passwords are shown " +
-                            "or stored. The optional TCP reachability probe transfers zero " +
-                            "application bytes; no text, microphone or trust is enabled. " +
-                            "Group cleanup is best effort; inspect system Wi-Fi Direct " +
-                            "settings if removal cannot be confirmed.")
+                        Text("Debug TEXT/ACK is available only after fresh in-person QR, " +
+                            "actual pinned TLS and both encrypted human confirmations. " +
+                            "No saved peers, voice or production security claim. " +
+                            "Android group cleanup is best effort.")
                     }
                 }
             }
@@ -532,6 +696,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
 
     override fun onStop() {
         foreground = false
+        verifiedSession?.close()
+        verifiedSession = null
+        verifiedChat.clear()
+        preparation.clear()
         active?.let {
             endHost(it, DebugWifiDirectGroupHostGate.End.BACKGROUND,
                 "Screen left. Requesting temporary group cleanup.")
