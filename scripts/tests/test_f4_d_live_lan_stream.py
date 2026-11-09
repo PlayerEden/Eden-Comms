@@ -60,18 +60,19 @@ class LiveLANVoiceContract(unittest.TestCase):
         screen = (MAIN / "pairing/LocalPairingTestScreen.kt").read_text()
         control = (MAIN / "pairing/DebugHoldToTalkControl.kt").read_text()
         for marker in (
-            "fun startLiveCapture(", "source.read(", "onFrame(frame)",
+            "fun startLiveCapture(", "source.read(",
+            "gate.offerIfActive(frame, onFrame)",
             "DebugLanVoiceWireCodec.MAX_FRAMES", "MAX_MS",
             "fun acceptLiveFrame(", "AudioTrack.MODE_STREAM",
-            "val copy = pcm.copyOf()", "state.frames.poll(45, TimeUnit.MILLISECONDS)",
+            "state.frames.poll(45, TimeUnit.MILLISECONDS)",
             "speaker.play()", "onPlaybackStarted(true)",
             "frame.fill(0)", "state.cancel()", "livePlayback?.cancel()",
         ):
-            if marker == "val copy = pcm.copyOf()":
-                # PCM is copied inside LivePlayback.offer, not caller method.
-                self.assertIn(marker, audio)
-            else:
-                self.assertIn(marker, audio, marker)
+            self.assertIn(marker, audio, marker)
+        buffer = (MAIN / "pairing/DebugLiveVoiceStopBoundaries.kt").read_text()
+        self.assertIn("val copy = pcm.copyOf()", buffer)
+        self.assertIn("frames.offer(copy)", buffer)
+        self.assertIn("sample.fill(0)", buffer)
         for marker in (
             "onPressStart = { startLiveVoiceCapture() }",
             "onRelease = { finishLiveVoiceCapture() }",
