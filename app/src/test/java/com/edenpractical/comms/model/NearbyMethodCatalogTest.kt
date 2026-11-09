@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NearbyMethodCatalogTest {
-    @Test fun everyProductMethodHasExactlyOneEntryAndOnlyLanHasDebugTest() {
+    @Test fun allThreeRealDevelopmentMethodsHaveOneDistinctHonestEntry() {
         val methods = NearbyMethodCatalog.methods
         assertEquals(ConnectionMethod.values().toSet(), methods.map { it.id }.toSet())
         assertEquals(ConnectionMethod.values().size, methods.size)
@@ -16,36 +16,34 @@ class NearbyMethodCatalogTest {
             listOf(ConnectionMethod.LAN, ConnectionMethod.BLUETOOTH, ConnectionMethod.WIFI_DIRECT),
             methods.map { it.id }
         )
-        assertEquals(
-            listOf(NearbyMethodCatalog.Availability.DEBUG_TEST_ONLY,
-                NearbyMethodCatalog.Availability.PLANNED,
-                NearbyMethodCatalog.Availability.PLANNED),
-            methods.map { it.availability }
-        )
         assertTrue(methods.all {
-            it.title.isNotBlank() && it.description.isNotBlank() &&
+            it.availability == NearbyMethodCatalog.Availability.DEBUG_TEST_ONLY &&
+                it.title.isNotBlank() && it.description.isNotBlank() &&
                 it.requirements.isNotBlank() && it.futureDiscovery.isNotBlank()
         })
     }
 
-    @Test fun onlyDebugLanCanEnterExistingQrPathAndNoMethodUnlocksRelease() {
+    @Test fun releaseAlwaysUnavailableButDebugHasSpecificExistingEntrypoint() {
         for (method in ConnectionMethod.values()) {
             assertSame(
                 NearbyMethodCatalog.Selection.NotAvailable,
                 NearbyMethodCatalog.select(method, debuggable = false)
             )
-            if (method == ConnectionMethod.LAN) {
-                assertSame(
-                    NearbyMethodCatalog.Selection.LaunchDebugLanQr,
-                    NearbyMethodCatalog.select(method, debuggable = true)
-                )
-            } else {
-                assertSame(
-                    NearbyMethodCatalog.Selection.NotAvailable,
-                    NearbyMethodCatalog.select(method, debuggable = true)
-                )
-            }
+            assertFalse(NearbyMethodCatalog.isDebugEntry(method, debuggable = false))
+            assertTrue(NearbyMethodCatalog.isDebugEntry(method, debuggable = true))
         }
+        assertSame(
+            NearbyMethodCatalog.Selection.LaunchDebugLanQr,
+            NearbyMethodCatalog.select(ConnectionMethod.LAN, true)
+        )
+        assertSame(
+            NearbyMethodCatalog.Selection.LaunchDebugBluetooth,
+            NearbyMethodCatalog.select(ConnectionMethod.BLUETOOTH, true)
+        )
+        assertSame(
+            NearbyMethodCatalog.Selection.LaunchDebugWifiDirectPreflight,
+            NearbyMethodCatalog.select(ConnectionMethod.WIFI_DIRECT, true)
+        )
         assertFalse(NearbyMethodCatalog.canEnterDebugLan(debuggable = false))
         assertTrue(NearbyMethodCatalog.canEnterDebugLan(debuggable = true))
         assertFalse(ReleaseCapabilities.CAN_CONNECT)
@@ -53,18 +51,21 @@ class NearbyMethodCatalogTest {
         assertFalse(ReleaseCapabilities.CAN_TRANSMIT_VOICE)
     }
 
-    @Test fun discoveryIsNotPretendedForAnyMethodAndNoInternetIsRequiredForLanTest() {
+    @Test fun methodSelectionDoesNotPretendRadioProofOrGrantApprovals() {
         val lan = NearbyMethodCatalog.current(ConnectionMethod.LAN)
         assertTrue(lan.description.contains("Internet is not needed"))
         assertTrue(lan.requirements.contains("Two QR scans"))
         assertTrue(lan.futureDiscovery.contains("not automatic device search"))
-        for (method in listOf(ConnectionMethod.BLUETOOTH, ConnectionMethod.WIFI_DIRECT)) {
-            val entry = NearbyMethodCatalog.current(method)
-            assertEquals(NearbyMethodCatalog.Availability.PLANNED, entry.availability)
-            assertTrue(entry.futureDiscovery.contains("not implemented"))
-            assertTrue(entry.requirements.contains("permission"))
-            assertSame(NearbyMethodCatalog.Selection.NotAvailable,
-                NearbyMethodCatalog.select(method, debuggable = true))
-        }
+        val bt = NearbyMethodCatalog.current(ConnectionMethod.BLUETOOTH)
+        assertTrue(bt.requirements.contains("permissions"))
+        assertTrue(bt.requirements.contains("both approvals"))
+        assertTrue(bt.futureDiscovery.contains("No production discovery"))
+        val p2p = NearbyMethodCatalog.current(ConnectionMethod.WIFI_DIRECT)
+        assertTrue(p2p.requirements.contains("preflight"))
+        assertTrue(p2p.requirements.contains("both approvals"))
+        assertTrue(p2p.futureDiscovery.contains("Not production discovery"))
+        assertTrue(NearbyMethodCatalog.methods.all {
+            it.availability != NearbyMethodCatalog.Availability.PLANNED
+        })
     }
 }
