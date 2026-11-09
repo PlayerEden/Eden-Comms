@@ -73,7 +73,7 @@ internal fun DebugWifiDirectInlineQrPanel(
                     key(preparation.scannerGeneration) {
                         LocalPairingQrScanner(
                             onPayload = preparation::scanned,
-                            onCameraError = preparation::cameraFailed
+                            onCameraError = { preparation.cameraFailed() }
                         )
                     }
                     OutlinedButton(onClick = { preparation.retryScanner() },
