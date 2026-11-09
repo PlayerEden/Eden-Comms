@@ -44,6 +44,29 @@ run one consolidated real-phone test/bugfix pass. Revert PR #153
 alone to restore old routing/UI, not F2/F3/F4/F5 security/storage.
 Existing session state/keys/history are not migrated or deleted.
 
+## 2026-11-09 — M6-B consolidated two-phone acceptance readiness
+
+**Why:** M6-A's unified Connect → Text/Talk → Disconnect UI is already
+merged as PR #153 / `b9166cdc4f2809146c5aeeb8eac4f34397a860a7`,
+with [main CI green](https://github.com/PlayerEden/Eden-Comms/actions/runs/42663929342).
+Do not duplicate that implementation or mistake its static/JVM checks for
+real-phone acceptance. The previous M2K worksheet was LAN-only and stale
+for the now-functional debug Bluetooth and Wi-Fi Direct paths.
+
+**What:** New [M6-B paired-phone matrix](M6_B_TWO_PHONE_ACCEPTANCE_MATRIX.md)
+covers one consolidated A/B session for three transports, fresh QR and
+two-human approvals, two-way text/ACK, host-arbitrated live PTT, simultaneous
+press, cancellation, disconnect/recovery, permission denial, Android OEM,
+no-router, orientation/accessibility and opt-in history/peer memory expiry/
+deletion/backup. Includes reproducible sanitized evidence template, explicit
+PASS/FAIL/BLOCKED/NOT TESTED and stop conditions. No user device test,
+new APK, security review or production release flag change.
+
+**Next:** Run a single consolidated paired-handset test when both phones
+are available; file and fix genuine defects in separate PRs; retest and
+seek independent security review before release. Do not report any phone
+PASS without direct evidence.
+
 ## 2026-11-09 — F4-V: live floor-controlled Bluetooth and Wi-Fi Direct
 
 **Source:** [PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152),
