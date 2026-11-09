@@ -9,6 +9,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.edenpractical.comms.pairing.DebugHoldToTalkControl
@@ -31,16 +38,36 @@ internal fun DebugNearbyVoicePanel(owner: DebugNearbyVoiceOwner) {
         ActivityResultContracts.RequestPermission()
     ) { granted -> micAllowed = granted }
 
+    // Android microphone permission can be revoked in Settings while the app
+    // is away. A stale remembered true must not leave an enabled Talk control
+    // after the app resumes. This only re-reads permission; it never requests it.
+    DisposableEffect(context) {
+        val lifecycle = (context as? LifecycleOwner)?.lifecycle
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                micAllowed = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycle?.addObserver(observer)
+        onDispose { lifecycle?.removeObserver(observer) }
+    }
+
     if (!owner.isActive()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
-        Text("LIVE HOLD-TO-TALK • DEBUG", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Hold to request the talk channel, then send live 20ms audio " +
-                "for up to 3 seconds while held. Only one phone has the floor " +
-                "at a time; the joiner waits for the host's encrypted GRANT. " +
-                "Releasing sends END and releases the floor. Test-quality audio: " +
-                "no voice is intentionally saved. Not for private or emergency use.",
+            "LIVE HOLD-TO-TALK • DEBUG",
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            "Hold to talk for up to 3 seconds. Audio sends while you hold; " +
+                "release to stop. Only one phone can talk at a time. If the " +
+                "other person is speaking, wait and try again. Voice isn't " +
+                "intentionally saved. This is an experimental test, not " +
+                "for private or emergency conversations.",
             style = MaterialTheme.typography.bodySmall
         )
         if (!micAllowed) {
@@ -60,11 +87,16 @@ internal fun DebugNearbyVoicePanel(owner: DebugNearbyVoiceOwner) {
                 onAccessibilityClick = { owner.accessibilityTap() }
             )
             Text(
-                "Screen reader: activate once to record, again to send. " +
+                "Screen reader or keyboard: activate once to request a turn " +
+                    "and begin speaking; activate again to stop or cancel. " +
                     "Disconnect immediately stops microphone and playback.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        Text(owner.notice, style = MaterialTheme.typography.bodySmall)
+        Text(
+            owner.notice,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }

@@ -84,7 +84,7 @@ class NearbyVoiceBurst(unittest.TestCase):
     def test_user_opt_in_permission_audible_playback_and_lifecycle(self):
         for value in ("DebugHoldToTalkControl(", "ActivityResultContracts.RequestPermission()",
                       "permission.launch(Manifest.permission.RECORD_AUDIO)",
-                      "Only one phone has the floor", "max 3 seconds"):
+                      "Only one phone can talk at a time", "max 3 seconds"):
             # Captions may say 'up to 3 seconds' instead.
             if value != "max 3 seconds":
                 self.assertIn(value, self.panel, value)

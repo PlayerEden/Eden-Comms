@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -288,7 +289,13 @@ private fun EdenCommsApp() {
                             "chat-preview" -> LocalChatPreviewScreen(
                                 onPairingTest = { navigate("pairing-test") }
                             )
-                            "ptt" -> PushToTalkScreen()
+                            // Old saved route must not resurrect the obsolete
+                            // "coming soon" PTT mock after real debug voice shipped.
+                            "ptt" -> NearbyScreen(
+                                onLocalWifi = { navigate("pairing-test") },
+                                onBluetooth = { launchDebugMethod(ConnectionMethod.BLUETOOTH) },
+                                onWifiDirect = { launchDebugMethod(ConnectionMethod.WIFI_DIRECT) }
+                            )
                             "settings" -> SettingsScreen(
                                 darkMode = darkMode,
                                 onDarkModeChange = {
@@ -444,7 +451,7 @@ private fun HomeScreen(
 ) {
     FieldSectionHeader("NEARBY", "Connect and communicate")
     Text(
-        "Nearby conversations, without permanent chat history.",
+        "Session-only by default. Local encrypted history is optional after pairing.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -799,7 +806,11 @@ private fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Switch(checked = darkMode, onCheckedChange = onDarkModeChange)
+        Switch(
+            checked = darkMode,
+            onCheckedChange = onDarkModeChange,
+            modifier = Modifier.semantics { contentDescription = "Dark appearance" }
+        )
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.30f))
     SectionLabel("PRIVACY & CONVERSATIONS")
@@ -1040,7 +1051,7 @@ private fun DeveloperScreen(
 private fun HelpScreen(onPrivacy: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            "Connect. Talk. Done.",
+            "Connect. Text or talk. Disconnect.",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold
         )
@@ -1083,8 +1094,9 @@ private fun HelpScreen(onPrivacy: () -> Unit) {
         fontWeight = FontWeight.SemiBold
     )
     Text(
-        "Test chat is temporary on this phone, but the other person or " +
-            "the phone's operating system may still keep copies.",
+        "Test chat starts session-only. You can opt into bounded encrypted " +
+            "local text history after verification; the other person or " +
+            "Android may still keep copies.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -1145,7 +1157,7 @@ private fun PrivacyInfoScreen() {
                 "What privacy cannot hide" ->
                     "What others, the network and Android can still observe."
                 "What is not available" ->
-                    "No normal messaging, voice, account or saved conversations."
+                    "No accounts, cloud relay or production-secure messaging."
                 else -> "Read the full explanation."
             }
             FieldDisclosureCard(
@@ -1183,6 +1195,7 @@ private fun FieldSectionHeader(eyebrow: String, title: String?) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 eyebrow,
+                modifier = if (title == null) Modifier.semantics { heading() } else Modifier,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
@@ -1190,6 +1203,7 @@ private fun FieldSectionHeader(eyebrow: String, title: String?) {
             )
             if (title != null) Text(
                 title,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )

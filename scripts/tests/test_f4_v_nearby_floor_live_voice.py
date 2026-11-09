@@ -83,7 +83,10 @@ class F4VNearbyFloorLiveVoice(unittest.TestCase):
             self.assertIn(good, self.owner, good)
         self.assertNotIn("audio.startCapture(", self.owner)
         self.assertNotIn("audio.playReceived(", self.owner)
-        self.assertIn("Hold to request the talk channel", self.panel)
+        for text in ("Audio sends while you hold",
+                     "Only one phone can talk at a time",
+                     "activate again to stop or cancel"):
+            self.assertIn(text, self.panel)
         self.assertIn("ActivityResultContracts.RequestPermission()", self.panel)
 
     def test_role_binding_is_same_authenticated_qr_and_dual_confirm(self):

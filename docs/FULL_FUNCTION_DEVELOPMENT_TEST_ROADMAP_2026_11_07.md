@@ -71,6 +71,27 @@ crypto/security review. Final-head and post-merge CI must be
 checked separately. Next: consolidated handset matrix, fix any
 observed failures, external security review.
 
+## November 9 M6-C user experience and disclosure polish
+
+[PR #155](https://github.com/PlayerEden/Eden-Comms/pull/155) is a
+focused source-only pass for accessible, simple real navigation:
+all Text buttons leave Talk safely, consistent angular chat cards,
+selected-tab and expanded disclosure semantics, labeled settings switch,
+microphone permission refresh after Android Settings, correct live
+voice screen-reader wording, semantic headings, and no stale Coming
+Soon PTT route. The Privacy & data page is also corrected for actual
+experimental Bluetooth/Wi-Fi Direct live voice and independently
+opted-in encrypted text history and public peer memory on all three
+methods. No production capability, radio, TLS, identity or storage
+schema change. [Source audit](M6_C_USABILITY_ACCESSIBILITY_AUDIT.md)
+records the fixes and remaining manual/emulator/device gates.
+
+**Source CI ≠ physical UX or crypto approval.** After green PR + main
+CI, focus on pairing/recovery steps, large-text/TalkBack and manual
+phone-size/theme screenshots, then run the existing one-pass
+[two-phone acceptance matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md) when
+available. Production CAN_* remain false.
+
 ## November 9 M6-B safety and one-pass acceptance preparation
 
 [PR #154](https://github.com/PlayerEden/Eden-Comms/pull/154)

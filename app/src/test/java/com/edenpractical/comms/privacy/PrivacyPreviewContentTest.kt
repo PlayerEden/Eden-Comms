@@ -50,6 +50,36 @@ class PrivacyPreviewContentTest {
         }
     }
 
+    @Test fun nearbyVoiceAndLocalRetentionAreDisclosedAcrossAllDebugMethods() {
+        val all = PrivacyPreviewContent.introduction + " " +
+            PrivacyPreviewContent.sections.joinToString(" ") { it.description }
+        listOf(
+            "Same Wi-Fi", "Bluetooth Classic", "Wi-Fi Direct",
+            "both phones approve and confirm", "live push-to-talk",
+            "session-only", "per-conversation choice",
+            "Keystore AES-GCM", "no-backup storage",
+            "remember an already verified peer",
+            "separate encrypted local storage",
+            "30 days", "not a production feature",
+            "independent protocol review", "physical"
+        ).forEach { expected ->
+            assertTrue("Missing updated active debug disclosure: $expected",
+                all.contains(expected, ignoreCase = true))
+        }
+        listOf(
+            "Bluetooth and Wi-Fi Direct voice remain unavailable",
+            "DEBUG LAN-only history",
+            "DEBUG LAN-only peer",
+            "No normal messaging, voice, account or saved conversations"
+        ).forEach { obsolete ->
+            assertFalse("Obsolete disclosure returned: $obsolete",
+                all.contains(obsolete, ignoreCase = true))
+        }
+        assertTrue(all.contains("microphone permission", ignoreCase = true))
+        assertTrue(all.contains("does not intentionally", ignoreCase = true))
+        assertTrue(all.contains("not a login", ignoreCase = true))
+    }
+
     @Test fun unavailableFeaturesAreNotRepresentedAsActive() {
         val future = PrivacyPreviewContent.sections.last().description
         listOf("no Eden Comms accounts", "remembered", "encrypted test text",
