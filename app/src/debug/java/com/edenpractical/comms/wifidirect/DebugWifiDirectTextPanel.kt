@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.edenpractical.comms.pairing.DebugTextDraftPolicy
 import com.edenpractical.comms.ui.DebugNearbyTextUiCopy
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /** In-memory view of actual verified encrypted TEXT_WRITTEN, RECEIVED and peer ACK events. */
