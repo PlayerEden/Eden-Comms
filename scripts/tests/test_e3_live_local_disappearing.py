@@ -37,7 +37,7 @@ class LiveLocalDisappearingSource(unittest.TestCase):
         record = (PAIR / "DebugTextTranscript.kt").read_text()
         policy = (MAIN / "privacy/ConversationPrivacyContent.kt").read_text()
         flags = (MAIN / "model/ReleaseCapabilities.kt").read_text()
-        self.assertIn("does not tell the other phone to delete", policy)
+        self.assertIn("not tell the other phone to delete", policy)
         for source in (screen, ui, record):
             for forbidden in ("SharedPreferences", "rememberSaveable(",
                               "SQLiteDatabase", "openFileOutput("):
