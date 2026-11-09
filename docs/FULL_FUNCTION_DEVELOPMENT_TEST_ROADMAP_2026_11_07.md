@@ -25,6 +25,18 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F4-R signed local-speaker-diagnostics Preview (November 8):**
+The next numbered, public-development-signed Preview packages the already
+merged F4-Q local AudioTrack speaker-start and refused/overflowed PCM
+observation counters. A focused two-phone worksheet compares the real
+audible experience on each device to the independent local QA counters,
+without retaining speech. The existing Preview app ID, public test signer,
+no-cloud/approved-LAN-only boundaries, and production feature flags
+remain unchanged. The signed build's checksum and package/signer must
+pass CI checks; device installation, audibility, network interruptions
+and independent security review remain separate owner QA gates.
+[F4-Q field guide](F4_Q_LOCAL_VOICE_PLAYBACK_EVIDENCE_2026_11_08.md).
+
 **F4-Q honest local speaker observations for two-phone QA (November 8):**
 A correctly validated incoming voice START/END no longer hides a silent
 speaker rejection. Android's actual AudioTrack start callbacks and

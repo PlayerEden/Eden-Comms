@@ -222,6 +222,48 @@ The F4-O changes passed JVM/source CI before packaging. No physical
 device timing is established by CI; see
 [F4-O detailed field QA](F4_O_LIVE_AUDIO_STOP_BOUNDARIES_2026_11_08.md).
 
+## F4-Q local speaker evidence (new in signed Preview 200008)
+
+The receiving phone's Android speaker can reject or drop incoming voice
+audio even when the encrypted LAN packet exchange completes normally.
+F4-Q adds **local observations only**, not audio recordings or a promise
+that the other person heard speech.
+
+The result screen's **View test details and QA report → Copy this phone's
+test summary** now includes two extra bounded counts:
+
+- **Local live speaker-start callbacks:** Android began speaker playback
+  on this phone; sound being audible is NOT verified.
+- **Live voice turns with local speaker failure or dropped PCM:** an
+  incoming START/DATA could not be played or some local frames were
+  rejected, counted at most once per turn.
+
+**Short two-phone exercise (after installing the same Preview on both):**
+
+1. Pair over the same Wi-Fi using **fresh reciprocal QRs** and the two
+   independent approvals/final confirmations. Use harmless test phrases.
+2. Phone A speaks three short turns while holding Talk; B listens. On
+   B, note whether each turn was **actually audible**, whether the
+   speaker-start count changes and whether the playback-problem count
+   rises. Repeat in the reverse direction.
+3. Hide B's conversation during one transmission. Hidden playback is
+   intentionally muted; do not expect a speaker-start count just because
+   encrypted START/END packets arrived. Show the conversation, then
+   ask A to transmit a fresh short turn.
+4. Repeat with phone B's speaker in use by another local audio activity,
+   then End or switch B's Wi-Fi off mid-transmission. Check the app does
+   not resume the old sound. Reconnect only using fresh QRs and both
+   approvals.
+5. Open each phone's **View test details and QA report** after ending,
+   optionally **Copy this phone's test summary**, and compare the two
+   sets of local observations. A positive count is **not** sound-quality,
+   remote-delivery, human-listening, or cryptographic acceptance.
+
+Capture sanitized pass/fail observations and Android version only.
+Do not share voice recordings, QR images, IP addresses, device IDs,
+certificates or private messages. See
+[F4-Q field-test handoff](F4_Q_LOCAL_VOICE_PLAYBACK_EVIDENCE_2026_11_08.md).
+
 ## What to report (do not post private material)
 
 - Which APK `versionCode` and public `source revision` were installed;
