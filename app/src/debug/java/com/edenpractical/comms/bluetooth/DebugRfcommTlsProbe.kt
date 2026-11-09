@@ -12,6 +12,8 @@ import com.edenpractical.comms.security.SessionProofChallenges
 import com.edenpractical.comms.security.SessionProofExchange
 import com.edenpractical.comms.security.Tls13PeerContext
 import javax.net.ssl.SSLEngine
+import java.io.InputStream
+import java.io.OutputStream
 import javax.net.ssl.SSLException
 
 /**
@@ -26,8 +28,10 @@ import javax.net.ssl.SSLException
  *
  * M3n-C1 after transcript agreement: both people must independently tap
  * APPROVE (or DECLINE), then two exact-session TLS-encrypted final CONFIRM
- * frames must be exchanged. Even after success the controller closes the
- * socket: NO chat, voice, contact trust or production authorization.
+ * frames must be exchanged. F2-Q: only AFTER these exact authenticated
+ * checks, the same worker may run a bounded DEBUG encrypted TEXT/ACK channel
+ * on the original engine and original socket streams. Diagnostic-only runs
+ * still close as before; no release chat, saved trust or voice authority.
  */
 internal object DebugRfcommTlsProbe {
     private const val EXPORTER_LABEL = "EXPORTER-Channel-Binding"
@@ -38,6 +42,7 @@ internal object DebugRfcommTlsProbe {
         socket: BluetoothSocket,
         request: DebugBluetoothTlsProbeInput,
         onVerifiedStage: (DebugBluetoothVerifiedStage) -> Unit = {},
+        onApprovedChannel: ((SSLEngine, InputStream, OutputStream) -> Unit)? = null,
         onConsentRequired: (DebugBluetoothConsentDecision) -> Unit
     ): DebugBluetoothProbeCompletion {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -140,9 +145,18 @@ internal object DebugRfcommTlsProbe {
             val atEnd = request.freshBinding()
             clearBinding(atEnd)
             onVerifiedStage(DebugBluetoothVerifiedStage.HUMAN_CONFIRMATIONS)
-            // This marker can be issued ONLY after the real TLS/QR/exporter/
-            // commitments and both encrypted human confirmations completed.
-            // It has no socket/engine/secret and cannot grant a chat session.
+            // F2-Q: the *real* verified TLS engine and the original RFCOMM
+            // byte streams stay on this SAME worker call stack. Neither a
+            // copied transcript nor this non-authorizing receipt opens chat.
+            // Control framing is retired before encrypted application data.
+            if (onApprovedChannel != null) {
+                transport.clear()
+                val approvedEngine = engine
+                    ?: throw SSLException("Missing actual approved TLS engine")
+                onApprovedChannel(approvedEngine, wireIn, wireOut)
+            }
+            // Diagnostic receipt remains read-only, and never has a socket,
+            // engine, message API or independent send authority.
             val nowSeconds = System.currentTimeMillis() / 1000
             return DebugBluetoothProbeCompletion.afterVerifiedDiagnostic(
                 hostRole = request.hostRole,
