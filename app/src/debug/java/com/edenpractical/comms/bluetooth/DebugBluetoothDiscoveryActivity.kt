@@ -1,5 +1,8 @@
 package com.edenpractical.comms.bluetooth
 
+import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
+import com.edenpractical.comms.audio.DebugNearbyVoicePanel
+
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
 
@@ -65,6 +68,7 @@ import com.edenpractical.comms.transport.NearbyDiscoverySession
 class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private val qrCoordinator = DebugBluetoothQrCoordinator()
     private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
+    private val localVoice by lazy { DebugNearbyVoiceOwner(applicationContext) }
     private val discoveryState = NearbyDiscoverySession()
     private val candidateLedger = DebugBluetoothCandidateLedger<BluetoothDevice>()
     private var candidateToken: DebugBluetoothCandidateLedger.Token? = null
@@ -113,6 +117,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     chatLines = emptyList()
                     ackedChatIds = emptySet()
                     localPrivacy.close()
+                    localVoice.disable()
                     // No reusable QR or anonymous radio candidate on retry:
                     // restart the actual two-phone flow with fresh codes.
                     qrCoordinator.clear()
@@ -134,6 +139,14 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         chatReady = true
                         approvalPending = false
                         linkStatus = "Both confirmed. Encrypted Bluetooth test chat is active."
+                        localVoice.activate(
+                            canContinue = {
+                                foreground && chatReady &&
+                                    linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN &&
+                                    hasConnectPermission()
+                            },
+                            offer = { pcm -> linkController.offerVoiceClip(pcm) }
+                        )
                     }
                     is DebugBluetoothApprovedTextChannel.Event.Written ->
                         chatLines = (chatLines + DebugBluetoothChatLine(
@@ -151,6 +164,10 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 line.copy(acknowledged = true) else line
                         }
                     }
+                    is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
+                        localVoice.receiveEncryptedVoice(event.pcm)
+                    is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
+                        localVoice.voiceWritten(event.frames)
                     is DebugBluetoothApprovedTextChannel.Event.Failed -> Unit
                 }
             }
@@ -381,6 +398,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 onDraft = { chatDraft = it },
                                 onSend = { sendBluetoothText() }
                             )
+                            DebugNearbyVoicePanel(localVoice)
                             DebugVerifiedNearbyPrivacyPanel(localPrivacy)
                         }
                         if (approvalPending &&
@@ -425,7 +443,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         }
                         Text(
                             "Bluetooth Classic • two phones • debug encrypted text after " +
-                                "reciprocal QR and both approvals. Voice remains unavailable.",
+                                "reciprocal QR and both approvals. Short debug voice bursts " +
+                                "are available after permission; unreviewed and not real-time.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         val showRadioSearch =
@@ -589,6 +608,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         chatLines = emptyList()
         ackedChatIds = emptySet()
         localPrivacy.close()
+        localVoice.disable()
         handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE
@@ -605,6 +625,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         clearCandidateMemory()
         linkController.background()
         localPrivacy.dispose()
+        localVoice.disable()
         qrCoordinator.clear()
         handler.removeCallbacks(linkPermissionMonitor)
         super.onDestroy()
