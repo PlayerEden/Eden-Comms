@@ -21,6 +21,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -52,6 +54,8 @@ internal fun DebugVerifiedConversationPanel(
     var selection by remember { mutableStateOf("text") }
     var showPrivacy by remember { mutableStateOf(false) }
     var showQa by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val softwareKeyboard = LocalSoftwareKeyboardController.current
 
     // Switching tabs must never leave the microphone transmitting invisibly.
     // Also release if the verified conversation UI is unmounted while on Talk.
@@ -64,6 +68,18 @@ internal fun DebugVerifiedConversationPanel(
     val chooseText = {
         if (selection == "talk") onLeaveTalk()
         selection = "text"
+    }
+    val chooseTalk = {
+        // TextField is removed from composition when Talk opens. Drop its
+        // focus and close the IME before showing microphone controls.
+        focusManager.clearFocus(force = true)
+        softwareKeyboard?.hide()
+        selection = "talk"
+    }
+    val disconnect = {
+        focusManager.clearFocus(force = true)
+        softwareKeyboard?.hide()
+        onDisconnect()
     }
 
     Surface(
@@ -111,13 +127,13 @@ internal fun DebugVerifiedConversationPanel(
                 }
                 if (selection == "talk") {
                     Button(
-                        onClick = { selection = "talk" },
+                        onClick = chooseTalk,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                             .semantics { stateDescription = "Talk mode selected" }
                     ) { Text("TALK") }
                 } else {
                     OutlinedButton(
-                        onClick = { selection = "talk" },
+                        onClick = chooseTalk,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                             .semantics { stateDescription = "Talk mode not selected" }
                     ) { Text("TALK") }
@@ -136,7 +152,7 @@ internal fun DebugVerifiedConversationPanel(
 
             HorizontalDivider()
             OutlinedButton(
-                onClick = onDisconnect,
+                onClick = disconnect,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
             ) { Text("DISCONNECT THIS TEST SESSION") }
 
