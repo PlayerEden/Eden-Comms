@@ -66,9 +66,15 @@ class SessionPrivacyContractTest(unittest.TestCase):
         self.assertNotIn("SQLiteDatabase", self.chat + self.pairing)
 
     def test_privacy_disclosure_describes_real_debug_transmission_not_old_local_only_claim(self):
-        self.assertIn("short typed TEST messages can", self.disclosure)
-        self.assertIn("travel between the phones", self.disclosure)
-        self.assertIn("local-only text layout sandbox never transmits", self.disclosure.replace('" +\n        "', ""))
+        for phrase in (
+            "both phones approve and confirm",
+            "short typed TEST messages",
+            "or live push-to-talk can travel",
+            "developer text-layout sandbox is local-only",
+            "it does not intentionally save or transmit test messages.",
+            "Production secure messaging remains disabled",
+        ):
+            self.assertIn(phrase, self.disclosure)
         self.assertNotIn("You cannot send your own messages", self.disclosure)
         self.assertNotIn("There are no Eden Comms accounts, user-written messages", self.disclosure)
         for key in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
