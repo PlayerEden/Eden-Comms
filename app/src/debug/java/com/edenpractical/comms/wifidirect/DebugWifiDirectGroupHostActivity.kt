@@ -677,6 +677,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                         )
                                     }
                                 },
+                                onLeaveTalk = { localVoice.release() },
                                 textContent = {
                                     DebugWifiDirectTextPanel(
                                         lines = verifiedChat.lines,
