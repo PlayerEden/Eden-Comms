@@ -332,12 +332,31 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                             DebugWifiDirectApprovedTcpSession.Phase.CHAT &&
                                         prerequisites()
                                 },
-                                offer = { pcm ->
-                                    ownedController?.offerVerifiedVoiceClip(pcm) == true
+                                requestFloor = {
+                                    ownedController?.requestVerifiedVoiceFloor()
+                                        ?: com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY
+                                },
+                                cancelFloor = {
+                                    ownedController?.cancelVerifiedVoiceFloor()
+                                },
+                                beginStream = {
+                                    ownedController?.beginVerifiedLiveVoice() == true
+                                },
+                                offerFrame = { pcm ->
+                                    ownedController?.offerVerifiedLiveVoiceFrame(pcm) == true
+                                },
+                                finishStream = {
+                                    ownedController?.finishVerifiedLiveVoice() == true
                                 }
                             )
                         is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
-                            localVoice.receiveEncryptedVoice(event.pcm)
+                            Unit // Live streaming frame events are played instead
+                        is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame ->
+                            localVoice.receiveLiveFrame(event.kind, event.pcm)
+                        DebugBluetoothApprovedTextChannel.Event.FloorGranted ->
+                            localVoice.floorGranted()
+                        DebugBluetoothApprovedTextChannel.Event.FloorDenied ->
+                            localVoice.floorDenied()
                         is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
                             localVoice.voiceWritten(event.frames)
                         else -> Unit

@@ -4,6 +4,52 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — F4-V: live floor-controlled Bluetooth and Wi-Fi Direct
+
+**Source:** [PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152),
+`feature/f4-v-floor-controlled-live-nearby-voice-2026-11-09`.
+No extra Preview APK or normal-release capability change.
+
+**Why:** F4-U introduced REAL captured microphone audio on both transports,
+but sent it only after release, with no collision/floor arbitration.
+The user wants the practical walkie-talkie flow before device testing.
+Reuse the LAN's already-tested half-duplex policy (host arbitration,
+correlated joiner grant, deny, cancel, lease expiry), avoiding another
+separate Bluetooth/P2P floor implementation.
+
+**What changed:** The actual current authenticated Bluetooth RFCOMM
+and Wi-Fi Direct host/join TLS writer now validates ECFL voice floor
+frames alongside text and 640-byte PCM. Floor requests/responses are
+bound to the same channel and verified role. User initiates a request
+before any microphone capture; the joiner waits with mic OFF until
+its own authenticated GRANT, and a released request sends CANCEL.
+After GRANT, the existing 16kHz `DebugLanVoiceAudio.startLiveCapture`
+sends each 20ms PCM frame as it is captured (not after release) into a
+bounded TLS queue. START/END+RELEASE order, maximum 150 frames, host
+arbitration, 3s request pending timeout, 9s lease timeout and
+fail-close if queue overrun are enforced. Remote playback consumes
+ordered live frame callbacks; the old combined clip callback is ignored
+in UI, retained only for backward protocol regression. Ephemeral data
+is wiped and microphone/speaker stopped on session loss.
+
+**Security boundaries:** No QR/radio discovered peer can grant talk;
+both human approvals, exporter/channel binding and the same verified
+SSLEngine remain mandatory. No voice persistence or automatic mic
+permission. All production CAN_* permissions remain disabled. No claim
+of reliable Bluetooth throughput, OEM audio behavior, intelligibility
+or independently reviewed security until physical testing.
+
+**QA planned:** Kotlin floor/collision/cancel/replay unit tests,
+real two-JDK-TLS-engine authenticated same-channel request/grant and
+live 20ms PCM roundtrip, Python source boundary tests, Android debug
+and release compile, full CI and independent main check. Exact links
+and passing hashes in PR #152 after verification.
+
+**Next/rollback:** Fix PR until exact head green, merge and confirm main;
+then unify easy connection flow, consolidated two-phone QA and external
+cryptographic review. Revert PR #152 only; do not roll back F4-U and
+the separate F5-A/B/C local retention stores unnecessarily.
+
 ## 2026-11-09 — F4-U: actual approved Bluetooth and P2P voice bursts
 
 **PR/branch:** [#151](https://github.com/PlayerEden/Eden-Comms/pull/151),

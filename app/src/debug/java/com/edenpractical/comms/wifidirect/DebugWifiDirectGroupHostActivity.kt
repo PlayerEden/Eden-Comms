@@ -551,10 +551,31 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                                         verifiedChat.phase ==
                                                             DebugWifiDirectApprovedTcpSession.Phase.CHAT
                                                 },
-                                                offer = { pcm -> owned?.offerVoiceClip(pcm) == true }
+                                                requestFloor = {
+                                                    owned?.requestVoiceFloor()
+                                                        ?: com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY
+                                                },
+                                                cancelFloor = {
+                                                    owned?.cancelUnstartedVoiceFloor()
+                                                },
+                                                beginStream = {
+                                                    owned?.beginLiveVoice() == true
+                                                },
+                                                offerFrame = { pcm ->
+                                                    owned?.offerLiveVoiceFrame(pcm) == true
+                                                },
+                                                finishStream = {
+                                                    owned?.finishLiveVoice() == true
+                                                }
                                             )
                                         is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
-                                            localVoice.receiveEncryptedVoice(event.pcm)
+                                            Unit // Live 20ms playback, no duplicate completed clip
+                                        is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame ->
+                                            localVoice.receiveLiveFrame(event.kind, event.pcm)
+                                        DebugBluetoothApprovedTextChannel.Event.FloorGranted ->
+                                            localVoice.floorGranted()
+                                        DebugBluetoothApprovedTextChannel.Event.FloorDenied ->
+                                            localVoice.floorDenied()
                                         is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
                                             localVoice.voiceWritten(event.frames)
                                         else -> Unit

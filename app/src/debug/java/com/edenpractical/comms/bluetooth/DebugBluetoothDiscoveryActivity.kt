@@ -145,7 +145,11 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                     linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN &&
                                     hasConnectPermission()
                             },
-                            offer = { pcm -> linkController.offerVoiceClip(pcm) }
+                            requestFloor = { linkController.requestVoiceFloor() },
+                            cancelFloor = { linkController.cancelUnstartedVoiceFloor() },
+                            beginStream = { linkController.beginLiveVoice() },
+                            offerFrame = { pcm -> linkController.offerLiveVoiceFrame(pcm) },
+                            finishStream = { linkController.finishLiveVoice() }
                         )
                     }
                     is DebugBluetoothApprovedTextChannel.Event.Written ->
@@ -164,8 +168,15 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 line.copy(acknowledged = true) else line
                         }
                     }
-                    is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
-                        localVoice.receiveEncryptedVoice(event.pcm)
+                    // F4-U complete clips are retained only for JVM regression;
+                    // live Android audio comes from validated 20ms frame events.
+                    is DebugBluetoothApprovedTextChannel.Event.VoiceReceived -> Unit
+                    is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame ->
+                        localVoice.receiveLiveFrame(event.kind, event.pcm)
+                    DebugBluetoothApprovedTextChannel.Event.FloorGranted ->
+                        localVoice.floorGranted()
+                    DebugBluetoothApprovedTextChannel.Event.FloorDenied ->
+                        localVoice.floorDenied()
                     is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
                         localVoice.voiceWritten(event.frames)
                     is DebugBluetoothApprovedTextChannel.Event.Failed -> Unit

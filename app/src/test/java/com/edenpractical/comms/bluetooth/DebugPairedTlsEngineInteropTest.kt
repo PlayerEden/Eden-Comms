@@ -959,6 +959,11 @@ class DebugPairedTlsEngineInteropTest {
         val joinVoice = CountDownLatch(1)
         val hostVoiceWritten = CountDownLatch(1)
         val joinVoiceWritten = CountDownLatch(1)
+        val joinFloorGranted = CountDownLatch(1)
+        val hostLiveStarted = CountDownLatch(1)
+        val joinLiveStarted = CountDownLatch(1)
+        val hostLiveEnded = CountDownLatch(1)
+        val joinLiveEnded = CountDownLatch(1)
         val testHostPcm = ByteArray(1280) { (it % 101).toByte() }
         val testJoinPcm = ByteArray(640) { (it % 73).toByte() }
         val hostChannel = AtomicReference<DebugBluetoothApprovedTextChannel>()
@@ -975,7 +980,7 @@ class DebugPairedTlsEngineInteropTest {
                 ) { approvals.incrementAndGet() }
                 commitment.fill(0)
                 val channel = DebugBluetoothApprovedTextChannel(
-                    host, pipe.hostInput, pipe.hostOutput
+                    host, pipe.hostInput, pipe.hostOutput, isHost = true
                 ) { event ->
                     when (event) {
                         is DebugBluetoothApprovedTextChannel.Event.Ready -> ready.countDown()
@@ -990,6 +995,13 @@ class DebugPairedTlsEngineInteropTest {
                         }
                         is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
                             if (event.frames == 2) hostVoiceWritten.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame -> {
+                            if (event.kind == com.edenpractical.comms.protocol.DebugLanVoiceWireCodec.Kind.START)
+                                hostLiveStarted.countDown()
+                            if (event.kind == com.edenpractical.comms.protocol.DebugLanVoiceWireCodec.Kind.END)
+                                hostLiveEnded.countDown()
+                            event.pcm.fill(0)
+                        }
                         else -> Unit
                     }
                 }
@@ -1005,7 +1017,7 @@ class DebugPairedTlsEngineInteropTest {
                 ) { approvals.incrementAndGet() }
                 commitment.fill(0)
                 val channel = DebugBluetoothApprovedTextChannel(
-                    join, pipe.joinInput, pipe.joinOutput
+                    join, pipe.joinInput, pipe.joinOutput, isHost = false
                 ) { event ->
                     when (event) {
                         is DebugBluetoothApprovedTextChannel.Event.Ready -> ready.countDown()
@@ -1019,6 +1031,15 @@ class DebugPairedTlsEngineInteropTest {
                         }
                         is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
                             if (event.frames == 1) joinVoiceWritten.countDown()
+                        DebugBluetoothApprovedTextChannel.Event.FloorGranted ->
+                            joinFloorGranted.countDown()
+                        is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame -> {
+                            if (event.kind == com.edenpractical.comms.protocol.DebugLanVoiceWireCodec.Kind.START)
+                                joinLiveStarted.countDown()
+                            if (event.kind == com.edenpractical.comms.protocol.DebugLanVoiceWireCodec.Kind.END)
+                                joinLiveEnded.countDown()
+                            event.pcm.fill(0)
+                        }
                         else -> Unit
                     }
                 }
@@ -1035,14 +1056,46 @@ class DebugPairedTlsEngineInteropTest {
             assertTrue(joinChannel.get().offerText("reply from join"))
             assertTrue(hostedText.await(5, TimeUnit.SECONDS))
             assertTrue(joinAck.await(5, TimeUnit.SECONDS))
+            assertEquals(
+                com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.GRANTED,
+                hostChannel.get().requestVoiceFloor()
+            )
             assertTrue(hostChannel.get().offerVoiceClip(testHostPcm))
             assertTrue("JOIN didn't decode exact encrypted host PCM burst",
                 joinVoice.await(10, TimeUnit.SECONDS))
             assertTrue(hostVoiceWritten.await(10, TimeUnit.SECONDS))
+            assertEquals(
+                com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.PENDING,
+                joinChannel.get().requestVoiceFloor()
+            )
+            assertTrue("Host never granted authenticated JOINER talk request",
+                joinFloorGranted.await(5, TimeUnit.SECONDS))
             assertTrue(joinChannel.get().offerVoiceClip(testJoinPcm))
             assertTrue("HOST didn't decode exact encrypted join PCM burst",
                 hostVoice.await(10, TimeUnit.SECONDS))
             assertTrue(joinVoiceWritten.await(10, TimeUnit.SECONDS))
+            // The original encrypted channel also carries live PCM frames
+            // while speech is in progress, without waiting for a clip copy.
+            val startDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            var hostFloor = com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY
+            while (hostFloor == com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.BUSY &&
+                System.nanoTime() < startDeadline
+            ) {
+                Thread.sleep(20)
+                hostFloor = hostChannel.get().requestVoiceFloor()
+            }
+            assertEquals(com.edenpractical.comms.transport.DebugLanVoiceFloor.Ask.GRANTED,
+                hostFloor)
+            assertTrue(hostChannel.get().beginLiveVoice())
+            val pcm20 = ByteArray(640) { (it % 113).toByte() }
+            try {
+                assertTrue(hostChannel.get().offerLiveVoiceFrame(pcm20))
+                assertTrue(hostChannel.get().offerLiveVoiceFrame(pcm20))
+                assertTrue("Live START not received before sender finished",
+                    joinLiveStarted.await(5, TimeUnit.SECONDS))
+                assertTrue(hostChannel.get().finishLiveVoice())
+                assertTrue(joinLiveEnded.await(5, TimeUnit.SECONDS))
+            } finally { pcm20.fill(0) }
             // TEXT still works after VOICE on the SAME approved engines.
             assertTrue(hostChannel.get().offerText("text after voice"))
             hostChannel.get().close()

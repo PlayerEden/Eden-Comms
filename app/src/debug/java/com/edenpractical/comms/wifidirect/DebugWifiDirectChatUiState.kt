@@ -59,7 +59,10 @@ internal class DebugWifiDirectChatUiState {
             // PCM is handled directly by the owning Activity's shared
             // DebugNearbyVoiceOwner and never becomes a transcript bubble.
             is DebugBluetoothApprovedTextChannel.Event.VoiceReceived,
-            is DebugBluetoothApprovedTextChannel.Event.VoiceWritten -> Unit
+            is DebugBluetoothApprovedTextChannel.Event.VoiceWritten,
+            is DebugBluetoothApprovedTextChannel.Event.LiveVoiceFrame,
+            DebugBluetoothApprovedTextChannel.Event.FloorGranted,
+            DebugBluetoothApprovedTextChannel.Event.FloorDenied -> Unit
             DebugBluetoothApprovedTextChannel.Event.Failed -> Unit
         }
     }
