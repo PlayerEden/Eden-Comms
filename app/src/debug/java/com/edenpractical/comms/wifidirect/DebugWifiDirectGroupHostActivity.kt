@@ -109,6 +109,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedSession?.close()
         verifiedSession = null
         verifiedChat.clear()
+        preparation.clear()
         active = null
         timeout?.let(handler::removeCallbacks)
         poll?.let(handler::removeCallbacks)
