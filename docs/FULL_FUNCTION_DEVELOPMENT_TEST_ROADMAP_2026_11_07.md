@@ -25,6 +25,22 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F2-O actual QR, transcript and consent over same JVM TLS session (November 8):**
+Extends the genuine two-peer pinned JDK TLS 1.3 integration fixture
+beyond F2-N's synthetic control *sizes*. It now runs the actual ordered
+QR challenge/echo, role-specific exporter comparison, derived transcript
+commitment, and encrypted APPROVE/CONFIRM protocol code on the **same**
+engines/streams before continuing to encrypted TEXT/peer-app ACK both
+directions and F2-M future owner shutdown. A wrong exporter is rejected
+before either simulated approval callback. The exporter is **fixture
+supplied**, not Android channel-derived; approvals are **automatic test
+callbacks**, not human; and the future owner still uses caller claims.
+This is NOT Android Bluetooth RFCOMM/Conscrypt or authorization for chat.
+The real Bluetooth controller still closes after human consent, and
+independent security review and physical two-phone evidence still block
+actual socket handoff and live text.
+[F2-O test/review handoff](F2_O_FULL_JVM_QR_CONSENT_SAME_ENGINE_2026_11_08.md).
+
 **F2-N exact same-engine TLS control-to-text JVM rehearsal (November 8):**
 The two real, mutually pinned JVM TLS 1.3 engines and their original
 byte pipes now traverse all five strict encrypted control **record
