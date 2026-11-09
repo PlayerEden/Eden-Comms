@@ -221,9 +221,12 @@ internal class DebugRfcommLinkController(
                     }
                     try {
                         approved.runUntilClosed()
+                        stop(token, DebugRfcommAttemptGate.End.CHAT_ENDED)
+                    } catch (failure: Exception) {
+                        stop(token, DebugRfcommAttemptGate.End.FAILED)
+                        throw failure
                     } finally {
                         approved.close()
-                        stop(token, DebugRfcommAttemptGate.End.CHAT_ENDED)
                     }
                 }
             ) { decision ->
