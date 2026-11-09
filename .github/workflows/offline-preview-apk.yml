@@ -4,9 +4,9 @@ name: Eden Comms - installable offline Preview APK
 # confined to an independent com.edenpractical.comms.preview package.
 # Reviewed workflow updates make an installable test checkpoint; otherwise
 # runs are manual to conserve GitHub Actions minutes.
-# F4-N checkpoint: package F4-L's bounded canceled-request reply handling
-# and F4-M's integrated virtual two-peer regression alongside F4-D through J.
-# Same isolated Preview package/public AOSP development signer; test only.
+# F4-P checkpoint: include F4-O's atomic microphone Release handoff and
+# cancellation-safe speaker PCM buffer plus all preceding F4-D through N.
+# Same isolated Preview package and pinned public AOSP test signer; test only.
 on:
   workflow_dispatch:
   push:
@@ -138,6 +138,9 @@ jobs:
           echo "F4-L CHECK: the joiner rapidly presses and cancels Talk 3–5 times." >> "$GITHUB_STEP_SUMMARY"
           echo "Delayed DENY/GRANT must not start canceled audio or drop a healthy session." >> "$GITHUB_STEP_SUMMARY"
           echo "F4-M is a virtual packet+voice scenario lab, NOT physical two-phone evidence." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4-O CHECK: release HOLD during speech; no new frames after stop." >> "$GITHUB_STEP_SUMMARY"
+          echo "F4-O CHECK: Hide, End, background or Wi-Fi loss while receiving;" >> "$GITHUB_STEP_SUMMARY"
+          echo "speaker buffer should drain/stop and no stale sound should resume." >> "$GITHUB_STEP_SUMMARY"
           echo "No physical audio/latency/security acceptance. Never use for emergencies." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload installable Preview APK

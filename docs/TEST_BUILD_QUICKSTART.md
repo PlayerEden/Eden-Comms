@@ -186,6 +186,42 @@ bytes, but it is **not a Wi-Fi/TLS or physical microphone/speaker test**.
 See [F4-L repair handoff](F4_L_CANCELLED_FLOOR_RESPONSES_2026_11_08.md)
 and [F4-M virtual lab](F4_M_VIRTUAL_TWO_PHONE_RADIO_REGRESSION_2026_11_08.md).
 
+## F4-O mic release and speaker stop barriers (new signed Preview)
+
+F4-O addresses two small but important audio races. If Android finishes a
+20 ms microphone read just as you release Talk, the app must not *newly*
+queue that frame after your stop. If an incoming speaker stream is
+canceled, its in-memory 240 ms queue must not accept late frames or replay
+them in the next connection. Earlier frames already sent or placed into
+Android's audio driver cannot be recalled.
+
+**One phone (no peer required):** Confirm normal app launch and local
+mic/speaker loopback still function, and check that neither Hide nor
+leaving the test screen unexpectedly keeps Android's microphone indicator
+active. A one-phone local loopback does **not** validate remote audio.
+
+**Two approved same-Wi-Fi phones:**
+
+1. A holds Talk and speaks an innocuous short phrase. Release Talk during
+   speech; B should hear only the sound transmitted before release, with
+   no newly queued tail. Repeat B to A and after the three-second cap.
+2. While B is receiving, choose Hide, End or background the app on B.
+   Check that sound stops locally without queued frames playing afterward.
+   Try the same with Wi-Fi disabled on B.
+3. Reconnect using **fresh reciprocal QR codes and both approvals**. A
+   previous partial voice turn must never be replayed in the new chat.
+4. Repeat rapid Talk/cancel presses and accessible START TALKING /
+   SEND VOICE BURST, since F4-L and F4-O must coexist. Confirm the text
+   composer and peer-app ACK still work in both directions.
+5. Report whether speech was **actually audible**, any lag or clipped
+   final syllable, the phones' Android versions, and whether any mic
+   indicator stayed on. Avoid sharing recordings, QR screenshots, IPs
+   or identity secrets.
+
+The F4-O changes passed JVM/source CI before packaging. No physical
+device timing is established by CI; see
+[F4-O detailed field QA](F4_O_LIVE_AUDIO_STOP_BOUNDARIES_2026_11_08.md).
+
 ## What to report (do not post private material)
 
 - Which APK `versionCode` and public `source revision` were installed;
