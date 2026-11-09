@@ -62,7 +62,7 @@ class M3rAnonymousCandidates(unittest.TestCase):
                        "gate.snapshot().phase == DebugWifiDirectDiscoveryGate.Phase.SCANNING",
                        "!foreground || !prerequisites()",
                        "LOCAL PREVIEW SELECTED", "for (candidate in candidateRows)",
-                       "No user text, audio, or authenticated identity"):
+                       "No background connection, voice or production security claim"):
             self.assertIn(marker, self.ui, marker)
         self.assertNotIn("selectedHandle(", self.ledger)
         self.assertNotIn("selectedDevice(", self.ledger)
