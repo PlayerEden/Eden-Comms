@@ -41,10 +41,12 @@ internal fun DebugVerifiedConversationPanel(
     onLeaveTalk: () -> Unit,
     textContent: @Composable () -> Unit,
     talkContent: @Composable () -> Unit,
-    privacyContent: @Composable () -> Unit
+    privacyContent: @Composable () -> Unit,
+    qaContent: @Composable () -> Unit
 ) {
     var selection by remember { mutableStateOf("text") }
     var showPrivacy by remember { mutableStateOf(false) }
+    var showQa by remember { mutableStateOf(false) }
 
     // Switching tabs must never leave the microphone transmitting invisibly.
     // Also release if the verified conversation UI is unmounted while on Talk.
@@ -130,6 +132,14 @@ internal fun DebugVerifiedConversationPanel(
                      else "SHOW LOCAL PRIVACY OPTIONS")
             }
             if (showPrivacy) privacyContent()
+            TextButton(
+                onClick = { showQa = !showQa },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text(if (showQa) "HIDE ADVANCED TEST COUNTS"
+                     else "ADVANCED: THIS PHONE'S TEST COUNTS")
+            }
+            if (showQa) qaContent()
         }
     }
 }
