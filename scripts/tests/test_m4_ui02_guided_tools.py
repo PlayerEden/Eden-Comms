@@ -54,9 +54,9 @@ class M4Ui02GuidedDeveloperTools(unittest.TestCase):
 
     def test_offline_help_is_three_plain_steps_with_specific_optional_answers(self):
         for fragment in (
-            "GETTING STARTED", "StepLine(\"01\", \"Use the same Wi-Fi\"",
-            "StepLine(\"02\", \"Check the other phone\"",
-            "StepLine(\"03\", \"Try a test conversation\"",
+            "GETTING STARTED", "StepLine(\"01\", \"Choose a connection method\"",
+            "StepLine(\"02\", \"Exchange fresh codes\"",
+            "StepLine(\"03\", \"Text or Talk, then disconnect\"",
             'question = "Do we need internet?"',
             'question = "Why do both people approve?"',
             'question = "Will the app save my conversations?"',
