@@ -1,5 +1,7 @@
 # Eden Comms
 
+**Continuing this project in a new chat?** Start at [CONTINUE_HERE.md](CONTINUE_HERE.md) for the current handoff, chronological work log, QA status, and safe next task. The detailed milestone documents remain in `docs/`.
+
 **Working name:** Eden Comms (EC) — an Eden Practical Android communications utility.
 
 > **DEVELOPMENT PROTOTYPE — NOT A PRODUCTION SECURE MESSENGER.** The Android debuggable build now has a functional prototype of short two-way **test** text over the QR-pinned TLS 1.3 session, after bilateral approval and matching final confirmations. It also keeps the four fixed test phrases. It is **unreviewed and not physically verified**; do not use for sensitive or emergency communications. Production connection, normal text and PTT capability flags remain off. See [M3e](docs/M3E_DEBUG_TWO_WAY_TEXT.md).
