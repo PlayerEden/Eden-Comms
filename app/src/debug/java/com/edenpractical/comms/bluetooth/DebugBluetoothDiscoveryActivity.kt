@@ -82,6 +82,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
     private var connectPermissionPromptOpen = false
     private var approvalPending by mutableStateOf(false)
     private var linkPhase by mutableStateOf(DebugRfcommAttemptGate.Phase.IDLE)
+    private var chatReady by mutableStateOf(false)
+    private var chatDraft by mutableStateOf("")
+    private var chatLines by mutableStateOf(emptyList<DebugBluetoothChatLine>())
     private var linkStatus by mutableStateOf(
         "No RFCOMM test link. Bluetooth is not verified Eden Comms messaging."
     )
@@ -97,6 +100,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                 linkPhase = phase
                 linkStatus = description
                 if (phase == DebugRfcommAttemptGate.Phase.STOPPED) {
+                    chatReady = false
+                    chatDraft = ""
+                    chatLines = emptyList()
                     // No reusable QR or anonymous radio candidate on retry:
                     // restart the actual two-phone flow with fresh codes.
                     qrCoordinator.clear()
@@ -106,7 +112,30 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
             onApprovalReady = { available ->
                 approvalPending = available
             },
-            onVerificationStage = { step -> verifiedProof = step }
+            onVerificationStage = { step -> verifiedProof = step },
+            onTextEvent = { event ->
+                when (event) {
+                    is DebugBluetoothApprovedTextChannel.Event.Ready -> {
+                        chatReady = true
+                        approvalPending = false
+                        linkStatus = "Both confirmed. Encrypted Bluetooth test chat is active."
+                    }
+                    is DebugBluetoothApprovedTextChannel.Event.Written ->
+                        chatLines = (chatLines + DebugBluetoothChatLine(
+                            outgoing = true, id = event.id, text = event.text
+                        )).takeLast(24)
+                    is DebugBluetoothApprovedTextChannel.Event.Received ->
+                        chatLines = (chatLines + DebugBluetoothChatLine(
+                            outgoing = false, id = event.id, text = event.text
+                        )).takeLast(24)
+                    is DebugBluetoothApprovedTextChannel.Event.Acknowledged ->
+                        chatLines = chatLines.map { line ->
+                            if (line.outgoing && line.id == event.id)
+                                line.copy(acknowledged = true) else line
+                        }
+                    is DebugBluetoothApprovedTextChannel.Event.Failed -> Unit
+                }
+            }
         )
     }
 
@@ -325,6 +354,16 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        if (chatReady &&
+                            linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
+                        ) {
+                            DebugBluetoothTextPanel(
+                                lines = chatLines,
+                                draft = chatDraft,
+                                onDraft = { chatDraft = it },
+                                onSend = { sendBluetoothText() }
+                            )
+                        }
                         if (approvalPending &&
                             linkPhase == DebugRfcommAttemptGate.Phase.LINK_OPEN
                         ) {
@@ -332,7 +371,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                 "Both phones completed the encrypted QR + TLS " +
                                     "identity checks. APPROVE only if you are " +
                                     "physically with the person you intended. " +
-                                    "This is a diagnostic, not permission to chat."
+                                    "Text stays off until both final confirmations."
                             )
                             Button(
                                 onClick = {
@@ -366,9 +405,8 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                         ) { Text("DISCONNECT BLUETOOTH TEST LINK") }
                         }
                         Text(
-                            "Bluetooth Classic • two phones • experimental link only. " +
-                                "QR plus both approvals are required. " +
-                                "Bluetooth TEXT and voice are NOT available yet.",
+                            "Bluetooth Classic • two phones • debug encrypted text after " +
+                                "reciprocal QR and both approvals. Voice remains unavailable.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         val showRadioSearch =
@@ -501,6 +539,20 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         }
     }
 
+    private fun sendBluetoothText() {
+        if (!foreground || !chatReady ||
+            linkPhase != DebugRfcommAttemptGate.Phase.LINK_OPEN
+        ) return
+        val draft = chatDraft
+        if (draft.isBlank()) return
+        if (linkController.offerText(draft)) {
+            chatDraft = ""
+            linkStatus = "Test text queued for encrypted Bluetooth sending."
+        } else {
+            linkStatus = "Couldn't queue text. Check length, link or outstanding messages."
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         foreground = true
@@ -514,6 +566,9 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
         clearCandidateMemory()
         linkController.background()
         approvalPending = false
+        chatReady = false
+        chatDraft = ""
+        chatLines = emptyList()
         handler.removeCallbacks(linkPermissionMonitor)
         if (!discoverabilityPromptOpen && !connectPermissionPromptOpen) {
             pendingLink = PendingLink.NONE
