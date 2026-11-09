@@ -162,7 +162,7 @@ internal class DebugBluetoothApprovedTextChannel(
             liveSequence >= DebugLanVoiceWireCodec.MAX_FRAMES
         ) return@synchronized false
         val first = liveSequence == 0
-        if (outbound.remainingCapacity() < if (first) 5 else 4) {
+        if (outbound.remainingCapacity() < (if (first) 5 else 4)) {
             failClosed()
             return@synchronized false
         }
