@@ -145,37 +145,50 @@ and a clear NOT YET VERIFIED boundary. No actual phone visual/TalkBack
 or two-device acceptance took place. See
 [M6-D audit](M6_D_QR_PAIRING_GUIDANCE_AUDIT.md).
 
-## Active source milestone — M6-E verified text and ACK usability
+## Completed source checkpoint — M6-E text and peer-app ACK clarity
 
-Branch `feature/m6-e-text-composer-ack-recovery-2026-11-09`.
-[Source audit](M6_E_TEXT_COMPOSER_ACK_RECOVERY_AUDIT.md).
+[PR #157](https://github.com/PlayerEden/Eden-Comms/pull/157) merged
+as `6dc2070692a7143c3e76e35599a16ec44a01580d`.
+[Exact-final-head PR Android/JVM/Python/security CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42696448115);
+[independent `main` CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42696732161).
+Both Bluetooth and Wi-Fi Direct verified debug text use the same
+280-Unicode-codepoint draft gate (no UTF-16 truncation), bounded
+scrolling and Jump to latest. Queue acceptance, local TLS write,
+peer-app ACK and local receive are displayed separately. Failed local
+queue attempts preserve the draft and report failure. No emulator,
+TalkBack, actual two-phone or independent crypto acceptance.
+[M6-E source audit](M6_E_TEXT_COMPOSER_ACK_RECOVERY_AUDIT.md).
 
-- Bluetooth and Wi-Fi Direct connected debug text panels now honor the
-  real 280-code-point draft policy rather than truncating UTF-16 units.
-  IME and Send button use the same safe readiness check.
-- Both panels have bounded readable transcript scrolling, a
-  Jump to latest control and semantics; a person reading earlier
-  messages should not be yanked to the newest observation.
-- Text displays **queued here**, **written to local encrypted link**,
-  **other app ACK** and **received here** distinctly. None proves
-  a human read or cryptographic assurance.
-- Both Wi-Fi Direct roles and Bluetooth show a truthful local queue
-  failure and preserve the draft. Feedback is cleared after actual
-  outbound write observation, not treated as a remote receipt.
-- Kotlin/JVM/Python source regressions guard Unicode input, status copy,
-  existing verified-session-only UI and production `CAN_*` FALSE.
-  CI and physical Android acceptance remain separate gates.
+## Active source milestone — M6-F keyboard/capture/retry-state polish
+
+Branch `feature/m6-f-conversation-ime-privacy-recovery-2026-11-09`.
+[Source audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md).
+
+- All three real Bluetooth/P2P debug connection screens now give
+  keyboard/system-bar inset space **before** the outer vertical scroll.
+  Debug-only manifest requests `adjustResize` for these screens.
+- Verified Text → Talk and Disconnect hide the text keyboard and clear
+  focus, while existing Talk → Text floor cancellation remains intact.
+- Bluetooth's QR/chat debug Activity requests `FLAG_SECURE` before
+  displaying pairing material, matching Wi-Fi Direct. This is best
+  effort OS screenshot/Recents protection, not full privacy assurance.
+- Bluetooth's old queued/rejected label clears on STOPPED and fresh
+  verified Ready; reconnect still needs new QR/TLS/dual human consent.
+- Source regression checks added for insets, keyboard focus, manifest,
+  screenshot flag, reset and release capabilities. Source changes do
+  not claim any emulator/manual visual or actual two-device QA.
 
 ## Next priorities
 
-1. Run exact final-head M6-E Android/JVM/Python/security CI; merge only after
-   all checks are green and independently verify postmerge main.
-2. Perform actual emulator layout QA at small/large/landscape, 200% font,
-   dark/light and keyboard-inset scenarios. Do not infer this from source.
-3. Keep the one consolidated [two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   as NOT RUN until both phones are available, then investigate physical
-   failures in narrow PRs. Independent crypto/privacy/storage review is
-   mandatory before production release.
+1. Obtain final-head M6-F Android/JVM/Python/security CI green, merge PR,
+   then independently verify the merged `main` commit.
+2. Run real emulator UI/IME/large-font/landscape checks when accessible,
+   noting the existing manual emulator workflow only covers disconnected
+   scenes/local sandbox; don't fake a connected-session screenshot.
+3. Do **one consolidated two-phone** run with the
+   [M6-F C07/C11/C12/C16 addendum](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   when devices are available. Obtain independent crypto/backup/
+   privacy/accessibility review before enabling release `CAN_*` flags.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
