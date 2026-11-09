@@ -20,7 +20,7 @@ class GroupHostSafetyBoundary(unittest.TestCase):
     def test_user_opt_in_existing_group_safety_and_scoped_radio(self):
         for fragment in (
             "FLAG_DEBUGGABLE", "Build.VERSION_CODES.Q",
-            "CREATE TEMPORARY P2P GROUP", "STOP AND REMOVE TEST GROUP",
+            "HOST TEMPORARY WI-FI DIRECT GROUP", "STOP AND REMOVE TEST GROUP",
             "if (!foreground || !registered || active != null) return",
             "humanTap = true", "group != null",
             "requestP2pState(", "requestGroupInfo(", "m.createGroup(",
