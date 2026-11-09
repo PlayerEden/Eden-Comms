@@ -101,7 +101,10 @@ internal class DebugBluetoothApprovedTextChannel(
      * The queue holds at most one copy, not 150 unsent packets.
      */
     fun offerVoiceClip(pcm: ByteArray): Boolean = synchronized(monitor) {
-        if (closed || voicePending || outbound.remainingCapacity() <= 1 ||
+        // Retained for F4-U regression only. Even the legacy whole-clip
+        // path now requires a negotiated encrypted talk floor.
+        if (closed || voicePending || liveVoiceActive || !floor.maySendAudio() ||
+            outbound.remainingCapacity() <= 1 ||
             pcm.isEmpty() || pcm.size > DebugLanVoiceWireCodec.MAX_PCM_BYTES ||
             pcm.size % DebugLanVoiceWireCodec.PCM_BYTES != 0
         ) return@synchronized false
