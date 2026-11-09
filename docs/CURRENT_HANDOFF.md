@@ -119,45 +119,46 @@ copyable with an explicit user tap but retain NO text/audio/peer data.
 [18-case x 3-method phone test matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md) is
 ready but **NOT RUN** on physical devices.
 
-## Active source milestone — M6-C visual and accessibility refinement
+## Completed source checkpoint — M6-C accessible verified conversation
 
-[Source audit](M6_C_USABILITY_ACCESSIBILITY_AUDIT.md) and PR #155,
-`feature/m6-c-accessibility-copy-and-chat-polish-2026-11-09`.
+[PR #155](https://github.com/PlayerEden/Eden-Comms/pull/155) merged to
+`main` at `9c158b1e9dfea6b82350069cb7cd842956cebd9c`.
+[Final PR CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42691177877);
+[independent main CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42691600680).
+Verified Bluetooth/P2P Text buttons now consistently stop pending/active
+voice before switching from Talk; angular chat cards, screen-reader semantics
+and live mic permission refresh are present. Home, Help, Settings and
+Privacy & data now truthfully describe three experimental transports, opt-in
+local text history and separate peer memory. No emulator/TalkBack/device
+acceptance or independent security audit. Production CAN_* remain FALSE.
+[Detailed audit](M6_C_USABILITY_ACCESSIBILITY_AUDIT.md).
 
-- **Usability safety:** every Text tab routes through the immediate
-  Talk-release/cancel path and Talk disposal remains a second guard.
-- **Visual cohesion:** verified nearby chat shell adopts the shared angular
-  7dp cut-corner, bordered graphite card; proper heading, selected-tab
-  and expanded/collapsed disclosure semantics for screen readers.
-- **Microphone accessibility:** after a foreground return from Android
-  settings, RECORD_AUDIO permission is rechecked, never silently requested.
-  Nearby Talk instructions now describe *streaming while held* and
-  *activate again to stop/cancel* instead of the obsolete send-after-release
-  model. Status announcements are polite and accessible.
-- **Truthful product copy:** Home, Help, restored old PTT route and
-  Privacy & data no longer imply encrypted local history is impossible,
-  voice is Coming Soon, or Bluetooth/Wi-Fi Direct voice and opt-in storage
-  are LAN-only. Full privacy page still clearly says that neither the
-  current experimental transports nor release messaging is security
-  accepted. Expanded JVM/Python/shell tests protect the disclosures.
-- **Still open:** exact-head and postmerge Android CI, manual emulator
-  visual review, large-font/landscape/TalkBack, actual microphone-permission
-  behavior on real OEMs, all three physical transport tests and independent
-  security/crypto/privacy review. Production CAN_* stay FALSE.
+## Active source milestone — M6-D observable QR walkthrough guidance
 
-## Next priority after M6-C
+`feature/m6-d-qr-guidance-and-accessibility-2026-11-09`
+([source audit](M6_D_QR_PAIRING_GUIDANCE_AUDIT.md)):
 
-1. Verify PR #155 on its final SHA, merge only when green, then verify
-   the separate main-branch build and record exact evidence.
-2. Continue a separate focused QR/Host/Join **pairing and recovery
-   accessibility pass**: plain next-step instructions, readable progress,
-   actual keyboard/screen-reader focus, clear error/retry, no shortcut
-   around independent approvals.
-3. Perform a manual emulator visual audit for small/large phone, landscape,
-   200% font and light/dark; don't infer successful real-hardware networking.
-4. Perform [one consolidated two-phone test](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   only when devices available, and independently review cryptography,
-   device storage and accessibility before considering production release.
+- Bluetooth Classic QR UI now names the actual first/second code or
+  "codes exchanged" stage and says what the other phone must do next.
+- Wi-Fi Direct QR UI replaces the perpetually displayed Step 1 heading
+  with observed stages QR 1/3, 2/3, 3/3 and prepared, with host/join-specific
+  guidance. Stage presentation is NOT an authorization signal.
+- QR screens add semantic heading and polite status text. Scanner retry,
+  explicit identity tap, cancellation and code exchange are unchanged.
+- Dedicated Python source contracts ensure no radio, approval, storage
+  or production capability expansion. Physical QR/camera, TalkBack and
+  visual phone-size tests remain **NOT RUN**.
+
+## Next priorities
+
+1. Get exact-final-head M6-D Android/JVM/Python/security CI green, merge
+   the reviewed PR, then independently verify main.
+2. Continue the focused text composer/ACK accessibility and error-recovery
+   pass; do real emulator visual checks on multiple sizes, large fonts,
+   landscape and light/dark rather than claiming screenshots from static code.
+3. Run the existing consolidated [two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   when devices are available; obtain independent crypto/privacy/storage
+   review before considering release CAN_* changes.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
