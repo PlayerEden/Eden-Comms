@@ -60,7 +60,7 @@ class M4Ui02GuidedDeveloperTools(unittest.TestCase):
             'question = "Do we need internet?"',
             'question = "Why do both people approve?"',
             'question = "Will the app save my conversations?"',
-            "not guaranteed memory erasure",
+            "not guaranteed physical erasure",
             "production messaging",
             "independent security review",
             "onPrivacy",
