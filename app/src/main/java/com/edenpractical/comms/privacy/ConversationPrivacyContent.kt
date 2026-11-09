@@ -3,8 +3,9 @@ package com.edenpractical.comms.privacy
 /**
  * Honest explanation of session-only DEFAULT debug chat and the F5-A
  * separately opt-in LOCAL encrypted history. The short RAM disappearing
- * timer remains independent and cannot remotely erase anything. Remembered
- * peers/trust remain unbuilt; no reviewed security assurance.
+ * timer remains independent and cannot remotely erase anything. F5-B adds
+ * separately opted-in DEBUG LAN public-peer memory, NEVER an authentication
+ * bypass or a released "trusted contacts" feature.
  */
 internal object ConversationPrivacyContent {
     const val currentTitle = "Message history"
@@ -33,11 +34,16 @@ internal object ConversationPrivacyContent {
         "The choice resets when the connection ends and is never saved."
 
     const val futureTrustTitle = "Remember nearby devices"
-    const val futureTrustState = "Not available yet"
+    const val futureTrustState = "Opt-in test • LAN debug only"
     const val futureTrustExplanation =
-        "The app can keep its own Android Keystore identity, but it does not " +
-        "save an approved peer as a trusted contact. Any future peer " +
-        "remembering must be separate from message history."
+        "After both phones genuinely verify and approve, you may explicitly " +
+        "remember that phone's PUBLIC certificate fingerprint for 1–30 days " +
+        "with Android Keystore encrypted storage on THIS phone only. " +
+        "Its expiry never silently renews; Forget this phone and Forget all " +
+        "are available. This is separate from message history. " +
+        "Future chats STILL require fresh QR, mutual TLS, and both approvals; " +
+        "no automatic reconnection or saved trusted contact is authorized. " +
+        "The experimental feature is unavailable in release and not security-reviewed."
 
     const val curtainExplanation =
         "Hide conversation conceals this screen's messages and editor without " +
