@@ -119,6 +119,31 @@ QR codes, identifiers or conversation screenshots**. Record only
 OS/OEM privacy protection remains unverified until observed. See
 [M6-F source audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md).
 
+### M6-G failure/restart guidance addendum — NOT RUN
+
+Within the **same consolidated** C02/C04/C05/C07/C12/C16/C17
+session (not a new preliminary phone batch), observe the actual
+Bluetooth stopped-link view after a timeout, declined human
+approval, permission loss, and radio interruption. Its guidance
+should say the test has ended and that **both phones must exchange
+fresh QR codes and approve again**. If Bluetooth permission is
+missing it should direct the user to Android's permission control.
+The instructions must never reconnect by themselves.
+
+For Wi-Fi Direct host/join, separately interrupt discovery,
+authentication, and temporary group cleanup. An Android host
+`CLEANING` stage must never claim the group is gone, and
+`CLEANUP_UNCONFIRMED` must direct the user to check Android
+Wi-Fi Direct settings. On a newly **user-started** host/search
+attempt, the previous STOPPED status, message draft, queue hint
+and ACKs must not reappear. New search/group formation is
+**not verified chat**, which still requires QR/TLS proof and
+both human approvals. Do not report the retry successful
+unless actual two-phone text and user-observed voice work.
+Record sanitized outcomes without QR, peer IDs, message
+bodies or screenshots of sensitive screens. See
+[M6-G source audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
+
 ## Recording one test case
 
 Copy one line per test/transport/role; do not upload raw messages or QR:
