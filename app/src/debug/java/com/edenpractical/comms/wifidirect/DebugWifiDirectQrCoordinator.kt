@@ -213,7 +213,7 @@ internal class DebugWifiDirectQrCoordinator {
             }
             try {
                 val targetPin = validated.copyPeerPinForTls()
-                val proof = validated.copyQrProofBindingForLab()
+                val proof = validated.copyLiveQrProofBinding()
                 try {
                     require(!MessageDigest.isEqual(targetPin, own.publicFingerprint()))
                     DebugBluetoothTlsProbeInput(
