@@ -45,6 +45,31 @@ internal object DebugRfcommTlsProbe {
         onApprovedChannel: ((SSLEngine, InputStream, OutputStream) -> Unit)? = null,
         onConsentRequired: (DebugBluetoothConsentDecision) -> Unit
     ): DebugBluetoothProbeCompletion {
+        // Existing Bluetooth entrypoint. The P2P transport uses the SAME
+        // protocol over its strictly OS-interface-bound TCP streams, but
+        // never gains authority from mere TCP reachability.
+        val wireIn = socket.inputStream
+        val wireOut = socket.outputStream
+        return runStreams(
+            wireIn, wireOut, request, onVerifiedStage, onApprovedChannel,
+            onConsentRequired
+        )
+    }
+
+    /**
+     * Transport-independent record driver. The CALLER owns one live socket
+     * and must close it on cancellation, timeout, permission loss or exit.
+     * Actual Android peer authentication comes from the pinned TLS, fresh
+     * QR challenges/exporter and BOTH encrypted human confirmations below.
+     */
+    fun runStreams(
+        wireIn: InputStream,
+        wireOut: OutputStream,
+        request: DebugBluetoothTlsProbeInput,
+        onVerifiedStage: (DebugBluetoothVerifiedStage) -> Unit = {},
+        onApprovedChannel: ((SSLEngine, InputStream, OutputStream) -> Unit)? = null,
+        onConsentRequired: (DebugBluetoothConsentDecision) -> Unit
+    ): DebugBluetoothProbeCompletion {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             throw SSLException("TLS engine exporter requires Android 12 or newer")
         }
@@ -62,9 +87,7 @@ internal object DebugRfcommTlsProbe {
                 throw SSLException("TLS provider does not support channel exporter")
             }
 
-            // The only RFCOMM byte streams are used by our TLS record driver.
-            val wireIn = socket.inputStream
-            val wireOut = socket.outputStream
+            // Original single-socket byte streams; no plaintext fallback.
             DebugTlsEngineHandshake.negotiate(engine, wireIn, wireOut)
             PinnedTlsPeer.requirePinnedTls13(engine.session, expectedPin)
             // F2-C: unsupported provider close/post-handshake state stops this
