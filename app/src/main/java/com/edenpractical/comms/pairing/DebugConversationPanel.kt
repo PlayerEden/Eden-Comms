@@ -29,7 +29,8 @@ import kotlinx.coroutines.launch
 /**
  * Presentation of ACTUAL debug session writer/receiver callbacks only.
  * The caller owns the ephemeral transcript/draft, actual bilateral consent,
- * send policy, socket and disconnect. No saved chat, networking or receipts.
+ * send policy, socket and disconnect. The parent owns explicit opt-in
+ * history; this panel itself never touches files, network or peer trust.
  *
  * A bounded 220dp viewport avoids unbounded nested scroll in the route.
  * User scrolling away from the bottom suspends auto-follow. A manual
@@ -459,9 +460,10 @@ internal fun DebugConversationPanel(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            "The live screen clears when you disconnect. Saved local history exists " +
-                "only if you explicitly chose a duration; Clear my screen doesn't " +
-                "delete that saved history. The other person may retain copies.",
+            "Session-only is the default. The live screen clears when you " +
+                "disconnect. Saved local history exists only if explicitly enabled. " +
+                "Clear my screen doesn't delete saved history. Your keyboard or " +
+                "screenshots may still retain text; the other person may keep copies.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
