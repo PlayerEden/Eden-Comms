@@ -4,6 +4,41 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-E: real text composer/queue/ACK accessibility
+
+**Base:** M6-D `main` `475756467698407848429def12c0ab6fd04145d3`.
+[M6-D final-head PR CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42692297197);
+[main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42692721109).
+**Source branch:** `feature/m6-e-text-composer-ack-recovery-2026-11-09`.
+
+**Why:** Bluetooth/P2P connected chat truncated drafts to 280 UTF-16
+units even though the protocol accepts 280 Unicode code points. Large
+threads lacked bounded scrolling and PiP/BT queue failures had inconsistent
+or hidden feedback. ACK/status could be clearer for novice users.
+
+**What:** Both verified debug text panels now reuse
+`DebugTextDraftPolicy` for IME, Send and paste, show character count,
+render a bounded scrollable transcript and Jump to latest without stealing
+a user's reading position. A pure UI copy helper distinguishes **queued**,
+**written here**, **received here** and **other-app ACK**, explicitly
+denying human-read or delivery inferences. Host/join Wi-Fi Direct and
+Bluetooth send owners display true local queue outcomes; rejected drafts
+remain intact. Existing secured network owner and human approval code
+are unchanged.
+
+**Evidence:** [M6-E audit](M6_E_TEXT_COMPOSER_ACK_RECOVERY_AUDIT.md),
+dedicated Kotlin/JVM copy/code-point checks and Python static source
+regressions; earlier F2-Q/F3-C source tests updated for safe Unicode
+handling. Exact-head Android/Gradle/JVM/Python security CI and separate
+main postmerge CI still need final records. **NOT RUN:** emulator,
+TalkBack, IME on phone, Bluetooth/P2P/LAN interoperability, full
+two-phone matrix and independent crypto/privacy/storage audit.
+
+**Next:** complete CI gates and merge, do real emulator layout review,
+then the single scheduled consolidated two-phone pass when hardware is
+available. Retain `CAN_*` FALSE, no Preview APK tease. Rollback M6-E
+source-only if real-device UX fails; do not reset identities, keys or data.
+
 ## 2026-11-09 — M6-D: truthful nearby QR progress and next-step guidance
 
 **Source:** `feature/m6-d-qr-guidance-and-accessibility-2026-11-09`.
