@@ -133,32 +133,49 @@ local text history and separate peer memory. No emulator/TalkBack/device
 acceptance or independent security audit. Production CAN_* remain FALSE.
 [Detailed audit](M6_C_USABILITY_ACCESSIBILITY_AUDIT.md).
 
-## Active source milestone — M6-D observable QR walkthrough guidance
+## Completed source checkpoint — M6-D guided nearby QR setup
 
-`feature/m6-d-qr-guidance-and-accessibility-2026-11-09`
-([source audit](M6_D_QR_PAIRING_GUIDANCE_AUDIT.md)):
+[PR #156](https://github.com/PlayerEden/Eden-Comms/pull/156)
+merged to main as `475756467698407848429def12c0ab6fd04145d3`.
+[Final PR Android CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42692297197)
+and [independent main CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42692721109).
+Bluetooth's two QR stages and Wi-Fi Direct's three QR stages now
+show accurate host/join next actions, accessible status/heading semantics
+and a clear NOT YET VERIFIED boundary. No actual phone visual/TalkBack
+or two-device acceptance took place. See
+[M6-D audit](M6_D_QR_PAIRING_GUIDANCE_AUDIT.md).
 
-- Bluetooth Classic QR UI now names the actual first/second code or
-  "codes exchanged" stage and says what the other phone must do next.
-- Wi-Fi Direct QR UI replaces the perpetually displayed Step 1 heading
-  with observed stages QR 1/3, 2/3, 3/3 and prepared, with host/join-specific
-  guidance. Stage presentation is NOT an authorization signal.
-- QR screens add semantic heading and polite status text. Scanner retry,
-  explicit identity tap, cancellation and code exchange are unchanged.
-- Dedicated Python source contracts ensure no radio, approval, storage
-  or production capability expansion. Physical QR/camera, TalkBack and
-  visual phone-size tests remain **NOT RUN**.
+## Active source milestone — M6-E verified text and ACK usability
+
+Branch `feature/m6-e-text-composer-ack-recovery-2026-11-09`.
+[Source audit](M6_E_TEXT_COMPOSER_ACK_RECOVERY_AUDIT.md).
+
+- Bluetooth and Wi-Fi Direct connected debug text panels now honor the
+  real 280-code-point draft policy rather than truncating UTF-16 units.
+  IME and Send button use the same safe readiness check.
+- Both panels have bounded readable transcript scrolling, a
+  Jump to latest control and semantics; a person reading earlier
+  messages should not be yanked to the newest observation.
+- Text displays **queued here**, **written to local encrypted link**,
+  **other app ACK** and **received here** distinctly. None proves
+  a human read or cryptographic assurance.
+- Both Wi-Fi Direct roles and Bluetooth show a truthful local queue
+  failure and preserve the draft. Feedback is cleared after actual
+  outbound write observation, not treated as a remote receipt.
+- Kotlin/JVM/Python source regressions guard Unicode input, status copy,
+  existing verified-session-only UI and production `CAN_*` FALSE.
+  CI and physical Android acceptance remain separate gates.
 
 ## Next priorities
 
-1. Get exact-final-head M6-D Android/JVM/Python/security CI green, merge
-   the reviewed PR, then independently verify main.
-2. Continue the focused text composer/ACK accessibility and error-recovery
-   pass; do real emulator visual checks on multiple sizes, large fonts,
-   landscape and light/dark rather than claiming screenshots from static code.
-3. Run the existing consolidated [two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   when devices are available; obtain independent crypto/privacy/storage
-   review before considering release CAN_* changes.
+1. Run exact final-head M6-E Android/JVM/Python/security CI; merge only after
+   all checks are green and independently verify postmerge main.
+2. Perform actual emulator layout QA at small/large/landscape, 200% font,
+   dark/light and keyboard-inset scenarios. Do not infer this from source.
+3. Keep the one consolidated [two-phone matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   as NOT RUN until both phones are available, then investigate physical
+   failures in narrow PRs. Independent crypto/privacy/storage review is
+   mandatory before production release.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide

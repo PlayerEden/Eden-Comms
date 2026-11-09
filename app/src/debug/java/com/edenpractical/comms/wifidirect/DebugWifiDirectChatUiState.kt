@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
+import com.edenpractical.comms.ui.DebugNearbyTextUiCopy
 
 /** Per-Activity RAM-only state. The socket worker never directly owns Compose. */
 internal class DebugWifiDirectChatUiState {
@@ -14,6 +15,16 @@ internal class DebugWifiDirectChatUiState {
     var approvalPending by mutableStateOf(false)
         private set
     var draft by mutableStateOf("")
+    var sendFeedback by mutableStateOf("")
+        private set
+
+    fun noteQueueResult(accepted: Boolean) {
+        sendFeedback = DebugNearbyTextUiCopy.queueFeedback(accepted)
+    }
+
+    fun clearQueueFeedback() {
+        sendFeedback = ""
+    }
     var lines by mutableStateOf(emptyList<DebugWifiDirectChatLine>())
         private set
     private var ackedIds = emptySet<Long>()
@@ -24,6 +35,7 @@ internal class DebugWifiDirectChatUiState {
         if (next == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
             approvalPending = false
             draft = ""
+            sendFeedback = ""
             lines = emptyList()
             ackedIds = emptySet()
         }
@@ -40,11 +52,13 @@ internal class DebugWifiDirectChatUiState {
                 approvalPending = false
                 note = "Encrypted P2P test chat active."
             }
-            is DebugBluetoothApprovedTextChannel.Event.Written ->
+            is DebugBluetoothApprovedTextChannel.Event.Written -> {
+                sendFeedback = ""
                 lines = (lines + DebugWifiDirectChatLine(
                     outgoing = true, id = e.id, text = e.text,
                     acknowledged = e.id in ackedIds
                 )).takeLast(24)
+            }
             is DebugBluetoothApprovedTextChannel.Event.Received ->
                 lines = (lines + DebugWifiDirectChatLine(
                     outgoing = false, id = e.id, text = e.text

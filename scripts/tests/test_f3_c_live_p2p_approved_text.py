@@ -115,7 +115,9 @@ class F3CLiveP2P(unittest.TestCase):
             self.assertIn(marker, self.join)
         self.assertIn("Other app returned ACK", self.chat)
         self.assertIn("not human read receipts", self.chat)
-        self.assertIn("onDraft(it.take(280))", self.chat)
+        self.assertIn("DebugNearbyTextUiCopy.acceptsDraft(candidate)", self.chat)
+        self.assertIn("DebugNearbyTextUiCopy.canSubmit(draft)", self.chat)
+        self.assertIn("sendFeedback: String =", self.chat)
 
     def test_release_source_and_original_untrusted_probe_still_isolated(self):
         flags = (MAIN / "model/ReleaseCapabilities.kt").read_text()

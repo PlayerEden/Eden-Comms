@@ -401,8 +401,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
         if (verifiedChat.phase != DebugWifiDirectApprovedTcpSession.Phase.CHAT) return
         val draft = verifiedChat.draft
         if (draft.isBlank()) return
-        if (targetController?.offerVerifiedText(draft) == true)
+        if (targetController?.offerVerifiedText(draft) == true) {
             verifiedChat.draft = ""
+            verifiedChat.noteQueueResult(true)
+        } else verifiedChat.noteQueueResult(false)
     }
 
     private val receiver = object : BroadcastReceiver() {
@@ -579,8 +581,12 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                                     DebugWifiDirectTextPanel(
                                         lines = verifiedChat.lines,
                                         draft = verifiedChat.draft,
-                                        onDraft = { verifiedChat.draft = it },
-                                        onSend = { sendVerifiedText() }
+                                        onDraft = {
+                                            verifiedChat.draft = it
+                                            verifiedChat.clearQueueFeedback()
+                                        },
+                                        onSend = { sendVerifiedText() },
+                                        sendFeedback = verifiedChat.sendFeedback
                                     )
                                 },
                                 talkContent = { DebugNearbyVoicePanel(localVoice) },
