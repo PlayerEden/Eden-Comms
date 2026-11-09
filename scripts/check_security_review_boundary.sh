@@ -1166,7 +1166,7 @@ grep -Fq 'audio.finishCapture()' "$NEARBY_VOICE_OWNER"
 grep -Fq 'offerFrame?.invoke(pcm)' "$NEARBY_VOICE_OWNER"
 grep -Fq 'cancelFloor?.invoke()' "$NEARBY_VOICE_OWNER"
 grep -Fq 'fun receiveLiveFrame(kind: DebugLanVoiceWireCodec.Kind' "$NEARBY_VOICE_OWNER"
-grep -Fq 'Only one phone has the floor' "$NEARBY_VOICE_UI"
+grep -Fq 'Only one phone can talk at a time' "$NEARBY_VOICE_UI"
 for FILE in "$BT_LIVE_SCREEN" "$P2P_HOST_SCREEN" "$P2P_JOIN_SCREEN"; do
   grep -Fq 'localVoice.floorGranted()' "$FILE"
   grep -Fq 'localVoice.floorDenied()' "$FILE"
