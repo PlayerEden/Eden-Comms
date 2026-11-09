@@ -144,6 +144,22 @@ Record sanitized outcomes without QR, peer IDs, message
 bodies or screenshots of sensitive screens. See
 [M6-G source audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
 
+### M6-H one-use Wi-Fi Direct three-QR proof — NOT RUN
+
+During the **existing consolidated** C03/C04/C05/C06/C12/C17
+acceptance pass, cause one harmless host-side and one joiner-side
+connection failure, denial, or timeout **after** the valid three-QR
+transcript was actually handed to the transport. Without creating new
+codes, a second TLS request from that old transcript must be
+rejected (no silently reused pins/nonces, no automatic retry).
+Then have **both** phones explicitly start a new three-code
+exchange and observe fresh mutual pinned TLS, both human approvals
+and encrypted confirmations before text/talk. Also interrupt the
+asynchronous group-info step. Never copy raw QR, identity, TLS
+material or actual messages into evidence. Code/JVM CI does not
+substitute for this on-device acceptance.
+[Source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md).
+
 ## Recording one test case
 
 Copy one line per test/transport/role; do not upload raw messages or QR:
