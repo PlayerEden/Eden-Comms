@@ -49,6 +49,10 @@ internal class DebugBluetoothApprovedTextChannel(
             ledger.prepareText(text)
         } catch (_: IllegalArgumentException) {
             return@synchronized false
+        } catch (_: java.nio.charset.CharacterCodingException) {
+            // Android IMEs can temporarily produce an unmatched surrogate.
+            // Reject the draft rather than throwing on the UI thread.
+            return@synchronized false
         } catch (_: IllegalStateException) {
             return@synchronized false
         }
