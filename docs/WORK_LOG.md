@@ -29,9 +29,13 @@ Manual deletion is best effort on local app files, not flash/screenshot/
 recipient copies. Independent crypto/device/backup verification remains
 REQUIRED and no production security claim is made.
 
-**QA:** New pure JUnit expiration/boundary tests and source/privacy guards.
-GitHub PR and final CI SHA are to be recorded when verified. Never infer
-physical radio/device acceptance from unit/source checks.
+**QA source receipt:** [PR #148](https://github.com/PlayerEden/Eden-Comms/pull/148).
+New pure JUnit expiration and real AES-GCM tamper/negative tests, alongside
+Python security source assertions and shell release/backup gates. Full
+PR check history appears in [GitHub Actions](https://github.com/PlayerEden/Eden-Comms/actions).
+Prior runs surfaced stale "no history" privacy assertions; after correcting
+the UI disclosures and tests, verify the **final head** and post-merge CI
+before describing the pass as green. No real-device security acceptance.
 
 **Next:** make final-source Android CI pass, merge the reviewed PR, check
 main CI; then tackle F5-B opt-in **peer remembering** with a separate
