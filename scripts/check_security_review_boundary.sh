@@ -425,7 +425,7 @@ grep -Fq 'result.bytesProduced() != produced' "$BT_PROVIDER"
 grep -Fq 'engine.isInboundDone' "$BT_PROVIDER"
 grep -Fq 'engine.isOutboundDone' "$BT_PROVIDER"
 grep -Fq 'protocol != "TLSv1.3"' "$BT_PROVIDER"
-if grep -REn '(TestPacketCodec|sendDebugText\\(|ProductionSessionAuthorization|SharedPreferences|DataStore|openFileOutput\\()' "$BT_PROVIDER"; then
+if grep -REn '(TestPacketCodec|sendDebugText\(|ProductionSessionAuthorization|SharedPreferences|DataStore|openFileOutput\()' "$BT_PROVIDER"; then
   echo "FAIL: F2-C TLS provider gate gained messaging, release trust or storage" >&2
   exit 1
 fi
