@@ -48,6 +48,30 @@ code a validated secure messenger, turn on production release capabilities,
 skip external cryptographic review, or claim reliable radios/voice before
 handset evidence. Keep `ReleaseCapabilities` false until those gates pass.
 
+## November 9 core pass: authenticated live floor across nearby transports (F4-V)
+
+[PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152)
+reuses LAN's already tested `DebugLanVoiceFloor` state machine for
+Bluetooth Classic and Wi-Fi Direct host/join. Inside the exact already
+approved pinned TLS channel, authenticated ECFL REQUEST/GRANT/DENY/
+CANCEL/RELEASE controls prevent overlapping talk turns: host
+arbitrates; joiner microphone stays off until correlated GRANT.
+Foreground AudioRecord sends real bounded 20ms/640-byte PCM live
+while the user holds (max three seconds), with START/DATA/END/RELEASE
+ordered on a single writer and a tiny bounded pending frame budget;
+on full queue/expired lease/error the session closes rather than
+silently truncating/continuing. Receiver streams authenticated ordered
+PCM through AudioTrack and wipes temporary buffers. Older whole-clip
+path retained for automated compatibility but requires same floor.
+Debug only; no new permission, production release rights, raw radio,
+cloud or saved audio.
+
+**Real phone and independent crypto/security checks still OPEN.**
+Code/JVM CI and tests are NOT performance, latency, audible playback
+or OEM acceptance. Next after final green CI: simple unified Connect /
+Text / Talk / Disconnect UX, then one consolidated device/permission/
+accessibility/backup QA and independent review.
+
 ## November 9 core pass: Bluetooth/P2P short encrypted microphone bursts (F4-U)
 
 [PR #151](https://github.com/PlayerEden/Eden-Comms/pull/151)
