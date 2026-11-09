@@ -49,7 +49,9 @@ class SessionPrivacyContractTest(unittest.TestCase):
         for future in ("futureHistoryState", "futureTimerState", "futureTrustState"):
             self.assertIn("ConversationPrivacyContent." + future, self.settings)
         self.assertIn('const val currentState = "Session only • currently active"', self.future)
-        self.assertEqual(2, self.future.count('State = "Not available yet"'))
+        self.assertEqual(1, self.future.count('State = "Not available yet"'))
+        self.assertIn('futureHistoryState = "Opt-in test • LAN debug only"', self.future)
+        self.assertIn('futureTrustState = "Not available yet"', self.future)
         self.assertIn('const val futureTimerState = "Available in nearby test chat"', self.future)
         self.assertIn("onDisappearAfterChange = { newDuration ->", self.pairing)
         self.assertIn(".pruneExpired(SystemClock.elapsedRealtime())", self.pairing)
