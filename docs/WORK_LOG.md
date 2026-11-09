@@ -4,6 +4,46 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-C: accessibility, visual consistency and privacy disclosure audit
+
+**Code:** PR #155 on `feature/m6-c-accessibility-copy-and-chat-polish-2026-11-09`.
+Based on verified M6-B `main` commit `3d0e2d6e050d7617079fd1929c85da227e6dea9c`,
+[19/19 main CI passed](https://github.com/PlayerEden/Eden-Comms/actions/runs/42669197572).
+
+**Observed static UX issues and changes:** Corrected inactive Text tab so
+it takes the same immediate leave-Talk handler as active tab instead of
+relying only on a later disposal callback; old disposal/lifecycle stop
+still protects capture. Matched verified chat panels to the shared
+angular field utility card (CutCornerShape 7dp + outline); added semantic
+headings, TalkBack selected/not-selected tab state and Expanded/Collapsed
+local privacy/QA state. Dark appearance Switch now explicitly labeled,
+and field section headings are navigable. Restored obsolete `ptt`
+navigation opens the real connection chooser, not the disabled mock.
+
+Nearby voice panel checks actual RECORD_AUDIO permission again on
+ON_RESUME after OS settings; it NEVER automatically requests permission.
+Instructions now match live audio while held and accessible two-activation
+stop/cancel; status text uses a polite live region.
+
+**Critical disclosure correctness:** Privacy & data had falsely claimed
+Bluetooth/P2P voice unavailable and history/remembered peers LAN-only.
+Updated the six sections with actual three-transport experimental
+functionality, post-approval opt-in retention, independent public-peer
+memory, best-effort deletion, OS permissions, server-free limitations
+and pending security/physical QA. Home/Help copy no longer suggests
+permanent history impossible; production communication flags remain OFF.
+
+**Evidence:** [M6-C source audit](M6_C_USABILITY_ACCESSIBILITY_AUDIT.md),
+expanded JVM PrivacyPreviewContentTest, dedicated Python UX source
+regressions and new shell security boundaries. Final-head/merged CI
+evidence to be recorded in PR #155 after verification; physical
+screenshots, TalkBack, real mic and radios **NOT RUN**. This is source
+polish, not certification or a new Preview APK.
+
+**Next:** pass CI, merge, independent main CI. Then refine pairing
+walkthrough/recovery and keyboard/TalkBack before manual screenshots
+and the consolidated two-phone hardware matrix. Rollback PR #155 only.
+
 ## 2026-11-09 — M6-B: Talk tab microphone cleanup and one physical QA plan
 
 **PR/source:** [#154](https://github.com/PlayerEden/Eden-Comms/pull/154),
