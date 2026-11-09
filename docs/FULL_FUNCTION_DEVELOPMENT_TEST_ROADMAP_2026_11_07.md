@@ -25,6 +25,21 @@
 
 **Practical development order (user testing and convenience first):** (1) polish the existing real LAN debug chat and QR UI so retrying never requires remembering the previous role (**F0-UX fresh-QR retry**); (2) record actual two-phone observations for LAN, no-WAN, peer-app ACK, disconnect and privacy; (3) move **Bluetooth Classic** from already integrated diagnostic/TLS/consent and future text codec to a real reviewed retained session with physical interoperability checks; (4) bind **Wi-Fi Direct** OS-selected group and socket to the verified QR/TLS peer before enabling text; (5) develop **foreground LAN push-to-talk** on a reviewed live channel and test actual cross-phone audio; (6) optional privacy improvements after the working communication paths. **Development APK updates are solved with the existing separate Preview workflow**, and further release-style signing work is deferred. Independent protocol review and physical tests remain required before making secure-communications or production claims. No offline transport or human approval may be assumed from a cosmetic UI cue. Continue non-sensitive UI, lifecycle and test-preparation work **without representing them as functional radios** or authorization to send; actual OS radios, peer identity and both approvals must come from the working session.
 
+**F2-M future same-channel resource teardown bundle (November 8):**
+A debug-only, **unwired** `DebugBluetoothFutureChannelBundle` now models
+one owner closing its caller-supplied TLS record adapter, RFCOMM-like
+Closeable and associated SSLEngine outbound together, in order, at most
+once and despite individual close failures. It can be held as the single
+Closeable in the existing F2-H/I future session owner, with JVM
+expiry/context-mismatch/cancel-concurrency tests and source privacy
+guards. This is NOT a real verified same-socket TLS handoff: arbitrary
+caller-owned objects and a mock radio are not cryptographic evidence
+or permission to send. The actual Bluetooth diagnostic still closes
+its RFCOMM socket immediately after both confirmations. Independent
+protocol review and physical Android provider testing must precede
+any live Bluetooth text/ACK or socket retention.
+[F2-M reviewer handoff](F2_M_FUTURE_BLUETOOTH_CHANNEL_TEARDOWN_2026_11_08.md).
+
 **F2-L monotonic Bluetooth post-consent receipt (November 8):**
 The actual debug Bluetooth RFCOMM/TLS worker now issues its existing
 non-authorizing, one-use consent completion with an Android monotonic
