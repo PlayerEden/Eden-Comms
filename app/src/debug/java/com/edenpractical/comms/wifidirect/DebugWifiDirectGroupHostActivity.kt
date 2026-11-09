@@ -1,5 +1,9 @@
 package com.edenpractical.comms.wifidirect
 
+import com.edenpractical.comms.audio.DebugNearbyVoiceOwner
+import com.edenpractical.comms.audio.DebugNearbyVoicePanel
+import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
+
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacy
 import com.edenpractical.comms.privacy.DebugVerifiedNearbyPrivacyPanel
 
@@ -56,6 +60,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val preparation = DebugWifiDirectQrCoordinator()
     private val verifiedChat = DebugWifiDirectChatUiState()
     private val localPrivacy by lazy { DebugVerifiedNearbyPrivacy(applicationContext) }
+    private val localVoice by lazy { DebugNearbyVoiceOwner(applicationContext) }
     private var verifiedSession: DebugWifiDirectApprovedTcpSession? = null
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var foreground = false
@@ -114,6 +119,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedSession = null
         verifiedChat.clear()
         localPrivacy.close()
+        localVoice.disable()
         preparation.clear()
         active = null
         timeout?.let(handler::removeCallbacks)
@@ -138,6 +144,8 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedSession?.close()
         verifiedSession = null
         verifiedChat.clear()
+        localPrivacy.close()
+        localVoice.disable()
         tcpProbe?.close()
         tcpProbe = null
         active = null // no stale callback may resume radio work
@@ -507,8 +515,10 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                             onStatus = { phase, note ->
                                 if (active === token && verifiedSession === owned) {
                                     verifiedChat.status(phase, note)
-                                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED)
+                                    if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                                         localPrivacy.close()
+                                        localVoice.disable()
+                                    }
                                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
                                         // Group remains alive only for the bounded live session.
                                         timeout?.let(handler::removeCallbacks)
@@ -528,10 +538,29 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 if (active === token && verifiedSession === owned)
                                     verifiedChat.approval(it)
                             },
-                            onText = { if (active === token && verifiedSession === owned) {
-                                verifiedChat.event(it)
-                                localPrivacy.receiveEncryptedEvent(it)
-                            } },
+                            onText = { event ->
+                                if (active === token && verifiedSession === owned) {
+                                    verifiedChat.event(event)
+                                    localPrivacy.receiveEncryptedEvent(event)
+                                    when (event) {
+                                        DebugBluetoothApprovedTextChannel.Event.Ready ->
+                                            localVoice.activate(
+                                                canContinue = {
+                                                    foreground && active === token && ready() &&
+                                                        verifiedSession === owned &&
+                                                        verifiedChat.phase ==
+                                                            DebugWifiDirectApprovedTcpSession.Phase.CHAT
+                                                },
+                                                offer = { pcm -> owned?.offerVoiceClip(pcm) == true }
+                                            )
+                                        is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
+                                            localVoice.receiveEncryptedVoice(event.pcm)
+                                        is DebugBluetoothApprovedTextChannel.Event.VoiceWritten ->
+                                            localVoice.voiceWritten(event.frames)
+                                        else -> Unit
+                                    }
+                                }
+                            },
                             onApprovedIdentity = { self, peer ->
                                 if (active === token && verifiedSession === owned &&
                                     foreground && ready()
@@ -646,6 +675,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                                 onDraft = { verifiedChat.draft = it },
                                 onSend = { sendVerifiedText() }
                             )
+                            DebugNearbyVoicePanel(localVoice)
                             DebugVerifiedNearbyPrivacyPanel(localPrivacy)
                         }
                         Button(
@@ -714,6 +744,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         verifiedSession = null
         verifiedChat.clear()
         localPrivacy.close()
+        localVoice.disable()
         preparation.clear()
         active?.let {
             endHost(it, DebugWifiDirectGroupHostGate.End.BACKGROUND,
@@ -727,6 +758,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        localVoice.disable()
         localPrivacy.dispose()
         super.onDestroy()
     }
