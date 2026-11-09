@@ -75,7 +75,7 @@ internal object DebugNearbyRecoveryGuide {
         Situation.P2P_JOIN_RADIO_OFF -> Step(
             "WI-FI DIRECT RADIO UNAVAILABLE",
             "Turn Wi-Fi back on and recheck device preflight permissions. Start new discovery and QR codes when both phones are ready.",
-            "The interrupted session is closed. Nothing resumes automatically."
+            "No verified conversation is active. Nothing resumes automatically."
         )
     }
 }
