@@ -34,7 +34,7 @@ internal class DebugWifiDirectTargetLinkController(
 ) {
     private val gate = DebugWifiDirectTargetLinkGate()
     private val handler = Handler(Looper.getMainLooper())
-    private var current: DebugWifiDirectTargetLinkGate.Token? = null
+    @Volatile private var current: DebugWifiDirectTargetLinkGate.Token? = null
     private var manager: WifiP2pManager? = null
     private var channel: WifiP2pManager.Channel? = null
     private var deadline: Runnable? = null
@@ -380,8 +380,7 @@ internal class DebugWifiDirectTargetLinkController(
                         var owned: DebugWifiDirectApprovedTcpSession? = null
                         val session = DebugWifiDirectApprovedTcpSession(
                             handler, canContinue = {
-                                current === token && gate.active(token) &&
-                                    readyAndForeground()
+                                current === token && readyAndForeground()
                             },
                             onStatus = { state, message ->
                                 if (current === token && verifiedSession === owned) {
