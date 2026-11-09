@@ -353,6 +353,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                                     localVoice.disable()
                                     linkController.disconnect()
                                 },
+                                onLeaveTalk = { localVoice.release() },
                                 textContent = {
                                     DebugBluetoothTextPanel(
                                         lines = chatLines,
