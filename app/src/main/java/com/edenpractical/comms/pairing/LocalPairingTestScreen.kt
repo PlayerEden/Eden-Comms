@@ -12,6 +12,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.*
@@ -48,6 +49,7 @@ import com.edenpractical.comms.transport.WifiLanEndpoint
 import com.edenpractical.comms.ui.FieldFrame
 import com.edenpractical.comms.ui.FieldHelp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicReference
@@ -144,6 +146,16 @@ internal fun LocalPairingTestScreen(
     var transcript by remember { mutableStateOf(DebugSessionTranscript.fresh()) }
     // Session-only chat content; never rememberSaveable or persistent.
     var debugText by remember { mutableStateOf(DebugTextTranscript.fresh()) }
+    // E3 local-only timer: no data persistence or peer wire setting.
+    var disappearAfterMs by remember { mutableLongStateOf(DebugLocalDisappearingPolicy.OFF) }
+    LaunchedEffect(stage, debugText) {
+        if (stage != "demo" || debugText.state != DebugTextTranscript.State.ACTIVE) return@LaunchedEffect
+        val expiry = debugText.nextExpiryElapsedMs() ?: return@LaunchedEffect
+        val now = SystemClock.elapsedRealtime()
+        // Avoid a busy loop; a canceled or replaced transcript cancels this job.
+        if (expiry > now) delay(expiry - now)
+        debugText = debugText.pruneExpired(SystemClock.elapsedRealtime())
+    }
     // A returned peer-app ACK can race ahead of TEXT_WRITTEN's main-thread
     // callback. Store only a bounded set of IDs, never message content.
     var ackedTextIds by remember { mutableStateOf(emptySet<Long>()) }
@@ -473,6 +485,7 @@ internal fun LocalPairingTestScreen(
         voiceFinalizing = false
         voiceNote = "No voice burst sent yet."
         debugText = debugText.finish()
+        disappearAfterMs = DebugLocalDisappearingPolicy.OFF
         ackedTextIds = emptySet()
         textDraft = ""
         privacyHidden = false
@@ -530,6 +543,7 @@ internal fun LocalPairingTestScreen(
         scanRevision += 1
         transcript = DebugSessionTranscript.fresh()
         debugText = DebugTextTranscript.fresh()
+        disappearAfterMs = DebugLocalDisappearingPolicy.OFF
         ackedTextIds = emptySet()
         qaPeerAppAckEvents = 0
         qaVoiceSpeakerStarts = 0
@@ -789,7 +803,9 @@ internal fun LocalPairingTestScreen(
                                 if (event.phase == LanDemoSession.Phase.TEXT_WRITTEN)
                                     DebugTextTranscript.Direction.WRITTEN_TO_TLS
                                 else DebugTextTranscript.Direction.RECEIVED_HERE,
-                                messageId, text
+                                messageId, text,
+                                observedAtElapsedMs = SystemClock.elapsedRealtime(),
+                                disappearAfterMs = disappearAfterMs
                             )
                         }
                         LanDemoSession.Phase.VOICE_FLOOR_GRANTED -> {
@@ -1425,6 +1441,14 @@ internal fun LocalPairingTestScreen(
                         peerAckIds = ackedTextIds,
                         draft = textDraft,
                         hidden = privacyHidden,
+                        disappearAfterMs = disappearAfterMs,
+                        onDisappearAfterChange = { newDuration ->
+                            if (DebugLocalDisappearingPolicy.supports(newDuration)) {
+                                debugText = debugText.shortenVisibleExpiry(newDuration)
+                                    .pruneExpired(SystemClock.elapsedRealtime())
+                                disappearAfterMs = newDuration
+                            }
+                        },
                         onDraftChange = { textDraft = it },
                         onToggleHidden = {
                             privacyHidden = !privacyHidden
