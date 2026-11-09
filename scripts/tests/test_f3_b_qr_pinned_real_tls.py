@@ -87,8 +87,14 @@ class F3BQrPinnedTlsLabBoundary(unittest.TestCase):
 
     def test_real_radio_remains_zero_data_and_no_release_feature_activated(self):
         for source in self.live:
+            # The future *socket lab* must stay isolated; F3-C can copy only
+            # the checked public QR expectation through the live coordinator.
             self.assertNotIn("DebugWifiDirectFutureTlsSocketLab", source)
+        for source in self.live[:2] + self.live[3:]:
             self.assertNotIn("DebugWifiDirectFutureQrTlsExpectation", source)
+        self.assertIn("DebugWifiDirectFutureQrTlsExpectation.host(", self.live[2])
+        self.assertIn("DebugWifiDirectFutureQrTlsExpectation.join(", self.live[2])
+        self.assertIn("copyLiveQrProofBinding()", self.live[2])
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn(f"const val {flag} = false", self.release)
         self.assertFalse((MAIN.parent / "wifidirect/DebugWifiDirectFutureTlsSocketLab.kt").exists())
