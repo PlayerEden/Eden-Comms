@@ -914,10 +914,12 @@ internal fun LocalPairingTestScreen(
                 }
             }
             connection.setLiveVoicePlayback { kind, pcm ->
-                // The LAN reader has already validated packet order and
-                // approval; this callback only queues audio on this handset.
-                // Privacy-hidden locally mutes playback without blocking
-                // the other phone's encrypted stream.
+                // TLS/QR/floor validation has already happened. This callback
+                // observes only LOCAL speaker acceptance, never peer receipt.
+                // A new START creates one observation, even if muted here.
+                val turn = if (kind == DebugLanVoiceWireCodec.Kind.START) {
+                    DebugVoicePlayoutTurn().also { currentPlayoutTurn.set(it) }
+                } else currentPlayoutTurn.get()
                 if (privacyHidden) {
                     if (kind == DebugLanVoiceWireCodec.Kind.START) handler.post {
                         if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
@@ -926,23 +928,43 @@ internal fun LocalPairingTestScreen(
                     }
                 } else {
                     val accepted = voiceAudio.acceptLiveFrame(kind, pcm) { started ->
-                        handler.post {
-                            if (DebugSessionEventAdmission.current(
-                                    thisAttempt, attemptVersion
-                                ) && stage == "demo"
-                            ) voiceNote = if (started)
-                                "Live speaker playback started (sound not verified)."
-                            else "Live voice arrived, but speaker playback failed."
+                        val observation = turn?.speakerResult(started)
+                        if (observation != null &&
+                            observation != DebugVoicePlayoutTurn.Observation.NONE
+                        ) handler.post {
+                            if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
+                                stage == "demo" && currentPlayoutTurn.get() === turn
+                            ) {
+                                when (observation) {
+                                    DebugVoicePlayoutTurn.Observation.SPEAKER_STARTED -> {
+                                        if (qaVoiceSpeakerStarts < 10_000) qaVoiceSpeakerStarts += 1
+                                        voiceNote = "Live speaker started on this phone (audibility not verified)."
+                                    }
+                                    DebugVoicePlayoutTurn.Observation.LOCAL_PLAYBACK_FAILED -> {
+                                        if (qaVoicePlaybackProblemTurns < 10_000)
+                                            qaVoicePlaybackProblemTurns += 1
+                                        voiceNote = "Local speaker could not play this live voice turn. Ask to repeat."
+                                    }
+                                    DebugVoicePlayoutTurn.Observation.NONE -> Unit
+                                }
+                            }
                         }
                     }
-                    if (!accepted && kind == DebugLanVoiceWireCodec.Kind.START)
-                        handler.post {
-                            if (DebugSessionEventAdmission.current(
-                                    thisAttempt, attemptVersion
-                                ) && stage == "demo"
-                            ) voiceNote =
-                                "Incoming live voice was busy or muted on this phone."
+                    // Both false START and false DATA mean local playback
+                    // was rejected. A valid TLS END does not certify sound.
+                    val reportProblem = !accepted &&
+                        kind != DebugLanVoiceWireCodec.Kind.END &&
+                        turn?.rejectedFrame() ==
+                            DebugVoicePlayoutTurn.Observation.LOCAL_PLAYBACK_FAILED
+                    if (reportProblem) handler.post {
+                        if (DebugSessionEventAdmission.current(thisAttempt, attemptVersion) &&
+                            stage == "demo" && currentPlayoutTurn.get() === turn
+                        ) {
+                            if (qaVoicePlaybackProblemTurns < 10_000)
+                                qaVoicePlaybackProblemTurns += 1
+                            voiceNote = "Live voice arrived, but this phone dropped local speaker audio. Ask to repeat."
                         }
+                    }
                 }
             }
             // The networking close path stops local hardware directly,
