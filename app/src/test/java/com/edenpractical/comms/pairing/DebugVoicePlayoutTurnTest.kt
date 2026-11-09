@@ -24,6 +24,7 @@ class DebugVoicePlayoutTurnTest {
         assertEquals(O.SPEAKER_STARTED, turn.speakerResult(true))
         assertEquals(O.NONE, turn.speakerResult(true))
         assertEquals(O.LOCAL_PLAYBACK_FAILED, turn.rejectedFrame())
+        assertTrue(turn.hasPlaybackProblem())
         assertEquals(O.NONE, turn.rejectedFrame())
         // The driver started, but later audio may have been dropped.
         assertEquals(O.NONE, turn.speakerResult(true))
