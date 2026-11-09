@@ -356,7 +356,7 @@ internal class DebugWifiDirectTargetLinkController(
                 if (current !== token || !gate.active(token) || !readyAndForeground() ||
                     !info.groupFormed || info.isGroupOwner
                 ) {
-                    endPendingVerified("No active joining P2P group or permission.")
+                    endPendingVerified(token, request, "No active joining P2P group or permission.")
                     return@requestConnectionInfo
                 }
                 val owner = info.groupOwnerAddress
@@ -369,14 +369,14 @@ internal class DebugWifiDirectTargetLinkController(
                             group == null || group.isGroupOwner ||
                             pendingVerifiedRequest !== request
                         ) {
-                            endPendingVerified("Wi-Fi Direct group changed; cannot verify peer.")
+                            endPendingVerified(token, request, "Wi-Fi Direct group changed; cannot verify peer.")
                             return@requestGroupInfo
                         }
                         val local = DebugWifiDirectP2pInterface.resolve(
                             group.getInterface(), isHost = false,
                             groupOwnerAddress = owner
                         ) ?: run {
-                            endPendingVerified("Exact Android P2P IPv4 route unavailable.")
+                            endPendingVerified(token, request, "Exact Android P2P IPv4 route unavailable.")
                             return@requestGroupInfo
                         }
                         var owned: DebugWifiDirectApprovedTcpSession? = null
@@ -425,18 +425,33 @@ internal class DebugWifiDirectTargetLinkController(
                         }
                     }
                 } catch (_: RuntimeException) {
-                    endPendingVerified("Cannot inspect exact P2P interface for text.")
+                    endPendingVerified(token, request, "Cannot inspect exact P2P interface for text.")
                 }
             }
         } catch (_: RuntimeException) {
-            endPendingVerified("Android P2P endpoint unavailable for TLS.")
+            endPendingVerified(token, request, "Android P2P endpoint unavailable for TLS.")
         }
         return true
     }
 
-    private fun endPendingVerified(message: String) {
-        pendingVerifiedRequest?.close()
+    /**
+     * Android may deliver requestConnectionInfo/requestGroupInfo after STOP,
+     * a new explicit radio attempt, or promotion into a real TLS session.
+     * Only the SAME token AND SAME still-pending one-shot QR request may
+     * be closed or change the visible verified-chat status.
+     */
+    private fun endPendingVerified(
+        token: DebugWifiDirectTargetLinkGate.Token,
+        request: DebugBluetoothTlsProbeInput,
+        message: String
+    ) {
+        if (current !== token ||
+            pendingVerifiedRequest !== request ||
+            verifiedSession != null ||
+            gate.snapshot().phase != DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED
+        ) return
         pendingVerifiedRequest = null
+        request.close()
         onVerifiedStatus(DebugWifiDirectApprovedTcpSession.Phase.STOPPED, message)
     }
 
