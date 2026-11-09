@@ -226,7 +226,11 @@ internal class DebugWifiDirectQrCoordinator {
                     )
                     // The only request issued from these QR codes. Losing a
                     // socket, timeout or declining consent does not reopen them.
-                    if (verifiedRequestClaim.claim()) request else {
+                    if (verifiedRequestClaim.claim()) {
+                        status = "One-time QR proof handed to this connection attempt. " +
+                            "If it fails or closes, exchange all three fresh codes again."
+                        request
+                    } else {
                         request.close()
                         null
                     }
