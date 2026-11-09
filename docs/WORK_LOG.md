@@ -4,6 +4,45 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — F4-U: actual approved Bluetooth and P2P voice bursts
+
+**PR/branch:** [#151](https://github.com/PlayerEden/Eden-Comms/pull/151),
+`feature/f4-u-nearby-voice-burst-2026-11-09`. No Preview APK requested
+or created.
+
+**Why:** Finish useful cross-transport voice capabilities in source before
+one consolidated two-phone test, not another future-only demonstration.
+Reuse the existing local 16-kHz mono AudioRecord/AudioTrack driver and
+20ms PCM codec without adding a third radio protocol or account.
+
+**What:** Mixed ECBT text/ACK and ECVP START/DATA/END PCM records are
+validated and wrapped by the SAME live QR/TLS/exporter/both-approved engine.
+The shared approved Bluetooth text channel now queues a single bounded
+up-to-3s microphone clip after hold release, sequences at most 150 PCM
+frames, reconstructs exact ordered remote bytes in memory, and outputs to
+Android speaker. P2P already uses this exact channel; adds guarded voice
+offer on both actual P2P host and join controllers. Shared Android UI
+asks for microphone permission with an explicit button; inactive links,
+loss of permission, activity background or disconnect cancel capture and
+playback and wipe unsent PCM. No raw socket, storage, services or
+automatic background microphone.
+
+**Limitations:** This first pass is **post-release short voice burst**, not
+continuous real-time streaming and not a negotiated half-duplex
+REQUEST/GRANT floor; two people talking simultaneously may cause local
+speaker/mic contention. Debug only, unreviewed and untested on physical
+Bluetooth/P2P devices. Never claim secure/low-latency voice production.
+
+**QA:** Strict mixed-frame Kotlin tests and full real JVM dual-confirmed
+TLS interop test (PCM each direction, both text/ACK and PCM on the same
+engine) plus security source/shell regression gates. Final PR head CI
+and main build links are added in PR discussion after verification;
+do not assert success until they actually finish.
+
+**Next:** voice floor arbitration and genuinely live short streaming,
+then streamlined connection UI and consolidated two-device and security
+acceptance. Rollback PR #151 alone; not linked to peer/history stores.
+
 ## 2026-11-09 — F5-C: Bluetooth and Wi-Fi Direct private local options
 
 **Source/PR:** [#150](https://github.com/PlayerEden/Eden-Comms/pull/150)
