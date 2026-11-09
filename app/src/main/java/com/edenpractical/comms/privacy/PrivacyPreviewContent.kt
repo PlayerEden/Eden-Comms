@@ -33,8 +33,13 @@ internal object PrivacyPreviewContent {
                 "Keystore AES-GCM. The option resets to session-only every " +
                 "new connection. Leaving clears the live view but does not " +
                 "delete expressly saved history. Use Delete saved history " +
-                "for that verified person. File deletion cannot guarantee " +
-                "physical erasure of Android/flash, recipient copies or screenshots."
+                "for that verified person. A separate LAN debug-only choice can " +
+                "remember an already verified peer PUBLIC fingerprint for " +
+                "1–30 days inside separately encrypted app-private storage; " +
+                "it is never used for automatic reconnect or approval. " +
+                "You can forget one or all remembered phones independently. " +
+                "File deletion cannot guarantee physical erasure of Android/flash, " +
+                "recipient copies or screenshots."
         ),
         Section(
             "Shared when pairing and chatting",
@@ -71,8 +76,9 @@ internal object PrivacyPreviewContent {
                 "and exchange short debug encrypted TEXT/ACK after both " +
                 "confirmations. Wi-Fi Direct also has experimental verified " +
                 "group/socket/TLS text. Neither path has independently passed " +
-                "two-phone or cryptographic review. There is NO saved peer " +
-                "trust, Bluetooth voice, or production messaging permission. " +
+                "two-phone or cryptographic review. There is no auto-trust or " +
+                "remembered-radio peer authorization, Bluetooth voice, or " +
+                "production messaging permission. "  +
                 "This test is not an independently reviewed secure messenger. " +
                 "Android may continue device discoverability for its approved " +
                 "duration after a socket closes. All these tools are absent " +
@@ -101,8 +107,10 @@ internal object PrivacyPreviewContent {
         ),
         Section(
             "What is not available",
-            "There are no Eden Comms accounts, server backups or remembered " +
-                "peer connections. An explicit DEBUG LAN-only history option " +
+            "There are no Eden Comms accounts, server backups or automatic " +
+                "remembered peer connections. Separate DEBUG LAN-only peer-pin " +
+                "memory is user-approved, does not bypass QR/TLS or approvals, " +
+                "and does not save messages. An explicit DEBUG LAN-only history option "  +
                 "can retain locally encrypted test text for at most 30 days; " +
                 "the default remains session-only. Short in-memory disappearing " +
                 "timers and debug LAN PTT exist; Bluetooth and Wi-Fi Direct " +
