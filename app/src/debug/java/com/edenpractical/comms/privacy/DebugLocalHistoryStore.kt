@@ -12,10 +12,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
-import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 /**
  * F5-A experimental opt-in encrypted local history. DEBUG-ONLY BUILD SOURCE.
@@ -35,13 +33,9 @@ internal class DebugLocalHistoryStore(context: Context) {
         private const val DIR = "eden_comms_local_history_debug_v1"
         private const val FILE = "encrypted.ec1"
         private const val TEMP = "encrypted.ec1.tmp"
-        private const val FILE_MAGIC = 0x45434846 // ECHF
         private const val PAYLOAD_MAGIC = 0x45434850 // ECHP
         private const val VERSION = 1
-        private const val IV_SIZE = 12
-        private const val MAX_ENCRYPTED_SIZE = 256_000
         private const val PIN_SIZE = 32
-        private const val TAG_BITS = 128
     }
 
     private val app = context.applicationContext
@@ -180,25 +174,8 @@ internal class DebugLocalHistoryStore(context: Context) {
         if (!file.exists()) return null
         try {
             val bytes = file.readBytes()
-            if (bytes.size !in 32..MAX_ENCRYPTED_SIZE) error("Unexpected file length")
-            val encrypted = DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-                require(input.readInt() == FILE_MAGIC)
-                require(input.readUnsignedByte() == VERSION)
-                require(input.readUnsignedByte() == IV_SIZE)
-                val iv = ByteArray(IV_SIZE)
-                input.readFully(iv)
-                val length = input.readInt()
-                require(length >= 16 && length <= MAX_ENCRYPTED_SIZE &&
-                    length == input.available())
-                val data = ByteArray(length)
-                input.readFully(data)
-                val aes = key(false) ?: error("Missing history key")
-                Cipher.getInstance("AES/GCM/NoPadding").run {
-                    init(Cipher.DECRYPT_MODE, aes, GCMParameterSpec(TAG_BITS, iv))
-                    updateAAD(aad())
-                    doFinal(data)
-                }
-            }
+            val aes = key(false) ?: error("Missing history key")
+            val encrypted = LocalHistoryEnvelope.open(aes, bytes, aad())
             try {
                 val state = parse(encrypted)
                 // Offline wall clock has no trusted source. Clear on rollback.
@@ -287,23 +264,12 @@ internal class DebugLocalHistoryStore(context: Context) {
         }
         try {
             val aes = key(true) ?: return false
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, aes)
-            cipher.updateAAD(aad())
-            val sealed = cipher.doFinal(plaintext)
-            require(sealed.size <= MAX_ENCRYPTED_SIZE)
-            dir.mkdirs()
-            FileOutputStream(temp).use { raw ->
-                DataOutputStream(raw).use { output ->
-                    output.writeInt(FILE_MAGIC)
-                    output.writeByte(VERSION)
-                    output.writeByte(IV_SIZE)
-                    output.write(cipher.iv)
-                    output.writeInt(sealed.size)
-                    output.write(sealed)
-                    output.flush()
-                    raw.fd.sync()
-                }
+            val sealed = LocalHistoryEnvelope.seal(aes, plaintext, aad())
+            require(dir.isDirectory || dir.mkdirs())
+            FileOutputStream(temp).use { output ->
+                output.write(sealed)
+                output.flush()
+                output.fd.sync()
             }
             return temp.renameTo(file)
         } finally { plaintext.fill(0) }
