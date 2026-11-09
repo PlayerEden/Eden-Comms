@@ -412,6 +412,203 @@ class DebugPairedTlsEngineInteropTest {
         }
     }
 
+
+    /**
+     * F2-N: REAL JDK TLS 1.3 engines and ONE pair of continuous byte pipes
+     * survive the transition from encrypted fixed-width control records to
+     * separately encoded encrypted TEXT / peer-app ACK frames.
+     *
+     * Control bytes here are synthetic. This DOES NOT run the real QR proof,
+     * exporter, transcript agreement, human approval or Android RFCOMM path;
+     * neither these test booleans nor this transfer authorize messaging.
+     */
+    @Test
+    fun sameTlsEnginesSurviveControlToTextAckThenFutureOwnersTearDown() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2n-same-engine-jvm-only").apply { isDaemon = true }
+        }
+        try {
+            val hostHandshake = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                PinnedTlsPeer.requirePinnedTls13(host.session, joinIdentity.pin)
+                DebugTlsProviderReadiness.requireControlReady(host)
+            })
+            val joinHandshake = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                PinnedTlsPeer.requirePinnedTls13(join.session, hostIdentity.pin)
+                DebugTlsProviderReadiness.requireControlReady(join)
+            })
+            await(hostHandshake)
+            await(joinHandshake)
+
+            // This reproduces all five fixed encrypted RECORD SIZES, not
+            // human approval or semantics of the real QR challenge frames.
+            val hostControls = DebugTlsControlTransport(host, pipe.hostInput, pipe.hostOutput)
+            val joinControls = DebugTlsControlTransport(join, pipe.joinInput, pipe.joinOutput)
+            val phases = DebugTlsControlTransport.Phase.values()
+            for (index in phases.indices) {
+                val phase = phases[index]
+                if (index > 0) {
+                    hostControls.advance(phases[index - 1], phase)
+                    joinControls.advance(phases[index - 1], phase)
+                }
+                val fromHost = ByteArray(phase.bytes) { (it + index + 17).toByte() }
+                val onJoin = ByteArray(phase.bytes)
+                try {
+                    hostControls.output.write(fromHost)
+                    assertEquals(phase.bytes, joinControls.input.read(onJoin))
+                    assertArrayEquals(fromHost, onJoin)
+                } finally {
+                    fromHost.fill(0)
+                    onJoin.fill(0)
+                }
+                val fromJoin = ByteArray(phase.bytes) { (it + index + 53).toByte() }
+                val onHost = ByteArray(phase.bytes)
+                try {
+                    joinControls.output.write(fromJoin)
+                    assertEquals(phase.bytes, hostControls.input.read(onHost))
+                    assertArrayEquals(fromJoin, onHost)
+                } finally {
+                    fromJoin.fill(0)
+                    onHost.fill(0)
+                }
+            }
+
+            // The old control adapters are made inert. There is NO new
+            // handshake, engine, pin, byte stream or implicit permission.
+            hostControls.clear()
+            joinControls.clear()
+            val hostLab = DebugBluetoothFutureTlsTextLab(host, pipe.hostInput, pipe.hostOutput)
+            val joinLab = DebugBluetoothFutureTlsTextLab(join, pipe.joinInput, pipe.joinOutput)
+            val hostLedger = DebugBluetoothTextLedger()
+            val joinLedger = DebugBluetoothTextLedger()
+            val hostBundle = DebugBluetoothFutureChannelBundle(
+                Closeable { pipe.hostOutput.close(); pipe.hostInput.close() },
+                host,
+                AutoCloseable { hostLab.clear(); hostLedger.close(); hostControls.clear() }
+            )
+            val joinBundle = DebugBluetoothFutureChannelBundle(
+                Closeable { pipe.joinOutput.close(); pipe.joinInput.close() },
+                join,
+                AutoCloseable { joinLab.clear(); joinLedger.close(); joinControls.clear() }
+            )
+            val hostOwner = DebugBluetoothFutureOwnedSession(
+                DebugBluetoothContinuationBudget(maxLifetimeMs = 12)
+            )
+            val joinOwner = DebugBluetoothFutureOwnedSession(
+                DebugBluetoothContinuationBudget(maxLifetimeMs = 12)
+            )
+            val claimed = DebugBluetoothContinuationBudget.Observations(
+                peerPinChecked = true, qrChallengeChecked = true, exporterChecked = true,
+                bilateralApprovals = true, bilateralConfirmations = true,
+                foreground = true, connectPermission = true
+            )
+            // Synthetic and caller-constructible: not a verified QR consent
+            // or a transport-issued cryptographic capability.
+            val hostContext = DebugBluetoothFutureSessionContext(
+                true, joinIdentity.pin, ByteArray(32) { 0x61 }
+            )
+            val joinContext = DebugBluetoothFutureSessionContext(
+                false, hostIdentity.pin, ByteArray(32) { 0x61 }
+            )
+            try {
+                assertTrue(hostBundle.matchesCandidates(
+                    Closeable { }, host
+                ).not()) // A different resource is never the same socket.
+                assertTrue(hostOwner.begin(71, 100, claimed, hostBundle, hostContext))
+                assertTrue(joinOwner.begin(72, 100, claimed, joinBundle, joinContext))
+                val msg = hostLedger.prepareText("Same engine after controls")
+                try { hostLab.transmit(msg) } finally { msg.fill(0) }
+                val got = joinLab.receive()
+                val accepted = try { joinLedger.acceptText(got) } finally { got.fill(0) }
+                assertEquals("Same engine after controls", accepted.text)
+                try { joinLab.transmit(accepted.ack) } finally { accepted.ack.fill(0) }
+                val reply = hostLab.receive()
+                try { assertEquals(1L, hostLedger.acceptAck(reply)) } finally { reply.fill(0) }
+                assertEquals(0, hostLedger.outstanding())
+
+                // And the reverse direction on the same engine/byte pipes.
+                val reverse = joinLedger.prepareText("Reverse on same TLS session")
+                try { joinLab.transmit(reverse) } finally { reverse.fill(0) }
+                val readBack = hostLab.receive()
+                val result = try { hostLedger.acceptText(readBack) } finally { readBack.fill(0) }
+                assertEquals("Reverse on same TLS session", result.text)
+                try { hostLab.transmit(result.ack) } finally { result.ack.fill(0) }
+                val finalAck = joinLab.receive()
+                try { assertEquals(1L, joinLedger.acceptAck(finalAck)) }
+                finally { finalAck.fill(0) }
+                assertEquals(0, joinLedger.outstanding())
+
+                // This expires the test-only owner. The bundle must close
+                // exact TLS engine outbound + byte streams, never allow reuse.
+                assertTrue(!hostOwner.observe(71, 112, true, true, hostContext))
+                assertTrue(hostBundle.isClosed())
+                assertTrue(host.isOutboundDone)
+                assertThrows(javax.net.ssl.SSLException::class.java) {
+                    hostLab.transmit(DebugBluetoothTextFrameCodec.acknowledgment(2))
+                }
+                assertTrue(joinOwner.stop(72))
+                assertTrue(joinBundle.isClosed())
+                assertTrue(join.isOutboundDone)
+            } finally {
+                hostOwner.close()
+                joinOwner.close()
+                hostContext.close()
+                joinContext.close()
+                hostBundle.close()
+                joinBundle.close()
+            }
+        } finally {
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
+    /**
+     * A control frame left in the encrypted stream must never be reinterpreted
+     * as a legal TEXT/ACK. No app-level magic-byte scanning or resynchronizing.
+     */
+    @Test
+    fun leftoverEncryptedControlRecordCannotBecomeFutureText() {
+        val (host, join) = connect()
+        val pipe = PairPipes()
+        val workers = Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "EC-f2n-leftover-control-jvm-only").apply { isDaemon = true }
+        }
+        try {
+            val h = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(host, pipe.hostInput, pipe.hostOutput)
+                PinnedTlsPeer.requirePinnedTls13(host.session, joinIdentity.pin)
+            })
+            val j = workers.submit(Callable {
+                DebugTlsEngineHandshake.negotiate(join, pipe.joinInput, pipe.joinOutput)
+                PinnedTlsPeer.requirePinnedTls13(join.session, hostIdentity.pin)
+            })
+            await(h)
+            await(j)
+            val oldControl = DebugTlsControlTransport(host, pipe.hostInput, pipe.hostOutput)
+            // Fixed-size TLS ciphertext is authentic but its *plaintext*
+            // is NOT a valid ECBT application frame.
+            val extra = ByteArray(DebugTlsControlTransport.PROOF_BYTES) { 0x55 }
+            try { oldControl.output.write(extra) } finally { extra.fill(0) }
+            oldControl.clear()
+            val future = DebugBluetoothFutureTlsTextLab(join, pipe.joinInput, pipe.joinOutput)
+            try {
+                assertThrows(IllegalArgumentException::class.java) { future.receive() }
+                assertThrows(javax.net.ssl.SSLException::class.java) { future.receive() }
+            } finally { future.clear() }
+        } finally {
+            pipe.close()
+            workers.shutdownNow()
+            try { host.closeOutbound() } catch (_: Exception) { }
+            try { join.closeOutbound() } catch (_: Exception) { }
+        }
+    }
+
     @Test
     fun wrongOutOfBandPeerPinCannotCompleteMutualTlsHandshake() {
         val incorrect = hostIdentity.pin.copyOf().also { it[0] = (it[0].toInt() xor 0x01).toByte() }
