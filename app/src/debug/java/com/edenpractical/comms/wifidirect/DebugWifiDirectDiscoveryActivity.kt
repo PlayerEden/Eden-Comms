@@ -322,6 +322,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                         localPrivacy.close()
                         localVoice.disable()
+                        qaEvidence.end()
                     }
                 },
                 onVerifiedApproval = { verifiedChat.approval(it) },
