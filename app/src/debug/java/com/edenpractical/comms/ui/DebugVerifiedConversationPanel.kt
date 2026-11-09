@@ -1,5 +1,6 @@
 package com.edenpractical.comms.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -19,6 +21,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -63,8 +68,12 @@ internal fun DebugVerifiedConversationPanel(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-        tonalElevation = 2.dp
+        // Reuse the same angular field-card language as Connect and Settings.
+        shape = CutCornerShape(7.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.52f)
+        )
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -72,6 +81,7 @@ internal fun DebugVerifiedConversationPanel(
         ) {
             Text(
                 "TEST CONVERSATION • $method",
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
@@ -88,22 +98,28 @@ internal fun DebugVerifiedConversationPanel(
                     Button(
                         onClick = chooseText,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                            .semantics { stateDescription = "Text mode selected" }
                     ) { Text("TEXT") }
                 } else {
                     OutlinedButton(
-                        onClick = { selection = "text" },
+                        // The same safe path as the selected button. Hiding
+                        // Talk must never leave an AudioRecord turn invisible.
+                        onClick = chooseText,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                            .semantics { stateDescription = "Text mode not selected" }
                     ) { Text("TEXT") }
                 }
                 if (selection == "talk") {
                     Button(
                         onClick = { selection = "talk" },
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                            .semantics { stateDescription = "Talk mode selected" }
                     ) { Text("TALK") }
                 } else {
                     OutlinedButton(
                         onClick = { selection = "talk" },
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                            .semantics { stateDescription = "Talk mode not selected" }
                     ) { Text("TALK") }
                 }
             }
@@ -127,6 +143,7 @@ internal fun DebugVerifiedConversationPanel(
             TextButton(
                 onClick = { showPrivacy = !showPrivacy },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .semantics { stateDescription = if (showPrivacy) "Expanded" else "Collapsed" }
             ) {
                 Text(if (showPrivacy) "HIDE LOCAL PRIVACY OPTIONS"
                      else "SHOW LOCAL PRIVACY OPTIONS")
@@ -135,6 +152,7 @@ internal fun DebugVerifiedConversationPanel(
             TextButton(
                 onClick = { showQa = !showQa },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .semantics { stateDescription = if (showQa) "Expanded" else "Collapsed" }
             ) {
                 Text(if (showQa) "HIDE ADVANCED TEST COUNTS"
                      else "ADVANCED: THIS PHONE'S TEST COUNTS")
