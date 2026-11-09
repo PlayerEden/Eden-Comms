@@ -10,16 +10,20 @@ package com.edenpractical.comms.bluetooth
  * Important: this is NOT an authenticated transport capability or reusable
  * credential. The controller must still bind the result to its CURRENT socket
  * token, check foreground/permission and immediately close that socket.
+ * F2-L: the one-use receipt must pass BOTH wall-clock QR expiry and
+ * monotonic elapsed time. A wall-clock edit must not refresh a stale proof.
  * It deliberately contains no SSLEngine, socket, key, peer pin, exporter,
  * commitment, plaintext, send API, or durable trust/persistence.
  */
 internal class DebugBluetoothProbeCompletion private constructor(
     private val hostRole: Boolean,
     private val issuedAtSeconds: Long,
-    private val qrExpiresAtSeconds: Long
+    private val qrExpiresAtSeconds: Long,
+    private val issuedAtElapsedMs: Long
 ) : AutoCloseable {
     companion object {
         const val MAX_HANDOFF_AGE_SECONDS = 3L
+        const val MAX_HANDOFF_AGE_MS = MAX_HANDOFF_AGE_SECONDS * 1_000L
 
         /**
          * This constructor is isolated for deterministic tests. Calling it
@@ -29,13 +33,16 @@ internal class DebugBluetoothProbeCompletion private constructor(
         internal fun afterVerifiedDiagnostic(
             hostRole: Boolean,
             issuedAtSeconds: Long,
-            qrExpiresAtSeconds: Long
+            qrExpiresAtSeconds: Long,
+            issuedAtElapsedMs: Long
         ): DebugBluetoothProbeCompletion {
-            require(issuedAtSeconds >= 0 && qrExpiresAtSeconds >= issuedAtSeconds) {
+            require(issuedAtSeconds >= 0 && qrExpiresAtSeconds >= issuedAtSeconds &&
+                issuedAtElapsedMs >= 0L
+            ) {
                 "Invalid Bluetooth diagnostic completion clock or QR expiry"
             }
             return DebugBluetoothProbeCompletion(
-                hostRole, issuedAtSeconds, qrExpiresAtSeconds
+                hostRole, issuedAtSeconds, qrExpiresAtSeconds, issuedAtElapsedMs
             )
         }
     }
@@ -54,6 +61,7 @@ internal class DebugBluetoothProbeCompletion private constructor(
     fun acknowledgeOnce(
         expectedHostRole: Boolean,
         observedAtSeconds: Long,
+        observedAtElapsedMs: Long,
         foreground: Boolean,
         connectPermission: Boolean
     ): Boolean {
@@ -63,6 +71,8 @@ internal class DebugBluetoothProbeCompletion private constructor(
             observedAtSeconds >= issuedAtSeconds &&
             observedAtSeconds <= qrExpiresAtSeconds &&
             observedAtSeconds - issuedAtSeconds <= MAX_HANDOFF_AGE_SECONDS &&
+            observedAtElapsedMs >= issuedAtElapsedMs &&
+            observedAtElapsedMs - issuedAtElapsedMs <= MAX_HANDOFF_AGE_MS &&
             foreground && connectPermission
     }
 
