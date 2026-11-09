@@ -458,7 +458,8 @@ internal class DebugRfcommLinkController(
                 DebugRfcommAttemptGate.End.TIMEOUT -> "Bluetooth connection attempt timed out."
                 DebugRfcommAttemptGate.End.EXPIRED -> "Bluetooth debug link reached its time limit and closed."
                 DebugRfcommAttemptGate.End.FAILED ->
-                    "Bluetooth link/TLS probe failed or peer pin mismatched. No messages sent."
+                    "Bluetooth verification failed or the encrypted test link ended unexpectedly. " +
+                        "Session closed; reconnect only with fresh QR and both approvals."
                 DebugRfcommAttemptGate.End.CONSENT_CONFIRMED ->
                     "Both people approved this exact QR + TLS session, and " +
                         "both final confirmations were exchanged. Test socket " +
