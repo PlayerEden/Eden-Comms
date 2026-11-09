@@ -68,10 +68,16 @@ class M3sBQrPreparation(unittest.TestCase):
                 'deviceAddress', 'deviceName', 'LOCAL_MAC_ADDRESS',
                 'Socket(', 'ServerSocket(', 'DatagramSocket(', 'SharedPreferences',
                 'openFileOutput(', 'Log.', 'println(', 'sendDebugText(',
-                'sendPacket(', 'DebugBluetooth', 'selectedHandle(',
+                'sendPacket(', 'selectedHandle(',
                 'selectedOrdinal(', 'WifiP2pConfig', 'groupOwnerAddress'
             ):
                 self.assertNotIn(bad, source, bad)
+        # F3-C carries ONLY a role/pin/nonce expectation to the live TLS
+        # owner. No actual radio, socket, or send API is available here.
+        self.assertNotIn("DebugBluetoothSocket", self.coordinator)
+        self.assertNotIn("DebugBluetoothApprovedTextChannel", self.coordinator)
+        self.assertIn("DebugBluetoothTlsProbeInput(", self.coordinator)
+        self.assertNotIn("DebugBluetooth", self.codec + self.screen)
         manifest = ET.parse(DEBUG / "AndroidManifest.xml").getroot()
         activities = [
             x for x in manifest.findall("application/activity")

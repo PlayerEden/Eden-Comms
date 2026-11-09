@@ -6,6 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.edenpractical.comms.security.AndroidKeystoreIdentity
 import com.edenpractical.comms.security.LocalTlsIdentity
+import com.edenpractical.comms.security.SessionProofBinding
+import com.edenpractical.comms.bluetooth.DebugBluetoothTlsProbeInput
+import java.security.MessageDigest
 
 /**
  * Three in-person QR steps. All public metadata is kept in RAM only until
@@ -177,6 +180,64 @@ internal class DebugWifiDirectQrCoordinator {
             status = "Wi-Fi Direct QR preparation expired. Start fresh."
         }
     }
+
+    /**
+     * F3-C actual OS-P2P transport request. A checked three-QR transcript
+     * creates only a one-use expectation for the *subsequent* live pinned TLS
+     * protocol. The host's third QR is checked locally; only the joiner
+     * actually scanning it plus both final encrypted confirmations proves
+     * reciprocal participation.
+     *
+     * The existing Bluetooth-named debug input deliberately carries only
+     * exact role-specific pins, fresh nonces, Keystore identity and expiry;
+     * its authenticated TLS record protocol is shared between local radios.
+     */
+    fun newVerifiedTransportRequest(hostRole: Boolean): DebugBluetoothTlsProbeInput? {
+        val own = identity ?: return null
+        val h = host ?: return null
+        val r = reply ?: return null
+        val a = ack ?: return null
+        val expectedStage = if (hostRole) Stage.HOST_SHOW_ACK else Stage.JOIN_PREPARED
+        if (stage != expectedStage) return null
+        val now = System.currentTimeMillis() / 1_000L
+        return try {
+            DebugWifiDirectQrCodec.checkFresh(h, now)
+            val validated = if (hostRole) {
+                DebugWifiDirectFutureQrTlsExpectation.host(
+                    h, r, a, own.publicFingerprint(), now
+                )
+            } else {
+                DebugWifiDirectFutureQrTlsExpectation.join(
+                    h, r, a, own.publicFingerprint(), now
+                )
+            }
+            try {
+                val targetPin = validated.copyPeerPinForTls()
+                val proof = validated.copyLiveQrProofBinding()
+                try {
+                    require(!MessageDigest.isEqual(targetPin, own.publicFingerprint()))
+                    DebugBluetoothTlsProbeInput(
+                        own, targetPin, hostRole, proof,
+                        h.issuedAt + DebugWifiDirectQrCodec.MAX_AGE_SECONDS
+                    )
+                } finally {
+                    targetPin.fill(0)
+                    proof.hostPin.fill(0)
+                    proof.joinPin.fill(0)
+                    proof.hostNonce.fill(0)
+                    proof.joinNonce.fill(0)
+                }
+            } finally { validated.close() }
+        } catch (_: Exception) {
+            status = "QR proof expired or became inconsistent. Repeat all three codes."
+            null
+        }
+    }
+
+    fun readyForVerifiedTransport(hostRole: Boolean): Boolean =
+        (if (hostRole) stage == Stage.HOST_SHOW_ACK
+        else stage == Stage.JOIN_PREPARED) &&
+            identity != null && host != null && reply != null && ack != null
 
     fun clear() {
         clearQrOnly()

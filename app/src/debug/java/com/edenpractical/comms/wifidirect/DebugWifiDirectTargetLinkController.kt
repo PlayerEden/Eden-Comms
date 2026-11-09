@@ -9,6 +9,8 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import com.edenpractical.comms.bluetooth.DebugBluetoothTlsProbeInput
+import com.edenpractical.comms.bluetooth.DebugBluetoothApprovedTextChannel
 
 /**
  * M3s-C1 DEBUG-ONLY targeted Android radio negotiation. It deliberately knows
@@ -24,11 +26,15 @@ internal class DebugWifiDirectTargetLinkController(
     private val context: Context,
     private val readyAndForeground: () -> Boolean,
     private val onReport: (String) -> Unit,
-    private val onFinished: () -> Unit
+    private val onFinished: () -> Unit,
+    private val onVerifiedStatus: (DebugWifiDirectApprovedTcpSession.Phase, String) -> Unit =
+        { _, _ -> },
+    private val onVerifiedApproval: (Boolean) -> Unit = {},
+    private val onVerifiedText: (DebugBluetoothApprovedTextChannel.Event) -> Unit = {}
 ) {
     private val gate = DebugWifiDirectTargetLinkGate()
     private val handler = Handler(Looper.getMainLooper())
-    private var current: DebugWifiDirectTargetLinkGate.Token? = null
+    @Volatile private var current: DebugWifiDirectTargetLinkGate.Token? = null
     private var manager: WifiP2pManager? = null
     private var channel: WifiP2pManager.Channel? = null
     private var deadline: Runnable? = null
@@ -39,11 +45,14 @@ internal class DebugWifiDirectTargetLinkController(
     private var connectionInfoOutstanding = false
     private var tcpProbe: DebugWifiDirectTcpProbe? = null
     private var tcpAttempted = false
+    private var verifiedStarted = false
+    private var verifiedSession: DebugWifiDirectApprovedTcpSession? = null
+    private var pendingVerifiedRequest: DebugBluetoothTlsProbeInput? = null
 
     fun busy(): Boolean = current != null ||
         gate.snapshot().phase == DebugWifiDirectTargetLinkGate.Phase.CLEANING
 
-    fun startSelected(target: WifiP2pDevice): Boolean {
+    fun startSelected(target: WifiP2pDevice, verifiedQrPrepared: Boolean = false): Boolean {
         val token = gate.start(
             confirmed = true,
             foreground = readyAndForeground(),
@@ -54,6 +63,7 @@ internal class DebugWifiDirectTargetLinkController(
         cleaned = false
         inspectedInitialGroup = false
         tcpAttempted = false
+        verifiedStarted = false
         onReport("Checking for a pre-existing Wi-Fi Direct group. " +
             "The selected device is NOT verified.")
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
@@ -85,7 +95,12 @@ internal class DebugWifiDirectTargetLinkController(
         deadline = Runnable {
             if (current === token)
                 stop(DebugWifiDirectTargetLinkGate.End.TIMEOUT)
-        }.also { handler.postDelayed(it, DebugWifiDirectTargetLinkGate.MAX_LINK_MS) }
+        }.also {
+            handler.postDelayed(it,
+                if (verifiedQrPrepared) 120_000L
+                else DebugWifiDirectTargetLinkGate.MAX_LINK_MS
+            )
+        }
 
         // Only Android 10+ can positively report current P2P radio state in
         // this flow. Never infer positive state from a neighboring broadcast.
@@ -313,6 +328,117 @@ internal class DebugWifiDirectTargetLinkController(
     }
 
     /**
+     * Real OS group -> OS P2P interface -> pinned TLS, QR and both approvals
+     * -> encrypted TEXT/ACK. Never treats a selected radio or TCP probe as
+     * identity. QR request is ephemeral and closed on EVERY abort path.
+     */
+    fun canStartVerifiedText(): Boolean =
+        current != null && !verifiedStarted && verifiedSession == null &&
+        pendingVerifiedRequest == null &&
+        gate.snapshot().phase == DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED &&
+        readyAndForeground() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    fun startVerifiedText(request: DebugBluetoothTlsProbeInput): Boolean {
+        val token = current
+        if (token == null || request.hostRole || !canStartVerifiedText()) {
+            request.close()
+            return false
+        }
+        val m = manager ?: run { request.close(); return false }
+        val ch = channel ?: run { request.close(); return false }
+        verifiedStarted = true
+        pendingVerifiedRequest = request
+        onReport("Checking Android's exact P2P route before mutual TLS and QR proof.")
+        try {
+            m.requestConnectionInfo(ch) { info ->
+                if (current !== token || !gate.active(token) || !readyAndForeground() ||
+                    !info.groupFormed || info.isGroupOwner
+                ) {
+                    endPendingVerified("No active joining P2P group or permission.")
+                    return@requestConnectionInfo
+                }
+                val owner = info.groupOwnerAddress
+                try {
+                    m.requestGroupInfo(ch) { group ->
+                        if (current !== token || !gate.active(token) ||
+                            !readyAndForeground() ||
+                            gate.snapshot().phase !=
+                                DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED ||
+                            group == null || group.isGroupOwner ||
+                            pendingVerifiedRequest !== request
+                        ) {
+                            endPendingVerified("Wi-Fi Direct group changed; cannot verify peer.")
+                            return@requestGroupInfo
+                        }
+                        val local = DebugWifiDirectP2pInterface.resolve(
+                            group.getInterface(), isHost = false,
+                            groupOwnerAddress = owner
+                        ) ?: run {
+                            endPendingVerified("Exact Android P2P IPv4 route unavailable.")
+                            return@requestGroupInfo
+                        }
+                        var owned: DebugWifiDirectApprovedTcpSession? = null
+                        val session = DebugWifiDirectApprovedTcpSession(
+                            handler, canContinue = {
+                                current === token && readyAndForeground()
+                            },
+                            onStatus = { state, message ->
+                                if (current === token && verifiedSession === owned) {
+                                    onVerifiedStatus(state, message)
+                                    if (state == DebugWifiDirectApprovedTcpSession.Phase.CHAT) {
+                                        deadline?.let(handler::removeCallbacks)
+                                        deadline = Runnable {
+                                            if (current === token) stop(
+                                                DebugWifiDirectTargetLinkGate.End.TIMEOUT
+                                            )
+                                        }.also {
+                                            handler.postDelayed(
+                                                it, DebugWifiDirectApprovedTcpSession.CHAT_DEADLINE_MS
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            onApprovalReady = { if (current === token && verifiedSession === owned)
+                                onVerifiedApproval(it)
+                            },
+                            onText = { if (current === token && verifiedSession === owned)
+                                onVerifiedText(it)
+                            }
+                        )
+                        owned = session
+                        verifiedSession = session
+                        pendingVerifiedRequest = null
+                        if (!session.join(local, owner, request)) {
+                            verifiedSession = null
+                            onVerifiedStatus(
+                                DebugWifiDirectApprovedTcpSession.Phase.STOPPED,
+                                "Verified Wi-Fi Direct TCP/TLS cannot start."
+                            )
+                        }
+                    }
+                } catch (_: RuntimeException) {
+                    endPendingVerified("Cannot inspect exact P2P interface for text.")
+                }
+            }
+        } catch (_: RuntimeException) {
+            endPendingVerified("Android P2P endpoint unavailable for TLS.")
+        }
+        return true
+    }
+
+    private fun endPendingVerified(message: String) {
+        pendingVerifiedRequest?.close()
+        pendingVerifiedRequest = null
+        onVerifiedStatus(DebugWifiDirectApprovedTcpSession.Phase.STOPPED, message)
+    }
+
+    fun approveVerified(): Boolean = verifiedSession?.approve() ?: false
+    fun declineVerified(): Boolean = verifiedSession?.decline() ?: false
+    fun offerVerifiedText(text: String): Boolean =
+        verifiedSession?.offerText(text) ?: false
+
+    /**
      * The controller owns cancellation; it is safe to call from Stop/exit.
      * A late connect success/connection-info callback is always ignored.
      */
@@ -321,6 +447,10 @@ internal class DebugWifiDirectTargetLinkController(
         val submitted = gate.snapshot().submitted
         if (gate.active(token)) gate.stop(token, reason)
         current = null
+        verifiedSession?.close()
+        verifiedSession = null
+        pendingVerifiedRequest?.close()
+        pendingVerifiedRequest = null
         tcpProbe?.close()
         tcpProbe = null
         connectionInfoOutstanding = false
@@ -394,6 +524,10 @@ internal class DebugWifiDirectTargetLinkController(
         manager = null
         channel = null
         current = null
+        verifiedSession?.close()
+        verifiedSession = null
+        pendingVerifiedRequest?.close()
+        pendingVerifiedRequest = null
         tcpProbe?.close()
         tcpProbe = null
         deadline?.let(handler::removeCallbacks)

@@ -5,7 +5,7 @@ import java.security.MessageDigest
 import com.edenpractical.comms.security.SessionProofBinding
 
 /**
- * F3-B1: future-only QR-to-TLS EXPECTATION for source/JVM verification.
+ * F3-B1/F3-C: role-ordered QR-to-TLS EXPECTATION, never authorization.
  *
  * Both public certificate fingerprints and all three fresh, canonical QR
  * frames are checked before constructing an exact peer pin. This is NOT an
@@ -14,9 +14,9 @@ import com.edenpractical.comms.security.SessionProofBinding
  * it. Matching public transcript data cannot authenticate a selected P2P
  * candidate; the actual TLS peer MUST present the exact pinned certificate.
  *
- * Nothing in the live P2P activity/controller can instantiate or use this
- * lab to send data. This class does not create a socket, grant trust, persist
- * an identity, read user messages, or provide a send/receive API.
+ * F3-C live QR coordinator can only copy exact peer-pin and nonce inputs;
+ * full same-channel TLS/QR/exporter + two-person consent is independently
+ * required before ANY app data. This class itself has no socket or send API.
  */
 internal class DebugWifiDirectFutureQrTlsExpectation private constructor(
     val role: Role,
@@ -65,6 +65,17 @@ internal class DebugWifiDirectFutureQrTlsExpectation private constructor(
      * for one encrypted SessionProofExchange on the SAME pinned TLS socket.
      * A binding is not human approval; the lab must wipe its copies.
      */
+    /**
+     * A checked pin/nonce expectation is not a send grant. The live P2P
+     * controller still requires actual mutual TLS/QR/exporter, both human
+     * approvals and encrypted final confirmations on the same socket.
+     */
+    @Synchronized
+    fun copyLiveQrProofBinding(): SessionProofBinding {
+        check(!closed) { "Closed QR preparation cannot be used" }
+        return SessionProofBinding(hostQrPin, joinQrPin, hostQrNonce, joinQrNonce)
+    }
+
     @Synchronized
     fun copyQrProofBindingForLab(): SessionProofBinding {
         check(!closed) { "Closed Wi-Fi Direct QR expectation cannot be reused" }

@@ -773,9 +773,16 @@ grep -Fq 'PinnedTlsPeer.requirePinnedTls13(client.session, peerPin)' "$P2P_TLS_L
 grep -Fq 'wrongPeerFingerprintInScannedQrFailsRealMutualTls' "$P2P_TLS_TEST"
 for source in "$P2P_HOST" "$P2P_JOIN" "$P2P_TCP" \
   'app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectQrCoordinator.kt'; do
-  if grep -Fq 'DebugWifiDirectFutureTlsSocketLab' "$source" ||
-     grep -Fq 'DebugWifiDirectFutureQrTlsExpectation' "$source"; then
-    echo "FAIL: unreviewed F3-B1 loopback TLS lab wired into live P2P" >&2
+  if grep -Fq 'DebugWifiDirectFutureTlsSocketLab' "$source"; then
+    echo "FAIL: F3-B1 loopback TLS LAB wired into live P2P" >&2
+    exit 1
+  fi
+done
+# F3-C reuses ONLY the already validated copy-only QR expectation in the
+# same foreground QR coordinator, never the future loopback socket lab.
+for source in "$P2P_HOST" "$P2P_JOIN" "$P2P_TCP"; do
+  if grep -Fq 'DebugWifiDirectFutureQrTlsExpectation' "$source"; then
+    echo "FAIL: raw future QR expectation escaped the live verified coordinator" >&2
     exit 1
   fi
 done
@@ -826,6 +833,50 @@ for forbidden in 'sendDebugText(' 'sendPacket(' 'AudioRecord' 'SharedPreferences
 done
 if find "$MAIN" -name 'DebugWifiDirectFutureQrProofSocketLab.kt' -print -quit | grep -q .; then
   echo "FAIL: F3-B2 future QR proof lab moved into release source" >&2
+  exit 1
+fi
+
+# F3-C: live Wi-Fi Direct uses real OS-reported P2P group interface,
+# original single TCP stream, exact mutual TLS/QR/exporter and bilateral
+# confirmed consent BEFORE encrypted application TEXT/ACK. It is not released.
+P2P_VERIFIED="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectApprovedTcpSession.kt"
+P2P_INLINE_QR="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectInlineQrPanel.kt"
+P2P_CHAT_UI="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectTextPanel.kt"
+P2P_CHAT_STATE="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectChatUiState.kt"
+P2P_QR_COORD="app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectQrCoordinator.kt"
+for FILE in "$P2P_VERIFIED" "$P2P_INLINE_QR" "$P2P_CHAT_UI" "$P2P_CHAT_STATE"; do
+  test -f "$FILE"
+  if grep -REn '(SharedPreferences|DataStore|openFileOutput\(|AudioRecord|MediaRecorder|ProductionSessionAuthorization|TestPacketCodec|Log\.|println\()' "$FILE"; then
+    echo "FAIL: live P2P text owner gained storage, audio, release or logging authority" >&2
+    exit 1
+  fi
+done
+grep -Fq 'newVerifiedTransportRequest(hostRole: Boolean)' "$P2P_QR_COORD"
+grep -Fq 'DebugWifiDirectFutureQrTlsExpectation.host(' "$P2P_QR_COORD"
+grep -Fq 'DebugWifiDirectFutureQrTlsExpectation.join(' "$P2P_QR_COORD"
+grep -Fq 'copyLiveQrProofBinding()' "$P2P_QR_COORD"
+grep -Fq 'DebugWifiDirectInlineQrPanel(preparation, hostRole = true)' "$P2P_HOST"
+grep -Fq 'DebugWifiDirectInlineQrPanel(preparation, hostRole = false)' \
+  'app/src/debug/java/com/edenpractical/comms/wifidirect/DebugWifiDirectDiscoveryActivity.kt'
+grep -Fq 'DebugWifiDirectP2pInterface.resolve(' "$P2P_HOST"
+grep -Fq 'DebugWifiDirectP2pInterface.resolve(' "$P2P_JOIN"
+grep -Fq 'server.bind(InetSocketAddress(local, PORT), 1)' "$P2P_VERIFIED"
+grep -Fq 'outbound.bind(InetSocketAddress(local, 0))' "$P2P_VERIFIED"
+grep -Fq 'DebugWifiDirectTcpProbe.testAddressAllowed(owner)' "$P2P_VERIFIED"
+grep -Fq 'DebugRfcommTlsProbe.runStreams(' "$P2P_VERIFIED"
+grep -Fq 'DebugBluetoothApprovedTextChannel(' "$P2P_VERIFIED"
+grep -Fq 'DebugBluetoothConsentExchange.run(' "$BT_TLS_PROBE"
+grep -Fq 'onVerifiedStage(DebugBluetoothVerifiedStage.HUMAN_CONFIRMATIONS)' "$BT_TLS_PROBE"
+grep -Fq 'onApprovedChannel(approvedEngine, wireIn, wireOut)' "$BT_TLS_PROBE"
+grep -Fq 'closeDecision?.close()' "$P2P_VERIFIED"
+grep -Fq 'closeQuietly(closeSocket)' "$P2P_VERIFIED"
+grep -Fq 'verifiedSession?.close()' "$P2P_HOST"
+grep -Fq 'verifiedSession?.close()' "$P2P_JOIN"
+if find "$MAIN" \( -name 'DebugWifiDirectApprovedTcpSession.kt' -o \
+  -name 'DebugWifiDirectInlineQrPanel.kt' -o \
+  -name 'DebugWifiDirectTextPanel.kt' -o \
+  -name 'DebugWifiDirectChatUiState.kt' \) -print -quit | grep -q .; then
+  echo "FAIL: F3-C unreviewed Wi-Fi Direct chat entered release source" >&2
   exit 1
 fi
 

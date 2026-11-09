@@ -49,7 +49,9 @@ class M3sC1TargetLinkBoundary(unittest.TestCase):
 
     def test_explicit_second_action_and_one_shot_transient_object(self):
         for marker in (
-            "if (targetController != null || !foreground || !registered || !prerequisites()",
+            "if (targetController != null ||",
+            "!preparation.readyForVerifiedTransport(hostRole = false)",
+            "!foreground || !registered || !prerequisites()",
             "Build.VERSION.SDK_INT < Build.VERSION_CODES.Q",
             "candidateLedger.selectedOrdinal(selectedToken) == null",
             "candidateLedger.consumeForOneShotLink(selectedToken)",
@@ -58,7 +60,8 @@ class M3sC1TargetLinkBoundary(unittest.TestCase):
             "STOP LINK AND REQUEST GROUP REMOVAL",
             "targetController?.stop(DebugWifiDirectTargetLinkGate.End.BACKGROUND)",
             "QR preparation does NOT bind this",
-            "targetController == null", "No user text, audio, or authenticated identity",
+            "targetController == null",
+            "No background connection, voice or production security claim",
         ):
             self.assertIn(marker, self.discovery, marker)
         for marker in ("fun consumeForOneShotLink", "token !== current",
