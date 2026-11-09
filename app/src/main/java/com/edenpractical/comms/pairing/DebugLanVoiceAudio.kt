@@ -261,16 +261,32 @@ internal class DebugLanVoiceAudio(private val context: Context) {
                 }
                 source.startRecording()
                 val started = SystemClock.elapsedRealtime()
+                val readBudget = DebugLiveMicReadBudget(started)
                 while (token == generation && capturing &&
                     sent < DebugLanVoiceWireCodec.MAX_FRAMES &&
-                    SystemClock.elapsedRealtime() - started < MAX_MS
+                    SystemClock.elapsedRealtime() - started < MAX_MS &&
+                    readBudget.mayContinue(SystemClock.elapsedRealtime())
                 ) {
                     var taken = 0
-                    while (taken < frame.size && token == generation && capturing) {
+                    while (taken < frame.size && token == generation && capturing &&
+                        readBudget.mayContinue(SystemClock.elapsedRealtime())
+                    ) {
+                        // Do not wait indefinitely in an OEM blocking audio
+                        // read after the user releases Talk or the LAN ends.
                         val bytes = source.read(
-                            frame, taken, frame.size - taken, AudioRecord.READ_BLOCKING
+                            frame, taken, frame.size - taken, AudioRecord.READ_NON_BLOCKING
                         )
-                        if (bytes <= 0) break
+                        if (bytes < 0) break
+                        if (bytes == 0) {
+                            // Avoid hot-spin but check stop/clock at least
+                            // every 5ms. An idle driver fails closed after
+                            // 450ms, even if it never produces any PCM.
+                            Thread.sleep(DebugLiveMicReadBudget.RETRY_PAUSE_MS)
+                            continue
+                        }
+                        if (!readBudget.observedBytes(
+                                bytes, SystemClock.elapsedRealtime()
+                            )) break
                         taken += bytes
                     }
                     if (taken != frame.size) break
