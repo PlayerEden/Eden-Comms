@@ -322,6 +322,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
         val current = gate.start(humanTap = true, foreground = foreground,
             ready = ready(), api = Build.VERSION.SDK_INT) ?: return
         active = current
+        verifiedChat.beginNewAttempt()
         tcpAttempted = false
         tcpNotice = "No TCP reachability test has been attempted."
         refreshPhase()
