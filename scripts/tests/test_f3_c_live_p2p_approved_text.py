@@ -102,6 +102,10 @@ class F3CLiveP2P(unittest.TestCase):
                        "request.close()", "fun approve(): Boolean",
                        "fun decline(): Boolean", "fun offerText(message: String)"):
             self.assertIn(marker, self.session)
+        self.assertIn("@Volatile private var foreground = false", self.host)
+        self.assertIn("@Volatile private var active:", self.host)
+        self.assertIn("@Volatile private var foreground = false", self.discovery)
+        self.assertIn("@Volatile private var current:", self.join)
         for marker in ("verifiedSession?.close()",
                        "preparation.clear()", "verifiedChat.clear()",
                        "startVerifiedHostChat()", "verifiedSession?.offerText(draft)"):
