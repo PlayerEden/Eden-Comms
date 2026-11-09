@@ -54,9 +54,9 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
     private val verifiedChat = DebugWifiDirectChatUiState()
     private var verifiedSession: DebugWifiDirectApprovedTcpSession? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var foreground = false
+    @Volatile private var foreground = false
     private var registered = false
-    private var active: DebugWifiDirectGroupHostGate.Token? = null
+    @Volatile private var active: DebugWifiDirectGroupHostGate.Token? = null
     private var manager: WifiP2pManager? = null
     private var channel: WifiP2pManager.Channel? = null
     private var timeout: Runnable? = null
@@ -497,8 +497,7 @@ class DebugWifiDirectGroupHostActivity : ComponentActivity() {
                         var owned: DebugWifiDirectApprovedTcpSession? = null
                         val session = DebugWifiDirectApprovedTcpSession(
                             handler, canContinue = {
-                                active === token && foreground && ready() &&
-                                gate.active(token)
+                                active === token && foreground && ready()
                             },
                             onStatus = { phase, note ->
                                 if (active === token && verifiedSession === owned) {
