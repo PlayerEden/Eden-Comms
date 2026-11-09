@@ -71,6 +71,24 @@ crypto/security review. Final-head and post-merge CI must be
 checked separately. Next: consolidated handset matrix, fix any
 observed failures, external security review.
 
+## November 9 M6-B safety and one-pass acceptance preparation
+
+[PR #154](https://github.com/PlayerEden/Eden-Comms/pull/154)
+adds a real active-voice lifecycle safeguard: switching **Talk → Text**
+or leaving a verified nearby conversation calls the existing live
+voice owner's release/stop, canceling a pending floor or stopping
+AudioRecord and ensuring END/RELEASE on the current encrypted link.
+It also adds an opt-in **Advanced** RAM-only, text/ACK/floor/audio-count
+QA report for Bluetooth and Wi-Fi Direct and an [18-case per-transport
+two-phone acceptance matrix](TWO_PHONE_ACCEPTANCE_MATRIX.md). The
+existing LAN test report is preserved. Reports cannot claim delivery,
+remote audibility or crypto security. **Physical status: NOT RUN.**
+
+After CI and merge, run that ONE consolidated physical-device QA session
+when available, fix observed regressions in focused PRs, and obtain
+independent cryptographic/data privacy/accessibility review. Release
+CAN_CONNECT/CAN_SEND_MESSAGES/CAN_TRANSMIT_VOICE remain FALSE.
+
 ## November 9 core pass: authenticated live floor across nearby transports (F4-V)
 
 [PR #152](https://github.com/PlayerEden/Eden-Comms/pull/152)
