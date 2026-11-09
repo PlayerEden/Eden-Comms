@@ -5,18 +5,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationPrivacyContentTest {
-    @Test fun onlySessionOnlyIsDescribedAsActiveAndNothingClaimsDiskHistory() {
+    @Test fun sessionOnlyDefaultAndDebugLocalHistoryAreAccuratelySeparated() {
         assertTrue(ConversationPrivacyContent.currentState.contains("Session only"))
         assertTrue(ConversationPrivacyContent.currentExplanation.contains(
             "does not intentionally save a conversation history"))
-        assertTrue(ConversationPrivacyContent.futureHistoryState.contains("Not available"))
+        assertTrue(ConversationPrivacyContent.futureHistoryState.contains("Opt-in test"))
+        assertTrue(ConversationPrivacyContent.futureHistoryState.contains("LAN debug only"))
         assertTrue(ConversationPrivacyContent.futureTimerState.contains("Available"))
         assertTrue(ConversationPrivacyContent.futureTimerExplanation.contains("this phone only"))
         assertTrue(ConversationPrivacyContent.futureTimerExplanation.contains("never saved"))
         assertTrue(ConversationPrivacyContent.futureTrustState.contains("Not available"))
         assertTrue(ConversationPrivacyContent.futureHistoryExplanation.contains("30 days"))
         assertTrue(ConversationPrivacyContent.futureHistoryExplanation.contains(
-            "no saving switch"))
+            "Session-only is the default"))
+        assertTrue(ConversationPrivacyContent.futureHistoryExplanation.contains(
+            "unavailable in release"))
+        assertTrue(ConversationPrivacyContent.futureHistoryExplanation.contains(
+            "delete that phone's saved history"))
         assertFalse(ConversationPrivacyContent.currentExplanation.contains(
             "deleted everywhere"))
     }
@@ -28,8 +33,9 @@ class ConversationPrivacyContentTest {
         val clear = ConversationPrivacyContent.clearExplanation
         assertTrue(clear.contains("this phone"))
         assertTrue(clear.contains("connection stays active"))
-        assertTrue(clear.contains("newly arriving or pending"))
-        assertTrue(clear.contains("cannot delete another person's"))
+        assertTrue(clear.contains("DOES NOT erase"))
+        assertTrue(clear.contains("Delete saved history"))
+        assertTrue(clear.contains("other phone's"))
         val caution = ConversationPrivacyContent.privacyLimits
         assertTrue(caution.contains("not secure erasure"))
         assertTrue(caution.contains("unreviewed debug build"))
