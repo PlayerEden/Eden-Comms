@@ -42,8 +42,10 @@ The new end-to-end JVM scenario:
    `DebugBluetoothFutureChannelBundle`, each admitted to the
    previously established **future-only** observation owner using
    synthetic boolean claims/context. Exercises expiry on one side and
-   user cancellation on the other; verifies adapters/ledgers, socket
-   pipes and engine outbound are disabled and cannot resume.
+   user cancellation on the other; verifies adapters/ledgers and socket
+   pipes are closed and **no application data can resume**. For a
+   negotiated TLS engine, closeOutbound() can leave an unsent close_notify,
+   so isOutboundDone is not necessarily true after a hard radio shutdown.
 7. A separate negative test leaves an encrypted control packet
    queued and tries to parse it as future TEXT. Strict codec validation
    must reject it and permanently disable that lab instance. There
@@ -89,3 +91,13 @@ Signed Preview 200008 predates F2-N; no new APK is useful for this
 pure JVM rehearsal.
 
 **Rollback:** revert F2-N PR. No runtime, signing or migration change.
+
+## F2-N discovered a meaningful shutdown nuance
+
+The first PR CI run passed the actual control-to-TEXT/ACK exchange, but a
+final assertion incorrectly assumed `SSLEngine.closeOutbound()` makes
+`isOutboundDone` immediately true on an established TLS 1.3 engine.
+A real provider can still owe `close_notify`, which this fail-closed radio
+teardown intentionally cannot send. The corrected test verifies closed
+underlying byte streams and refused application-frame writes, rather than
+claiming a graceful TLS close occurred.
