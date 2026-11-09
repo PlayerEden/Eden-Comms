@@ -78,7 +78,7 @@ class F4VNearbyFloorLiveVoice(unittest.TestCase):
             "finishStream?.invoke()", "cancelFloor?.invoke()",
             "fun floorGranted()", "fun floorDenied()",
             "DebugLanVoiceFloor.Ask.PENDING",
-            "Talk channel busy", "Mic remains OFF", "audio.cancelAll()",
+            "Talk channel busy", "mic remained OFF", "audio.cancelAll()",
         ):
             self.assertIn(good, self.owner, good)
         self.assertNotIn("audio.startCapture(", self.owner)
