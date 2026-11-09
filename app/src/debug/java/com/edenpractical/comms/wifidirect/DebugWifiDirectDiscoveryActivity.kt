@@ -297,6 +297,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                 active, DebugWifiDirectDiscoveryGate.End.STOP_BUTTON,
                 "Discovery stopped for one explicitly requested UNVERIFIED link test."
             )
+            var ownedController: DebugWifiDirectTargetLinkController? = null
             val controller = DebugWifiDirectTargetLinkController(
                 context = this,
                 readyAndForeground = {
@@ -326,12 +327,14 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         DebugBluetoothApprovedTextChannel.Event.Ready ->
                             localVoice.activate(
                                 canContinue = {
-                                    foreground && targetController === controller &&
+                                    foreground && targetController === ownedController &&
                                         verifiedChat.phase ==
                                             DebugWifiDirectApprovedTcpSession.Phase.CHAT &&
                                         prerequisites()
                                 },
-                                offer = { pcm -> controller.offerVerifiedVoiceClip(pcm) }
+                                offer = { pcm ->
+                                    ownedController?.offerVerifiedVoiceClip(pcm) == true
+                                }
                             )
                         is DebugBluetoothApprovedTextChannel.Event.VoiceReceived ->
                             localVoice.receiveEncryptedVoice(event.pcm)
@@ -344,6 +347,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     localPrivacy.openVerified(self, peer)
                 }
             )
+            ownedController = controller
             targetController = controller
             if (!controller.startSelected(selectedDevice, verifiedQrPrepared = true)) {
                 targetController = null
