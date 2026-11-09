@@ -123,6 +123,7 @@ class DebugBluetoothDiscoveryActivity : ComponentActivity() {
                     ackedChatIds = emptySet()
                     localPrivacy.close()
                     localVoice.disable()
+                    qaEvidence.end()
                     // No reusable QR or anonymous radio candidate on retry:
                     // restart the actual two-phone flow with fresh codes.
                     qrCoordinator.clear()
