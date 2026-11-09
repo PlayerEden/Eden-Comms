@@ -159,36 +159,53 @@ queue attempts preserve the draft and report failure. No emulator,
 TalkBack, actual two-phone or independent crypto acceptance.
 [M6-E source audit](M6_E_TEXT_COMPOSER_ACK_RECOVERY_AUDIT.md).
 
-## Active source milestone — M6-F keyboard/capture/retry-state polish
+## Completed source checkpoint — M6-F keyboard/privacy recovery
 
-Branch `feature/m6-f-conversation-ime-privacy-recovery-2026-11-09`.
-[Source audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md).
+[PR #158](https://github.com/PlayerEden/Eden-Comms/pull/158) merged as
+`ef155509e55125be11eef7e75c864c39594d29c6`.
+[Exact PR-head Android/JVM/Python/security CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42702688134);
+[independent merged-main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42702975134).
+All three actual Bluetooth/P2P debug conversation pages gained
+keyboard/system-bar insets and debug-only `adjustResize`, the shared
+verified shell hides keyboard/focus before Talk or Disconnect,
+Bluetooth QR/chat requests best-effort screenshot protection,
+and stale Bluetooth queue feedback clears on STOPPED/Ready.
+No actual Android emulator/phone/TalkBack/privacy or crypto acceptance.
+[M6-F source audit](M6_F_NEARBY_IME_CAPTURE_RECOVERY_AUDIT.md).
 
-- All three real Bluetooth/P2P debug connection screens now give
-  keyboard/system-bar inset space **before** the outer vertical scroll.
-  Debug-only manifest requests `adjustResize` for these screens.
-- Verified Text → Talk and Disconnect hide the text keyboard and clear
-  focus, while existing Talk → Text floor cancellation remains intact.
-- Bluetooth's QR/chat debug Activity requests `FLAG_SECURE` before
-  displaying pairing material, matching Wi-Fi Direct. This is best
-  effort OS screenshot/Recents protection, not full privacy assurance.
-- Bluetooth's old queued/rejected label clears on STOPPED and fresh
-  verified Ready; reconnect still needs new QR/TLS/dual human consent.
-- Source regression checks added for insets, keyboard focus, manifest,
-  screenshot flag, reset and release capabilities. Source changes do
-  not claim any emulator/manual visual or actual two-device QA.
+## Active source milestone — M6-G observed failure recovery
+
+Branch `feature/m6-g-failure-recovery-guidance-2026-11-09`.
+[Source audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
+
+- Read-only debug nearby recovery guidance is shown **only after real**
+  Bluetooth link STOPPED, Wi-Fi Direct host group stopped/cleaning or
+  stopped authenticated chat, or Wi-Fi Direct join discovery/verified
+  session stopped. Permission and radio-loss hints come from local
+  actual state, not invented network/peer reports.
+- Host `CLEANING` never claims group removal. Real
+  `CLEANUP_UNCONFIRMED` requests an explicit Android Wi-Fi Direct
+  settings check, not another blind connect. Fresh QR/TLS and two
+  human approvals remain required for all attempts.
+- New **explicit** Wi-Fi Direct host/search attempts clear the
+  previous STOPPED/queue/draft/ACK RAM UI and begin in unverified IDLE.
+  Only the real approved-channel Ready event can establish chat;
+  no auto-retry, remembered peer shortcut or restored authority.
+- JVM/pure-copy and P2P new-attempt tests plus Python
+  observed-state/source boundary checks added. Physical QA remains
+  deferred to the single consolidated acceptance matrix.
 
 ## Next priorities
 
-1. Obtain final-head M6-F Android/JVM/Python/security CI green, merge PR,
-   then independently verify the merged `main` commit.
-2. Run real emulator UI/IME/large-font/landscape checks when accessible,
-   noting the existing manual emulator workflow only covers disconnected
-   scenes/local sandbox; don't fake a connected-session screenshot.
-3. Do **one consolidated two-phone** run with the
-   [M6-F C07/C11/C12/C16 addendum](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   when devices are available. Obtain independent crypto/backup/
-   privacy/accessibility review before enabling release `CAN_*` flags.
+1. Run M6-G exact PR-head Android debug build/JVM/Python/security CI.
+   Merge only green final SHA and separately verify merged-main CI.
+2. Finish actual emulator/keyboard/200%-font and TalkBack QA when
+   available. Current manual emulator workflow covers only disconnected
+   states; no fake verified screenshot.
+3. Run **one** consolidated two-phone acceptance including
+   [M6-F keyboard and M6-G recovery addenda](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   when devices are available. Obtain independent crypto/storage/
+   backup/privacy and accessibility review before release.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
