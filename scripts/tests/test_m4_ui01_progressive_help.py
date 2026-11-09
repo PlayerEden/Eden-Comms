@@ -57,7 +57,7 @@ class M4Ui01ProgressiveHelp(unittest.TestCase):
             "NearbyDiscoveryPolicy.privacyStep",
         ):
             self.assertIn(s, self.main, s)
-        self.assertIn('summary = "Local disappearance works; encrypted opt-in history is in debug LAN chat only. Remembered peers remain unavailable."', self.main)
+        self.assertIn('summary = "Live LAN chat offers separate optional encrypted history and remembered public peer identity in DEBUG only. No auto-pairing."', self.main)
 
     def test_pairing_buttons_first_not_technical_signer_identifiers(self):
         section = self.pairing.split('Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {', 1)[1]
