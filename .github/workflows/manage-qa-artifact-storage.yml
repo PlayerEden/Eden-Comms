@@ -26,6 +26,7 @@ jobs:
       - name: Safely review or remove obsolete routine QA artifacts
         shell: bash
         run: |
+          python3 - <<'PY'
           import datetime
           import json
           import os
@@ -105,3 +106,4 @@ jobs:
               if failed:
                   raise SystemExit(str(failed) + " artifact deletions failed")
               print("Deleted", len(candidates), "old routine artifacts.")
+          PY
