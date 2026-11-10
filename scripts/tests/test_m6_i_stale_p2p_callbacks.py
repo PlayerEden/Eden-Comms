@@ -133,7 +133,6 @@ class M6IStaleP2pCallbacks(unittest.TestCase):
         ):
             self.assertIn(good, self.session, good)
         self.assertIn("audio.cancelAll()", self.audio)
-        self.assertIn("if (targetController !== ownedController)", self.ui) if False else None
         for flag in ("CAN_CONNECT", "CAN_SEND_MESSAGES", "CAN_TRANSMIT_VOICE"):
             self.assertIn(f"const val {flag} = false", self.flags)
 
