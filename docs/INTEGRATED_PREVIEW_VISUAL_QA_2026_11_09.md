@@ -51,6 +51,36 @@ those broken visual navigation assertions.
   real end-to-end test card rather than outdated Bluetooth
   diagnostic instructions.
 
+## First real integrated run — build PASS, visual harness blocked
+
+- [PR #162](https://github.com/PlayerEden/Eden-Comms/pull/162)
+  merged as `b25128017fd83bb35757d0d992f84d81262dd56e`.
+  Exact final PR-head CI PASS:
+  [42739102672](https://github.com/PlayerEden/Eden-Comms/actions/runs/42739102672);
+  independent merged-main Android CI PASS:
+  [42739390819](https://github.com/PlayerEden/Eden-Comms/actions/runs/42739390819).
+- [First integrated Preview run 42739390527](https://github.com/PlayerEden/Eden-Comms/actions/runs/42739390527):
+  its **installable Preview APK build PASSED**, versionCode
+  **200010**, source `b251280`, isolated package
+  `com.edenpractical.comms.preview`, audited pinned public
+  development signer. The 17 MB APK was actually created.
+- Its **emulator visual job FAILED BEFORE INSTALL**. The
+  `reactivecircus/android-emulator-runner@v2` action executes
+  each `script:` line in a separate shell. The original
+  block first set `apk=...` in one line, then used
+  `test -s "$apk"` on the next, when `apk` had already
+  been lost. The action's log shows the failing `test`
+  and NO driver execution; **zero screenshot evidence** and
+  zero real Android UI assessment. This is a harness
+  execution bug, not evidence that app navigation failed.
+- Narrow recovery: invoke `python3 scripts/emulator_visual_qa.py`
+  in **one single `script:` command**, resolving the
+  downloaded same-run APK path inline. Added a Python
+  source regression to prevent future per-line shell
+  variable assumptions. A new signed Preview and emulator
+  screenshot run must be actually checked; no claim of
+  visual PASS before it is observed.
+
 ## Screenshot review rubric — inspect the real PNGs
 
 The emulator workflow's PASS only establishes that required UI labels
