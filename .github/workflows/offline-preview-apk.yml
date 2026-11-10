@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/offline-preview-apk.yml'
+      - 'scripts/emulator_visual_qa.py'
 
 permissions:
   contents: read
