@@ -273,6 +273,7 @@ def run(apk, output):
 
 
 def main():
+    global PACKAGE, ACTIVITY
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apk", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
@@ -282,7 +283,6 @@ def main():
     opts = parser.parse_args()
     # Only these two exact in-repo application IDs are accepted; ADB still
     # refuses physical devices before any install or screen interaction.
-    global PACKAGE, ACTIVITY
     PACKAGE = opts.package
     ACTIVITY = PACKAGE + "/.MainActivity"
     if not opts.apk.is_file():
