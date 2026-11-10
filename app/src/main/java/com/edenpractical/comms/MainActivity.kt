@@ -246,10 +246,17 @@ private fun EdenCommsApp() {
                 ) {
                     val compact = maxHeight < 650.dp
                     key(page) {
+                        // A first-visit hint: only Home shows this, and only
+                        // when content really extends beneath the viewport.
+                        // A normal swipe dismisses it; returning to the top
+                        // shows it again if the page still overflows.
+                        val pageScroll = rememberScrollState()
+                        val scrollScope = rememberCoroutineScope()
+                        val cueStepPx = with(LocalDensity.current) { 240.dp.roundToPx() }
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                                .verticalScroll(pageScroll)
                                 .padding(horizontal = 20.dp, vertical = if (compact) 10.dp else 16.dp),
                             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 13.dp)
                         ) {
@@ -350,6 +357,48 @@ private fun EdenCommsApp() {
                             )
                         }
                             Spacer(Modifier.height(if (compact) 2.dp else 6.dp))
+                        }
+                        if (page == "home" &&
+                            pageScroll.canScrollForward &&
+                            pageScroll.value < 12
+                        ) {
+                            // Overlay the scrolling content, not the header or
+                            // system navigation. Never imply a second page or
+                            // show a prompt when the whole Home already fits.
+                            val cueShape = RoundedCornerShape(24.dp)
+                            TextButton(
+                                onClick = {
+                                    scrollScope.launch {
+                                        pageScroll.animateScrollTo(
+                                            (pageScroll.value + cueStepPx)
+                                                .coerceAtMost(pageScroll.maxValue)
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 8.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                                        cueShape
+                                    )
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                        cueShape
+                                    )
+                                    .heightIn(min = 48.dp),
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text(
+                                    "↓  SCROLL FOR MORE",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                         }
                     }
                 }
