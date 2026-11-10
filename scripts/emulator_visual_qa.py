@@ -215,7 +215,7 @@ def run(apk, output):
         back()  # Pairing -> method chooser
         back()  # Method chooser -> Home
         tap("How it works", scroll=True)
-        report["screens"].append(capture(output, "04-help", ["Connect. Talk. Done."]))
+        report["screens"].append(capture(output, "04-help", ["Connect. Text or talk. Disconnect."]))
         back()
         tap("Settings", scroll=True)
         report["screens"].append(capture(output, "05-settings", ["Dark appearance"]))
