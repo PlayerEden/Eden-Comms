@@ -314,10 +314,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     foreground && registered && prerequisites()
                 },
                 onReport = { message ->
-                    if (targetController === ownedController) targetNotice = message
+                    if (DebugWifiDirectCallbackFence.owns(targetController, ownedController)) targetNotice = message
                 },
                 onFinished = oldFinished@{
-                    if (targetController !== ownedController) return@oldFinished
+                    if (!DebugWifiDirectCallbackFence.owns(targetController, ownedController)) return@oldFinished
                     targetController = null
                     verifiedChat.clear()
                     localPrivacy.close()
@@ -326,7 +326,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     targetNotice += " Fresh QR and discovery required for another session."
                 },
                 onVerifiedStatus = currentStatus@{ phase, message ->
-                    if (targetController !== ownedController) return@currentStatus
+                    if (!DebugWifiDirectCallbackFence.owns(targetController, ownedController)) return@currentStatus
                     verifiedChat.status(phase, message)
                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                         localPrivacy.close()
@@ -335,10 +335,10 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     }
                 },
                 onVerifiedApproval = {
-                    if (targetController === ownedController) verifiedChat.approval(it)
+                    if (DebugWifiDirectCallbackFence.owns(targetController, ownedController)) verifiedChat.approval(it)
                 },
                 onVerifiedText = currentText@{ event ->
-                    if (targetController !== ownedController) return@currentText
+                    if (!DebugWifiDirectCallbackFence.owns(targetController, ownedController)) return@currentText
                     verifiedChat.event(event)
                     localPrivacy.receiveEncryptedEvent(event)
                     qaEvidence.observe(event)
@@ -346,7 +346,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         DebugBluetoothApprovedTextChannel.Event.Ready ->
                             localVoice.activate(
                                 canContinue = {
-                                    foreground && targetController === ownedController &&
+                                    foreground && DebugWifiDirectCallbackFence.owns(targetController, ownedController) &&
                                         verifiedChat.phase ==
                                             DebugWifiDirectApprovedTcpSession.Phase.CHAT &&
                                         prerequisites()
@@ -382,7 +382,7 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     }
                 },
                 onApprovedIdentity = currentIdentity@{ self, peer ->
-                    if (targetController !== ownedController) return@currentIdentity
+                    if (!DebugWifiDirectCallbackFence.owns(targetController, ownedController)) return@currentIdentity
                     localPrivacy.openVerified(self, peer)
                 }
             )
