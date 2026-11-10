@@ -4,6 +4,53 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — Integrated full-function Preview and real visual QA
+
+**Owner direction:** Prioritize a single usable, inspectable Android app
+over repeated small M6 edge-case milestones. Base `main`:
+`dd0366f966ffe419dda45b78631eb9cb71525725`
+([M6-I PR CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42725506431),
+[main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42725798742)).
+**Branch:** `feature/integrated-preview-and-emulator-visual-2026-11-09`.
+
+**Finding:** The existing real debug transport source already
+implements LAN, Bluetooth and Wi-Fi Direct verified TEXT/ACK,
+short live PTT and one explicit Connect route. But no actual
+Android emulator visual screenshots had been accepted, and the
+M4-UI07 driver incorrectly expected Home → Wi-Fi QR without
+the new three-method chooser, a retired `COMING SOON`
+Voice route, and stale Help copy. A CI-only source checkpoint
+was misleadingly close to being called “done.”
+
+**Implementation:** Updated existing safe emulator driver to
+follow Home → three-method chooser → Same-Wi-Fi idle QR and
+return correctly, and Voice → chooser with real Help copy.
+Bound its package argument strictly to the normal debug or
+`.preview` application ID; retain ADB emulator-only guard,
+no QR/identities/peer/radio/audio or secret evidence. Added
+`integrated-visual` job to existing installable Preview
+workflow, downloading **the exact signed Preview APK** from
+its own build job, installing it in Pixel 5 Android 35 and
+uploading actual PNGs + sanitized summary. Includes
+portrait/compact/large-font/landscape/keyboard/screens.
+Updated bundled first-use guide to reflect all three
+actual paths and no premature message-read/remote-audibility
+claims. Added Python integration assertions and
+[full audit](INTEGRATED_PREVIEW_VISUAL_QA_2026_11_09.md).
+
+**Verification state:** Exact PR CI, separate main CI, signed
+Preview APK artifact, emulator screenshots and owner
+on-handset acceptance **pending**. No device screenshot,
+real audio, QR camera, text ACK, 2-phone reachability or
+independent security assessment has been represented as
+completed. Production `CAN_*` remain FALSE.
+
+**Next:** run source CI, merge if green, use automatic main
+Preview+visual run to inspect the actual APK. If emulator
+navigation fails, repair real test / app and run again.
+Offer the single test APK and clear owner first-impression
+steps before planning another code mini-milestone.
+
 ## 2026-11-09 — M6-I: fence real Wi-Fi Direct delayed callback teardown
 
 **Base:** M6-H `main` `cbbd61b95e1431392ff435bd182aa8b8324a675d`.

@@ -151,10 +151,11 @@ jobs:
           echo "verify promptly stopped microphone indicator and no stale audio." >> "$GITHUB_STEP_SUMMARY"
           echo "A nonblocking 450 ms microphone stall cutoff may clip on some OEMs;" >> "$GITHUB_STEP_SUMMARY"
           echo "compare actual audible speech A to B and B to A, not just UI counts." >> "$GITHUB_STEP_SUMMARY"
-          echo "F2-P BLUETOOTH DIAGNOSTIC CHECK: QR/TLS verification + both approvals;" >> "$GITHUB_STEP_SUMMARY"
-          echo "a consent tap after its 25-second timeout must not be accepted." >> "$GITHUB_STEP_SUMMARY"
-          echo "The Bluetooth diagnostic still CLOSES its socket; there is NO chat." >> "$GITHUB_STEP_SUMMARY"
-          echo "No physical audio/latency/security acceptance. Never use for emergencies." >> "$GITHUB_STEP_SUMMARY"
+          echo "INTEGRATED TEST BUILD: Home -> Connect Nearby -> Same Wi-Fi / Bluetooth /" >> "$GITHUB_STEP_SUMMARY"
+          echo "Wi-Fi Direct -> fresh QR + mutual approval -> actual Text / Talk -> Disconnect." >> "$GITHUB_STEP_SUMMARY"
+          echo "All three debug paths use real approved TLS text/ACK and short foreground voice." >> "$GITHUB_STEP_SUMMARY"
+          echo "No phone-to-phone device acceptance or independent security review yet." >> "$GITHUB_STEP_SUMMARY"
+          echo "Never use public-test-signed builds for sensitive or emergency messages." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload installable Preview APK
         uses: actions/upload-artifact@v4
@@ -172,3 +173,48 @@ jobs:
       - name: Remove public test key material from runner
         if: always()
         run: rm -rf "$RUNNER_TEMP/eden-public-preview"
+
+  integrated-visual:
+    name: Inspect actual installable Preview UI on Android emulator
+    needs: build-preview
+    if: github.repository == 'PlayerEden/Eden-Comms' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download the SAME final installable Preview APK
+        uses: actions/download-artifact@v4
+        with:
+          pattern: eden-comms-offline-preview-*-${{ github.sha }}
+          path: visual-preview
+          merge-multiple: true
+      - name: Enable hardware accelerated emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capture real Home, method chooser, LAN idle, Help, Settings, privacy and accessible layouts
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: |
+            apk="$(find visual-preview -maxdepth 1 -type f -name 'eden-comms-preview-*.apk' -print -quit)"
+            test -s "$apk"
+            python3 scripts/emulator_visual_qa.py --apk "$apk" --package com.edenpractical.comms.preview --out qa-results/integrated-preview
+      - name: Publish real emulator screenshot evidence (never live peer data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eden-comms-integrated-visual-${{ github.sha }}
+          path: |
+            qa-results/integrated-preview/*.png
+            qa-results/integrated-preview/summary.json
+          if-no-files-found: warn
+          retention-days: 14
