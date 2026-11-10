@@ -39,7 +39,7 @@ class ManualEmulatorHarnessContract(unittest.TestCase):
         for good in ("reactivecircus/android-emulator-runner@v2",
                      "scripts/check_security_review_boundary.sh",
                      "scripts/check_preview_permissions.sh",
-                     "scripts/audit_apk_identity.py", "retention-days: 7"):
+                     "scripts/audit_apk_identity.py", "retention-days: 3"):
             self.assertIn(good, s)
 
     def test_safe_routes_only_and_physical_device_guard(self):
