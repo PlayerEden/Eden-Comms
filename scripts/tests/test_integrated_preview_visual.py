@@ -51,13 +51,26 @@ class IntegratedPreviewVisual(unittest.TestCase):
                 'if find(root, "No usable Wi-Fi connection found")',
             'ro.kernel.qemu',
             'choices=(\n        "com.edenpractical.comms", "com.edenpractical.comms.preview"',
-        'ACTIVITY = PACKAGE + "/.MainActivity"',
+        'ACTIVITY = PACKAGE + "/com.edenpractical.comms.MainActivity"',
         'report["result"] = "FAILED"',
         'report["failure_type"] = type(exc).__name__',
         'png_evidence(png)',
         'report["screens"]',
         ):
             self.assertIn(required, s, required)
+        # applicationIdSuffix changes the APK identity, not Kotlin class name.
+        # The original .MainActivity shortcut points to a non-existent
+        # com.edenpractical.comms.preview.MainActivity at runtime.
+        self.assertEqual(
+            s.count('ACTIVITY = PACKAGE + "/com.edenpractical.comms.MainActivity"'),
+            2,
+        )
+        self.assertNotIn('ACTIVITY = PACKAGE + "/.MainActivity"', s)
+        gradle = (ROOT / "app/build.gradle.kts").read_text()
+        manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
+        self.assertIn('namespace = "com.edenpractical.comms"', gradle)
+        self.assertIn('applicationIdSuffix = ".preview"', gradle)
+        self.assertIn('android:name=".MainActivity"', manifest)
         self.assertNotIn('["COMING SOON"]', s)
         for forbidden in (
             'tap("Show a code")', 'tap("Scan a code")',
