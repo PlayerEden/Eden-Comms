@@ -4,6 +4,47 @@ This sheet accompanies the **development-only** APK downloaded from the
 official `PlayerEden/Eden-Comms` GitHub Actions Preview workflow. This is
 NOT a reviewed secure messenger. Use only harmless sample text.
 
+## Current integrated app — first five minutes
+
+**One actual development app, not three disconnected demo screens.** Use
+harmless test phrases only. The APK is unreviewed, signed with a public
+development key, and **not safe for sensitive or emergency use**.
+
+1. **Open Home → CONNECT NEARBY.** This goes to the **connection-method
+   chooser**, not directly to a QR screen. The Home Text and Voice / PTT
+   shortcuts also require a connection first; neither starts a microphone
+   or grants access by itself.
+2. **Choose one method on both phones:**
+   - **Same Wi-Fi:** easiest first check; both phones on the same local
+     network. Tap **USE SAME WI-FI**, then follow **Show a code** on
+     Phone A and **Scan a code** on Phone B, including reciprocal QR.
+   - **Bluetooth Classic:** tap **USE BLUETOOTH** on each device and
+     follow the fresh two-code setup, radio Host/Join and verification.
+   - **Wi-Fi Direct:** tap **USE WI-FI DIRECT**, complete Android
+     support/permission preflight, choose Host/Join, then the three QR
+     stages and exact Android Wi-Fi Direct link setup. No router needed.
+3. **On both phones independently approve** only after actual QR +
+   pinned TLS checks. A visible QR or radio scan is **not** an
+   authenticated conversation. The final encrypted confirmations must
+   finish before Text or Talk becomes available.
+4. In the **real connected conversation**, send a harmless message in
+   each direction and check local **written** vs **other app ACK**
+   separately. Then use **Talk** in each direction, release, and tap
+   **DISCONNECT THIS TEST SESSION**. Do not interpret an app ACK as a
+   human read receipt or a voice-written indicator as heard audio.
+5. After disconnect, confirm the old connection is no longer active and
+   that a new in-person QR exchange and approvals are required. Test
+   one connection method at a time. Report whether each stage
+   succeeded or was blocked; don't record QR/pins/messages/voice.
+
+**What a one-phone visual review can prove:** actual Home and method
+chooser navigation, portrait/landscape/large-font layout, offline
+pairing guidance, Settings, privacy, keyboard and app installation.
+**What it cannot prove:** two phones exchanging encrypted text/ACK,
+a Bluetooth or Wi-Fi Direct radio link, remote audible microphone/
+speaker behavior or an independent security audit. The separate
+emulator visual check never claims to be a connected session.
+
 ## Install/update (Android)
 
 - Extract the ZIP under **Artifacts**; tap `eden-comms-preview-<code>.apk`.
@@ -24,12 +65,15 @@ NOT a reviewed secure messenger. Use only harmless sample text.
 1. Open **Eden Comms Preview** and look through Home, Connect Nearby,
    Settings and Developer Tools. Confirm app navigation, font sizes,
    and scrolling work in portrait and landscape.
-2. Open **Voice / PTT → Try local microphone and speaker**.
-   Grant microphone permission only for this local test. Record a harmless
-   sample, stop, and play it back **on the same phone**. This is NOT remote voice.
-3. On Connect Nearby, verify the **Show code** and **Scan code** flow is
-   understandable. A real peer is required to complete it. Don't treat
-   a code or Bluetooth/Wi-Fi Direct detection as an authenticated partner.
+2. Tap **CONNECT NEARBY**; check that all three real connection
+   methods appear. Tap **USE SAME WI-FI** to inspect the idle QR
+   guidance without creating an identity or trying to connect.
+   Return to Home; Text and Voice / PTT are routes to this same
+   chooser until a real mutual-approval session exists.
+3. Visit **Settings → Device and developer tools → Text layout sandbox**
+   to inspect a **local-only** chat layout and keyboard. This sandbox
+   is NOT a live remote conversation. Avoid granting radio or mic
+   permissions during a purely visual review.
 4. Check the installed version/source information under advanced build
    details, and report the build code if something goes wrong.
 
@@ -337,10 +381,11 @@ Keep all release communications capabilities disabled.
 Do not paste peer QRs, private keys, actual message content, IPs, raw
 certificates or personally identifying device details into an issue.
 
-**Still experimental:** LAN voice and collision behavior need actual two-phone
-QA and an independent security review; actual Bluetooth and Wi-Fi Direct messaging,
-long-running/background radio use, public release and production credentials
-remain unfinished.
+**Still experimental:** LAN, Bluetooth and Wi-Fi Direct already have
+actual debug-only encrypted text/ACK and short foreground voice paths
+wired in source. Their two-phone radio and audio behavior remain
+**unverified on real devices**, and all require independent security
+review before production release. No background sessions are promised.
 
 See the canonical [two-phone field test issue #26](https://github.com/PlayerEden/Eden-Comms/issues/26)
 and [debug LAN usability notes](F0_LAN_CHAT_TEST_USABILITY_2026_11_08.md).
