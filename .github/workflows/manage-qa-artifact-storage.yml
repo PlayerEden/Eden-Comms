@@ -1,0 +1,107 @@
+name: Manage old QA artifacts (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Preview candidates first; delete only when selected'
+        type: choice
+        required: true
+        default: dry-run
+        options:
+          - dry-run
+          - delete-obsolete
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  review-or-prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CLEANUP_MODE: ${{ inputs.mode }}
+    steps:
+      - name: Safely review or remove obsolete routine QA artifacts
+        shell: bash
+        run: |
+          import datetime
+          import json
+          import os
+          import re
+          import urllib.request
+          
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GH_TOKEN"]
+          mode = os.environ.get("CLEANUP_MODE", "dry-run")
+          if mode not in ("dry-run", "delete-obsolete"):
+              raise SystemExit("Unrecognized cleanup mode")
+          
+          headers = {
+              "Authorization": "Bearer " + token,
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          def api(path, method="GET"):
+              url = "https://api.github.com/" + path
+              request = urllib.request.Request(url, headers=headers, method=method)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response) if method == "GET" else None
+          
+          found = []
+          for page in range(1, 51):
+              result = api("repos/" + repo + "/actions/artifacts?per_page=100&page=" + str(page))
+              batch = result.get("artifacts", [])
+              found.extend(batch)
+              if len(batch) < 100:
+                  break
+          
+          found.sort(key=lambda a: a["created_at"], reverse=True)
+          now = datetime.datetime.now(datetime.timezone.utc)
+          cutoff = now - datetime.timedelta(days=7)
+          important = re.compile(r"signed|certificate|pinned|milestone|rollback|stable|production|release", re.I)
+          routine = re.compile(r"qa|preview|debug|test|audit|emulator|screenshot|report|apk|build|visual|art", re.I)
+          def normal_name(name):
+              name = re.sub(r"[0-9a-f]{8,40}", "<sha>", name.lower())
+              return re.sub(r"\d+", "#", name)
+          
+          seen = set()
+          candidates = []
+          kept = 0
+          for index, art in enumerate(found):
+              group = normal_name(art["name"])
+              created = datetime.datetime.fromisoformat(art["created_at"].replace("Z", "+00:00"))
+              keep_one_of_kind = group not in seen
+              seen.add(group)
+              safe = (index < 10 or created >= cutoff or important.search(art["name"])
+                      or not routine.search(art["name"]) or keep_one_of_kind)
+              if safe:
+                  kept += 1
+                  continue
+              candidates.append(art)
+          
+          candidates = candidates[:75]
+          mebibytes = sum(a["size_in_bytes"] for a in candidates) / 1048576
+          print("Repository:", repo)
+          print("Artifacts found:", len(found))
+          print("Protected/kept:", kept)
+          print("Eligible old routine artifacts:", len(candidates))
+          print("Potential space recovered: %.1f MiB" % mebibytes)
+          for a in candidates:
+              print("CANDIDATE", a["id"], a["created_at"], a["name"],
+                    "%.1f MiB" % (a["size_in_bytes"] / 1048576))
+          if mode == "dry-run":
+              print("DRY RUN ONLY: no artifacts were removed.")
+          else:
+              failed = 0
+              for a in candidates:
+                  try:
+                      api("repos/" + repo + "/actions/artifacts/" + str(a["id"]), method="DELETE")
+                      print("DELETED", a["id"], a["name"])
+                  except Exception as exc:
+                      failed += 1
+                      print("DELETE FAILED", a["id"], type(exc).__name__, str(exc))
+              if failed:
+                  raise SystemExit(str(failed) + " artifact deletions failed")
+              print("Deleted", len(candidates), "old routine artifacts.")
