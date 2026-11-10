@@ -445,10 +445,15 @@ internal class DebugWifiDirectTargetLinkController(
         request: DebugBluetoothTlsProbeInput,
         message: String
     ) {
-        if (current !== token ||
-            pendingVerifiedRequest !== request ||
-            verifiedSession != null ||
-            gate.snapshot().phase != DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED
+        if (!DebugWifiDirectCallbackFence.mayFailPending(
+                current = current,
+                expected = token,
+                pendingRequest = pendingVerifiedRequest,
+                expectedRequest = request,
+                groupObserved = gate.snapshot().phase ==
+                    DebugWifiDirectTargetLinkGate.Phase.GROUP_OBSERVED,
+                verifiedSessionPresent = verifiedSession != null
+            )
         ) return
         pendingVerifiedRequest = null
         request.close()
