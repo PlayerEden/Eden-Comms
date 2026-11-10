@@ -204,10 +204,10 @@ jobs:
           profile: pixel_5
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
-          script: |
-            apk="$(find visual-preview -maxdepth 1 -type f -name 'eden-comms-preview-*.apk' -print -quit)"
-            test -s "$apk"
-            python3 scripts/emulator_visual_qa.py --apk "$apk" --package com.edenpractical.comms.preview --out qa-results/integrated-preview
+          # Emulator runner invokes each script line in a separate shell.
+          # Resolve the artifact path in ONE command; do not carry a
+          # shell variable from a previous line (initial run failed there).
+          script: python3 scripts/emulator_visual_qa.py --apk "$(find visual-preview -maxdepth 1 -type f -name 'eden-comms-preview-*.apk' -print -quit)" --package com.edenpractical.comms.preview --out qa-results/integrated-preview
       - name: Publish real emulator screenshot evidence (never live peer data)
         if: always()
         uses: actions/upload-artifact@v4
