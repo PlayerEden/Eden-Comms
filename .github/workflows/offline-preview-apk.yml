@@ -16,6 +16,8 @@ on:
     paths:
       - '.github/workflows/offline-preview-apk.yml'
       - 'scripts/emulator_visual_qa.py'
+      # Owner-requested Home visual changes should produce a testable APK.
+      - 'app/src/main/java/com/edenpractical/comms/MainActivity.kt'
 
 permissions:
   contents: read
