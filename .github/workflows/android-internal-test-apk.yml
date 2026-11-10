@@ -111,4 +111,4 @@ jobs:
             app/build/play-evidence/internal-test/launch-surface.md
             app/build/play-evidence/internal-test/releaseRuntimeClasspath.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7

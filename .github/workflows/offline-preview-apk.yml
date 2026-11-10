@@ -169,7 +169,7 @@ jobs:
             dist/evidence/apk-identity.md
             dist/START-HERE-TEST.md
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Remove public test key material from runner
         if: always()
@@ -218,4 +218,4 @@ jobs:
             qa-results/integrated-preview/*.png
             qa-results/integrated-preview/summary.json
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 2

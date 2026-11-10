@@ -89,4 +89,4 @@ jobs:
             app/build/play-evidence/apk-identity.md
             app/build/play-evidence/releaseRuntimeClasspath.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
