@@ -4,6 +4,31 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-10 — First owner visual feedback: Home needs scroll discoverability
+
+**Evidence:** Owner opened the actual integrated Android Preview on phone
+and shared two dark-theme Home screenshots. Home, Connect Nearby, Text
+and Voice/PTT tiles are legible, but Settings and How it works sit
+below the viewport without a visual indication that the page scrolls.
+This is an actual observed usability issue, not a speculative
+networking edge case.
+
+**Source fix:** The existing Home Compose vertical scroll uses a retained
+`ScrollState` and renders a small olive-accented, 48dp-minimum
+`↓ SCROLL FOR MORE` action anchored at the viewport bottom only while
+more content exists below and the user is still at the top. Tapping
+scrolls 240dp (bounded to actual content); a swipe dismisses it.
+It is absent when the page already fits or on any non-Home route.
+The fixed header, buttons and communication/security code stay
+unchanged. Source regression covers conditional visibility,
+bounded action, production flag separation and rebuilding the
+installable Preview from changes to the real Home source.
+
+**Acceptance:** Android compile/CI + a fresh signed Preview still required
+before calling this visually verified. Phone screenshot feedback
+supports the need for this fix, **not** the appearance of the
+uninstalled revision. Two-phone/security acceptance still NOT RUN.
+
 ## 2026-11-09 — Integrated full-function Preview and real visual QA
 
 **Owner direction:** Prioritize a single usable, inspectable Android app
