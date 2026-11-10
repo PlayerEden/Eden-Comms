@@ -115,7 +115,7 @@ class M6IStaleP2pCallbacks(unittest.TestCase):
 
     def test_underlying_tls_and_voice_still_fail_closed(self):
         for good in (
-            "if (current === token && readyAndForeground()",
+            "current === token && readyAndForeground()",
             "if (current === token && verifiedSession === owned)",
             "pendingVerifiedRequest = request",
             "verifiedSession?.close()",
