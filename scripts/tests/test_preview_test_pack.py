@@ -31,7 +31,10 @@ class PreviewPackContract(unittest.TestCase):
         ):
             self.assertIn(phrase, guide)
         self.assertIn("NOT a", guide)
-        self.assertIn("actual Bluetooth and Wi-Fi Direct messaging", guide)
+        self.assertIn("actual debug-only encrypted text/ACK", guide)
+        self.assertIn("unverified on real devices", guide)
+        self.assertIn("Two-phone Bluetooth full debug conversation", guide)
+        self.assertNotIn("No Bluetooth text, voice or persistent trusted", guide)
         self.assertIn("not", guide.lower())
         self.assertNotIn("upload a key", guide.lower())
         self.assertNotIn("read receipt is guaranteed", guide.lower())
