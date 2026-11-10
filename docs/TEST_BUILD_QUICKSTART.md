@@ -344,23 +344,27 @@ two-person security property.
    speaker-start observation. Include Android version, the Preview build
    code, audible yes/no, and coarse pass/fail only; do not record speech.
 
-**Two-phone Bluetooth consent diagnostic (F2-P):**
+**Two-phone Bluetooth full debug conversation (current build):**
 
-1. Open the **guided Bluetooth connection test** on both phones. Exchange
-   fresh reciprocal QR codes, select the intended nearby candidate and
-   follow the real RFCOMM/TLS diagnostic. Do **not** treat a Bluetooth
-   device listing, system bond or visible QR as an authenticated peer.
-2. Where the diagnostic reaches the explicit consent prompt, let the
-   **25-second approval window** expire, then try the old Approve control.
-   It must not report that stale consent was accepted. Repeat after
-   deliberately declining, backgrounding or canceling the attempt.
-3. Start another fresh attempt and verify an in-window approval is
-   handled as a **test**; any successful diagnostic must still end and
-   **close Bluetooth**. No Bluetooth text, voice or persistent trusted
-   session is available in this build.
-4. Note the last **verified stage**, whether a timeout/decline was clean,
-   and both Android versions. Never share QR material, radio addresses,
-   certificate pins, or raw logs.
+1. On **both** phones choose **CONNECT NEARBY → USE BLUETOOTH**.
+   Exchange the two fresh in-person QR codes, choose the intended
+   Host/Join radio candidate and complete actual pinned TLS checks.
+   A device listing, Android system bond or scanned QR alone is
+   **not** a verified peer.
+2. **Both** people separately Approve before the expiration deadline
+   and wait for encrypted final confirmations. The current debug
+   implementation keeps the approved RFCOMM/TLS link for actual
+   test TEXT/peer-app ACK and short foreground PTT. Verify harmless
+   text and actual audible Talk **both directions**, then Disconnect.
+   Source/CI integration does not prove physical interoperability.
+3. As a **separate negative case**, start a fresh attempt, let the
+   time-limited approval expire, then tap the old Approve control.
+   The expired consent must not activate the chat or microphone.
+   Test denial, radio-off, app background, and restart with entirely
+   fresh QR and approvals; do not expect automatic reconnect.
+4. Record only which phase succeeded, Bluetooth support/Android
+   versions and coarse PASS/FAIL/BLOCKED. Do not share QR, pins,
+   radio addresses, actual test messages or spoken recordings.
 
 **Acceptance boundary:** Signed APK + green CI means a build artifact
 exists; it does **not** mean real Android microphone timing, Bluetooth
