@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 import zlib
 
 PACKAGE = "com.edenpractical.comms"
-ACTIVITY = PACKAGE + "/.MainActivity"
+ACTIVITY = PACKAGE + "/com.edenpractical.comms.MainActivity"
 EMULATOR = re.compile(r"emulator-\d+")
 BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 PNG = b"\x89PNG\r\n\x1a\n"
@@ -281,10 +281,7 @@ def main():
         "com.edenpractical.comms", "com.edenpractical.comms.preview"
     ), default=PACKAGE)
     opts = parser.parse_args()
-    # Only these two exact in-repo application IDs are accepted; ADB still
-    # refuses physical devices before any install or screen interaction.
-    PACKAGE = opts.package
-    ACTIVITY = PACKAGE + "/.MainActivity"
+    # The Preview APK changes the application ID, not the Kotlin Activity\n    # class package declared in the source manifest. The component must be\n    # preview-ID/com.edenpractical.comms.MainActivity (not preview-ID/.MainActivity).\n    # Only the two exact in-repo application IDs are allowed.\n    PACKAGE = opts.package\n    ACTIVITY = PACKAGE + "/com.edenpractical.comms.MainActivity"
     if not opts.apk.is_file():
         parser.error("APK missing")
     report = run(opts.apk.resolve(), opts.out.resolve())
