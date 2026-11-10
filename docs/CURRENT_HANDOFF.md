@@ -187,38 +187,57 @@ channel Ready. Physical QA/TalkBack, OEM cleanup and external crypto
 review still NOT RUN.
 [M6-G audit](M6_G_RECOVERY_GUIDANCE_AND_STATE_RESET_AUDIT.md).
 
-## Active source milestone — M6-H one-use P2P three-QR request
+## Completed source checkpoint — M6-H one-use P2P three-QR request
 
-Branch `feature/m6-h-one-use-p2p-qr-transport-2026-11-09`.
-[Source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md).
+[PR #160](https://github.com/PlayerEden/Eden-Comms/pull/160)
+merged as `cbbd61b95e1431392ff435bd182aa8b8324a675d`.
+[Exact-final-head PR Android/JVM/Python/security CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42707312560);
+[independent merged-main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42707691367).
+The Wi-Fi Direct QR coordinator now atomically claims a
+**single actual constructed pinned TLS request** per successful
+three-QR exchange. Duplicates are closed; only the existing
+explicit fresh QR exchange resets the use gate. Actual
+Bluetooth/P2P/LAN two-phone acceptance, microphone, real Android
+error behavior, and independent crypto/privacy review NOT RUN.
+[M6-H source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md).
 
-- Found a real gap: Wi-Fi Direct's documented **one-use**
-  three-QR TLS preparation could issue unlimited new transport
-  request objects from the same still-valid QR proof.
-- Added debug-only synchronized one-shot gate. Actual coordinator
-  checks it and **claims exactly once after a valid request is
-  constructed**, closes duplicate requests, and marks prepared
-  proof unavailable. Existing QR cleanup/new explicit exchange
-  resets the gate; socket failure or human refusal does not.
-- Host and Join use the original coordinator for the real
-  OS-selected group interface, mutual pinned TLS, QR/exporter,
-  bilateral approval and encrypted final confirmations.
-  No bypass or automatic retry. New copy tells users to
-  exchange all three codes again after a failure.
-- JVM repeated/concurrent claim tests and Python source
-  boundary checks added; no real hardware evidence claimed.
+## Active source milestone — M6-I interrupted callback isolation
+
+Branch `feature/m6-i-p2p-stale-callback-isolation-2026-11-09`.
+[Source audit](M6_I_P2P_INTERRUPTED_CALLBACK_ISOLATION_AUDIT.md).
+
+- Found actual **Wi-Fi Direct Join** callback lifecycle gaps:
+  delayed Android connection-info/group-info callbacks could close
+  the *current* pending QR request or report STOPPED without
+  matching the originating radio attempt and exact one-use proof.
+  Older controller callbacks could also overwrite newer
+  Activity-owned chat, voice, QR and optional privacy state.
+- Actual link owner now threads original token + request through
+  each of five failure/exception paths. It checks both identity
+  matches, observed group phase and lack of promoted TLS session
+  **before** closing the pending object or reporting STOPPED.
+- All six Activity owner callbacks (report, finish, verified
+  status/approval/text and public identity) are fenced to their
+  exact current `ownedController` identity. No old `onFinished`
+  may null out a replacement controller, and no old audio event
+  may re-activate voice on a fresh session.
+- `DebugWifiDirectCallbackFence` is pure identity-only policy
+  used by the actual owners, with JVM delayed-callback tests.
+  Python source tests check actual callback-site wiring and
+  production boundary. No connection authorization or hidden
+  reconnection introduced.
 
 ## Next priorities
 
-1. Run M6-H exact PR-head Android/JVM/Python/security CI;
-   merge only after success, independently verify merged-main CI.
-2. Preserve the [one consolidated two-phone test](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   to verify QR single use on failed host/join sessions as
-   well as existing text, voice, 200% font, background and
-   group-cleanup acceptance. **NOT RUN** on devices.
-3. Run manual emulator UI/TalkBack and independent crypto,
-   backup/storage deletion/privacy review before production
-   release. No `CAN_*` flags may be enabled from green CI alone.
+1. Pass M6-I exact PR-head Android debug/JVM/Python/security CI;
+   merge only the green SHA; independently verify postmerge main CI.
+2. Continue narrow **real source reliability** improvements if
+   new concrete flaws appear. Do not spin preview-only milestones.
+3. Run [one consolidated two-phone acceptance](TWO_PHONE_ACCEPTANCE_MATRIX.md)
+   including M6-H QR single use and M6-I interrupted callbacks
+   when devices are available. Manual emulator, TalkBack,
+   backup/storage/deletion, OEM cleanup and independent crypto
+   review still NOT RUN. Production release flags stay FALSE.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
