@@ -16,6 +16,7 @@ class IntegratedPreviewVisual(unittest.TestCase):
         w = WORKFLOW.read_text()
         self.assertIn("build-preview:", w)
         self.assertIn("integrated-visual:", w)
+        self.assertIn("- 'scripts/emulator_visual_qa.py'", w)
         self.assertIn("needs: build-preview", w)
         self.assertIn("actions/download-artifact@v4", w)
         self.assertIn("pattern: eden-comms-offline-preview-*-", w)
