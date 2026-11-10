@@ -160,6 +160,24 @@ material or actual messages into evidence. Code/JVM CI does not
 substitute for this on-device acceptance.
 [Source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md).
 
+### M6-I interrupted Wi-Fi Direct join callbacks — NOT RUN
+
+During the **same** C04/C05/C07/C12/C16/C17 device acceptance session,
+interrupt the Wi-Fi Direct **joiner's** pending Android connection-info
+or group-info phase after the one-use three-QR request was offered.
+Try background, Wi-Fi radio off, permission revocation, cancel and
+link timeout in separate harmless cases. After its former group is
+cleaned up, explicitly prepare a new three-QR exchange, choose the
+new radio and obtain both new approvals. A *late* callback from the
+old controller must not terminate or overwrite the new owner's
+status, message/ACK state, voice, optional local privacy or QR
+metadata. Also observe a stale callback after the old request
+was already promoted into an authenticated TLS session. Record
+PASS/FAIL/BLOCKED/NOT RUN without identifying the phones, QR pins,
+audio, raw message bodies or sensitive screenshots. Source/JVM
+callback-race tests alone are not phone acceptance.
+[Source audit](M6_I_P2P_INTERRUPTED_CALLBACK_ISOLATION_AUDIT.md).
+
 ## Recording one test case
 
 Copy one line per test/transport/role; do not upload raw messages or QR:

@@ -4,6 +4,49 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-09 — M6-I: fence real Wi-Fi Direct delayed callback teardown
+
+**Base:** M6-H `main` `cbbd61b95e1431392ff435bd182aa8b8324a675d`.
+[M6-H final PR-head CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42707312560);
+[independent main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42707691367).
+**Source branch:** `feature/m6-i-p2p-stale-callback-isolation-2026-11-09`.
+
+**Why:** Found two concrete P2P Join interrupted-session races:
+late `requestConnectionInfo`/`requestGroupInfo` error callbacks
+called an unscoped `endPendingVerified(message)` that closed
+whichever pending QR object was currently stored and posted STOPPED,
+without proving it belonged to the original Android token or proof.
+Meanwhile the Activity's old controller's report/finished/verified
+status, consent/text/audio or optional public identity callback
+could write over a newly started controller's state.
+
+**What:** `endPendingVerified(token, request, message)` now checks
+**same current token + same pending one-use QR request**, actual
+GROUP_OBSERVED gate, and no promoted TLS session before it touches
+the request or status. All five delayed failure/exception sites
+pass the original captured token/request. In the actual Join
+Activity, every controller callback verifies exact current owner
+before setting Compose status, clearing an old chat, disabling
+voice, changing privacy or accepting a public identity. A pure
+identity-only `DebugWifiDirectCallbackFence` is shared by owner
+and Activity, with JVM cancel/new owner/old proof/late callback
+regressions and Python actual-source guardrails.
+
+**Evidence:** [M6-I source audit](M6_I_P2P_INTERRUPTED_CALLBACK_ISOLATION_AUDIT.md);
+Kotlin `DebugWifiDirectCallbackFenceTest`;
+Python `scripts/tests/test_m6_i_stale_p2p_callbacks.py`.
+Exact final PR-head Android/JVM/Python/security CI and independent
+merged-main CI pending. **NOT RUN:** actual Android async callback
+timing, Wi-Fi Direct two-phone chat, mic/speaker, OEM cleanup,
+emulator/keyboard/TalkBack, storage/backup and independent
+cryptographic/privacy review.
+
+**Next:** CI gates and merge; during the ONE consolidated phone
+test, interrupt connection/group-info and confirm an old callback
+cannot close a new one-use proof or corrupt a new authenticated
+chat. No auto-retry, approval bypass, radio/socket rewrite,
+release `CAN_*` change or extra preview APK.
+
 ## 2026-11-09 — M6-H: genuine single-use Wi-Fi Direct QR transport proof
 
 **Base:** M6-G merged `main` `bca8156d53806e0deb1d98b68770d198d22d3200`.
