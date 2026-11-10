@@ -81,6 +81,31 @@ those broken visual navigation assertions.
   screenshot run must be actually checked; no claim of
   visual PASS before it is observed.
 
+## Second integrated run — real APK verified; emulator launch component corrected
+
+- [Signed Preview #200011](https://github.com/PlayerEden/Eden-Comms/actions/runs/42742224371/artifacts/13730070434)
+  was **successfully built, signed, package-identity audited, and uploaded** from
+  `180c85c3c3c170fb63cbea7e40f7ab6f2a127d35`. The exact release flags
+  remain disabled; this is a separate installable **debug Preview**, not a
+  production messenger or independently assessed secure build. The failed
+  parent workflow status does **not** invalidate its successful APK artifact.
+- Its emulator job successfully booted an Android 35 emulator and reached
+  the test script, but failed attempting
+  `am start ... com.edenpractical.comms.preview/.MainActivity`. The Kotlin
+  activity is **`com.edenpractical.comms.MainActivity`**, while the Android
+  `applicationIdSuffix = ".preview"` changes only the APK package identity.
+  The correct explicit component is
+  `com.edenpractical.comms.preview/com.edenpractical.comms.MainActivity`.
+  No app-screen captures succeeded, so this is **a launch-driver failure**,
+  not evidence that the application's Home screen crashed.
+- The follow-up fix modifies **only** the emulator screenshot script and its
+  source regression to keep the fully qualified Activity class while changing
+  the installed package. No actual transport, text, voice, permissions,
+  signing, manifest or release-capability behavior changes.
+- The visual run must still be observed before asserting even
+  disconnected-screen navigation/large-font PASS. Two-phone and independent
+  security acceptance remain NOT RUN.
+
 ## Screenshot review rubric — inspect the real PNGs
 
 The emulator workflow's PASS only establishes that required UI labels
