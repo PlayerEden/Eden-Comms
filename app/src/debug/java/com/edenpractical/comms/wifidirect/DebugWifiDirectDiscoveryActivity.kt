@@ -313,8 +313,11 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                 readyAndForeground = {
                     foreground && registered && prerequisites()
                 },
-                onReport = { message -> targetNotice = message },
-                onFinished = {
+                onReport = { message ->
+                    if (targetController === ownedController) targetNotice = message
+                },
+                onFinished = oldFinished@{
+                    if (targetController !== ownedController) return@oldFinished
                     targetController = null
                     verifiedChat.clear()
                     localPrivacy.close()
@@ -322,7 +325,8 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                     preparation.clear()
                     targetNotice += " Fresh QR and discovery required for another session."
                 },
-                onVerifiedStatus = { phase, message ->
+                onVerifiedStatus = currentStatus@{ phase, message ->
+                    if (targetController !== ownedController) return@currentStatus
                     verifiedChat.status(phase, message)
                     if (phase == DebugWifiDirectApprovedTcpSession.Phase.STOPPED) {
                         localPrivacy.close()
@@ -330,8 +334,11 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         qaEvidence.end()
                     }
                 },
-                onVerifiedApproval = { verifiedChat.approval(it) },
-                onVerifiedText = { event ->
+                onVerifiedApproval = {
+                    if (targetController === ownedController) verifiedChat.approval(it)
+                },
+                onVerifiedText = currentText@{ event ->
+                    if (targetController !== ownedController) return@currentText
                     verifiedChat.event(event)
                     localPrivacy.receiveEncryptedEvent(event)
                     qaEvidence.observe(event)
@@ -374,7 +381,8 @@ class DebugWifiDirectDiscoveryActivity : ComponentActivity() {
                         else -> Unit
                     }
                 },
-                onApprovedIdentity = { self, peer ->
+                onApprovedIdentity = currentIdentity@{ self, peer ->
+                    if (targetController !== ownedController) return@currentIdentity
                     localPrivacy.openVerified(self, peer)
                 }
             )
