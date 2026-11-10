@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""M4-UI07 manual emulator-only screenshot/navigation smoke test.
+"""Eden Comms real-app emulator-only screenshot/navigation smoke.
 No actual QR scans, network sessions, typed messages, audio or peer identity.
+The same driver can inspect the isolated installable Preview APK.
 """
 import argparse
 import json
@@ -187,7 +188,7 @@ def run(apk, output):
     require_emulator()
     output.mkdir(parents=True, exist_ok=True)
     report = {
-        "mode": "manual emulator only",
+        "mode": "offline preview emulator (disconnected UI only)",
         "commit": os.environ.get("GITHUB_SHA", "local-unverified"),
         "api": adb("shell", "getprop", "ro.build.version.sdk").strip(),
         "screens": [], "idle_wifi_modes": {},
@@ -201,28 +202,34 @@ def run(apk, output):
         launch()
         report["screens"].append(capture(output, "01-home", ["CONNECT NEARBY"]))
         tap("CONNECT NEARBY")
+        # The actual app first asks for Same Wi-Fi, Bluetooth or Wi-Fi
+        # Direct. Do NOT assume Home goes straight to Wi-Fi QR anymore.
+        report["screens"].append(capture(output, "02-method-chooser",
+                                         ["Choose how the phones connect"]))
+        tap("USE SAME WI-FI", scroll=True)
         seek("One phone shows a code", timeout=35)
-        report["screens"].append(capture(output, "02-idle-qr-choice",
+        report["screens"].append(capture(output, "03-idle-qr-choice",
                                          ["One phone shows a code"]))
         report["idle_wifi_modes"]["normal"] = inspect_idle_choice()
         # Never tap Show / Scan: no live QR data or camera permissions.
-        back()
+        back()  # Pairing -> method chooser
+        back()  # Method chooser -> Home
         tap("How it works", scroll=True)
-        report["screens"].append(capture(output, "03-help", ["Connect. Talk. Done."]))
+        report["screens"].append(capture(output, "04-help", ["Connect. Talk. Done."]))
         back()
         tap("Settings", scroll=True)
-        report["screens"].append(capture(output, "04-settings", ["Dark appearance"]))
+        report["screens"].append(capture(output, "05-settings", ["Dark appearance"]))
         tap("Privacy & data", scroll=True)
-        report["screens"].append(capture(output, "05-privacy", ["Current preview"]))
+        report["screens"].append(capture(output, "06-privacy", ["Current preview"]))
         back()
         tap("Device and developer tools", scroll=True)
         tap("Text layout sandbox", scroll=True)
-        report["screens"].append(capture(output, "06-local-sandbox", ["LOCAL ONLY"]))
+        report["screens"].append(capture(output, "07-local-sandbox", ["LOCAL ONLY"]))
         # Only focus the empty local-only preview. Never type or send anything.
         tap("Write a local preview", scroll=True)
         if not keyboard_visible():
             raise AssertionError("Emulator IME was not confirmed visible")
-        report["screens"].append(capture(output, "07-empty-keyboard",
+        report["screens"].append(capture(output, "08-empty-keyboard",
                                          ["Write a local preview"]))
         back()
         for name, size, density, font in (
@@ -232,17 +239,22 @@ def run(apk, output):
         ):
             configure(size, density, font)
             launch()
-            report["screens"].append(capture(output, "08-home-" + name, ["EDEN COMMS"]))
+            report["screens"].append(capture(output, "09-home-" + name, ["EDEN COMMS"]))
             if name == "compact":
                 tap("CONNECT NEARBY", scroll=True)
+                report["screens"].append(capture(output, "10-chooser-compact",
+                                                 ["Choose how the phones connect"]))
+                tap("USE SAME WI-FI", scroll=True)
                 seek("One phone shows a code", timeout=35)
-                report["screens"].append(capture(output, "09-idle-compact",
+                report["screens"].append(capture(output, "11-idle-compact",
                                                  ["One phone shows a code"]))
                 report["idle_wifi_modes"]["compact"] = inspect_idle_choice()
             if name == "landscape":
                 tap("Voice / PTT", scroll=True)
-                report["screens"].append(capture(output, "10-voice-disabled",
-                                                 ["COMING SOON"]))
+                # Voice, like Text, first routes to real method selection.
+                # Never claim an unpaired emulator can show an approved mic.
+                report["screens"].append(capture(output, "12-voice-connect-chooser",
+                                                 ["Choose how the phones connect"]))
         report["result"] = "PASS"
         return report
     except Exception as exc:
@@ -264,7 +276,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apk", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--package", choices=(
+        "com.edenpractical.comms", "com.edenpractical.comms.preview"
+    ), default=PACKAGE)
     opts = parser.parse_args()
+    # Only these two exact in-repo application IDs are accepted; ADB still
+    # refuses physical devices before any install or screen interaction.
+    global PACKAGE, ACTIVITY
+    PACKAGE = opts.package
+    ACTIVITY = PACKAGE + "/.MainActivity"
     if not opts.apk.is_file():
         parser.error("APK missing")
     report = run(opts.apk.resolve(), opts.out.resolve())
