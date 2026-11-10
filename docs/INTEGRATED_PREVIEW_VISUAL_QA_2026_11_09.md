@@ -51,6 +51,38 @@ those broken visual navigation assertions.
   real end-to-end test card rather than outdated Bluetooth
   diagnostic instructions.
 
+## Screenshot review rubric — inspect the real PNGs
+
+The emulator workflow's PASS only establishes that required UI labels
+were found, the empty keyboard opened and screenshots are nonblank.
+The **images** still need qualitative review before declaring
+visual acceptance. Compare all captured scenes side-by-side:
+
+- **Home:** is CONNECT NEARBY the obvious primary action? Are
+  Settings and How it works discoverable without hunting? Do
+  text/voice tiles make it clear a connection is needed?
+- **Three-method chooser:** all three actual radio options must
+  appear with understandable distinctions, adequately tall
+  touch targets and no untrue "connected" indicator. Check
+  whether third card requires excessive scrolling.
+- **Same-Wi-Fi idle QR:** no fictitious approval or session;
+  show a clear supported Wi-Fi state or honest lack-of-network
+  guidance. A real radio partner is not present on the emulator.
+- **Settings, Privacy, Help:** reading order, contrast and
+  navigation must be clear, with no clipped disclaimer and no
+  path to developer-only tools masquerading as normal chat.
+- **Local-only text sandbox + keyboard:** no message is sent;
+  check that the input and Send area are not obscured by IME.
+- **Compact, 200% text and landscape:** legible heading, no
+  sideways clipping, and visibly reachable connection actions.
+  Preserve scrolling as an accessibility fallback.
+
+For each observed issue, use **KEEP / TUNE / BLOCKED** and
+identify the scene plus layout symptom; do not invent a score
+or claim remote chat has been visually observed. The next
+source fix should address the largest visible usability issue,
+not another speculative networking micro-milestone.
+
 ## Acceptance checklist
 
 - [ ] Exact final PR-head Android build, Kotlin/JVM tests,
