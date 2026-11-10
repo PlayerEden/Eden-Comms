@@ -201,43 +201,69 @@ Bluetooth/P2P/LAN two-phone acceptance, microphone, real Android
 error behavior, and independent crypto/privacy review NOT RUN.
 [M6-H source audit](M6_H_SINGLE_USE_WIFI_DIRECT_QR_REQUEST_AUDIT.md).
 
-## Active source milestone — M6-I interrupted callback isolation
+## Completed source checkpoint — M6-I interruption isolation
 
-Branch `feature/m6-i-p2p-stale-callback-isolation-2026-11-09`.
-[Source audit](M6_I_P2P_INTERRUPTED_CALLBACK_ISOLATION_AUDIT.md).
+[PR #161](https://github.com/PlayerEden/Eden-Comms/pull/161)
+merged as `dd0366f966ffe419dda45b78631eb9cb71525725`.
+[Exact-final-head PR Android/JVM/Python/security CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42725506431);
+[independent merged-main CI SUCCESS](https://github.com/PlayerEden/Eden-Comms/actions/runs/42725798742).
+The actual Wi-Fi Direct Join callback failure path now closes only
+its original still-pending QR request if the exact radio token,
+OS group phase and unpromoted TLS state still match. All six
+Join Activity callbacks fence status/voice/optional privacy to
+the current controller identity. Physical two-phone tests,
+Android emulator and independent security acceptance NOT RUN.
+[M6-I source audit](M6_I_P2P_INTERRUPTED_CALLBACK_ISOLATION_AUDIT.md).
 
-- Found actual **Wi-Fi Direct Join** callback lifecycle gaps:
-  delayed Android connection-info/group-info callbacks could close
-  the *current* pending QR request or report STOPPED without
-  matching the originating radio attempt and exact one-use proof.
-  Older controller callbacks could also overwrite newer
-  Activity-owned chat, voice, QR and optional privacy state.
-- Actual link owner now threads original token + request through
-  each of five failure/exception paths. It checks both identity
-  matches, observed group phase and lack of promoted TLS session
-  **before** closing the pending object or reporting STOPPED.
-- All six Activity owner callbacks (report, finish, verified
-  status/approval/text and public identity) are fenced to their
-  exact current `ownedController` identity. No old `onFinished`
-  may null out a replacement controller, and no old audio event
-  may re-activate voice on a fresh session.
-- `DebugWifiDirectCallbackFence` is pure identity-only policy
-  used by the actual owners, with JVM delayed-callback tests.
-  Python source tests check actual callback-site wiring and
-  production boundary. No connection authorization or hidden
-  reconnection introduced.
+## Active integrated application test drop — visual before micro-patches
 
-## Next priorities
+**Owner direction:** Stop auto-chaining isolated M6 edge-case PRs.
+Ship a **single installable full-function development Preview**,
+inspect the real Android screens, then prioritize observed
+blocking issues. Source implementation of debug LAN, Bluetooth
+Classic and Wi-Fi Direct two-way TEXT/peer-app ACK + short
+foreground PTT already exists; none is independently accepted
+on real phones.
 
-1. Pass M6-I exact PR-head Android debug/JVM/Python/security CI;
-   merge only the green SHA; independently verify postmerge main CI.
-2. Continue narrow **real source reliability** improvements if
-   new concrete flaws appear. Do not spin preview-only milestones.
-3. Run [one consolidated two-phone acceptance](TWO_PHONE_ACCEPTANCE_MATRIX.md)
-   including M6-H QR single use and M6-I interrupted callbacks
-   when devices are available. Manual emulator, TalkBack,
-   backup/storage/deletion, OEM cleanup and independent crypto
-   review still NOT RUN. Production release flags stay FALSE.
+Branch: `feature/integrated-preview-and-emulator-visual-2026-11-09`.
+Review [integrated test audit](INTEGRATED_PREVIEW_VISUAL_QA_2026_11_09.md).
+
+- Fixed the stale emulator navigation script: current Home first
+  opens a real connection-method chooser. Safe test now goes
+  Home → chooser → Same-Wi-Fi idle QR (and returns twice).
+  Voice/PTT also routes to chooser rather than the old
+  `COMING SOON` page. Help assertion uses real current copy.
+- Emulator driver can install either **exact** debug package or
+  isolated `com.edenpractical.comms.preview`. Device guard
+  still refuses physical devices. Never taps Show/Scan, runs
+  radio discovery, creates identity, sends chat or opens mic.
+- Installable Preview workflow packages its existing **real**
+  public-test-key-signed Android APK and then a **second job
+  downloads the exact APK from the same run** into Android 35
+  emulator, exercises current UI and publishes sanitized PNGs
+  + summary JSON. Merely checking a workflow into source
+  does not establish screenshot success.
+- Updated included START-HERE instructions for actual
+  Connect → three methods → mutual approval → Text/Talk →
+  Disconnect, plus honest one-phone/2-phone boundaries.
+  Removed stale workflow claim Bluetooth cannot chat.
+
+## Immediate acceptance priorities
+
+1. Exact PR-head Android/Kotlin/JVM/Python/security CI green.
+   Merge the integrated test drop only after green final SHA;
+   independently verify merged-main Android CI.
+2. The merged workflow change triggers **one installable Preview
+   build plus real emulator visual QA**. Check both jobs;
+   inspect screenshot evidence and fix navigation/layout failures.
+   Do NOT invent a screenshot if emulator fails.
+3. Provide real Preview artifact link, source SHA and short
+   two-phone test card. Actual device text/voice, OEM permissions,
+   QR camera, app install/update, TalkBack, Bluetooth/Wi-Fi
+   Direct and LAN two-phone acceptance remain **NOT RUN**
+   until the owner tests. Independent crypto/privacy/storage
+   review is still required before any production unlock.
+   All production `CAN_*` flags stay FALSE.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
