@@ -1,6 +1,6 @@
 # Eden Comms — Current development handoff
 
-Updated: **November 9, 2026**. This is a concise launch point, not a
+Updated: **November 10, 2026**. This is a concise launch point, not a
 substitute for GitHub's live status. On resuming, check **main SHA, open PRs
 and latest green Android CI** before modifying any files.
 
@@ -247,6 +247,19 @@ Review [integrated test audit](INTEGRATED_PREVIEW_VISUAL_QA_2026_11_09.md).
   Connect → three methods → mutual approval → Text/Talk →
   Disconnect, plus honest one-phone/2-phone boundaries.
   Removed stale workflow claim Bluetooth cannot chat.
+
+## Active owner-led visual polish — Home scroll cue (2026-11-10)
+
+The owner has **actually installed the integrated Preview and provided
+dark-theme Home screenshots**. Main screen looked good, but the lower
+Settings/How it works entries were only reachable by scrolling with
+no cue. The next focused source change is a minimal, accessible
+viewport-bottom `↓ SCROLL FOR MORE` button on Home when and only
+when further content is hidden; tap advances content, first swipe
+dismisses the prompt. The rest of the app and fixed TopBar are
+untouched. Build/regression and a fresh owner Preview are the only
+verification target; real two-phone and independent security QA
+remain deferred. Do not turn this into another transport milestone.
 
 ## Immediate acceptance priorities
 
