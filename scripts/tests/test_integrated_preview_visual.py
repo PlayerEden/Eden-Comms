@@ -22,6 +22,8 @@ class IntegratedPreviewVisual(unittest.TestCase):
         self.assertIn("merge-multiple: true", w)
         self.assertIn("eden-comms-preview-*.apk", w)
         self.assertIn("scripts/emulator_visual_qa.py --apk", w)
+        self.assertIn('script: python3 scripts/emulator_visual_qa.py --apk "$(find visual-preview', w)
+        self.assertNotIn('script: |\\n            apk="$(find visual-preview', w)
         self.assertIn("--package com.edenpractical.comms.preview", w)
         self.assertIn("reactivecircus/android-emulator-runner@v2", w)
         self.assertIn("qa-results/integrated-preview/summary.json", w)
