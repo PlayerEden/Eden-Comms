@@ -13,6 +13,23 @@ the default. For any future persistent chat or peer record, obtain separate
 explicit consent with **30 days maximum** and a simple local erase control.
 All transport/crypto code remains unreviewed development software.
 
+## Quality audit and unified design reference — November 10, 2026
+
+- [Consolidated Eden Comms Product & Design Bible](EDEN_COMMS_DESIGN_BIBLE.md)
+  defines the current owner-reviewable scope, everyday UX, palette and
+  graded acceptance. Earlier UX-01/06/07 proposals are historical where
+  they contradict the integrated debug code.
+- [Full GitHub and app quality audit](OVERALL_QUALITY_AUDIT_2026_11_10.md)
+  records a critical automated visual-driver failure: literal \\n text
+  accidentally commented out the Preview `PACKAGE = opts.package`
+  assignment, so emulator ADB launched the **ordinary** ID after
+  installing the **Preview** APK. Source repair and executable
+  package-binding regression are on the audit branch, awaiting CI.
+- Owner-provided Home screenshots cover only first-impression UX.
+  Signed Preview 200013 build and independent Android main CI passed;
+  the same-run integrated emulator screenshot job **failed**. No
+  successful full visual QA or three-transport physical acceptance.
+
 ## Current sources of truth
 
 - [Delivery roadmap](FULL_FUNCTION_DEVELOPMENT_TEST_ROADMAP_2026_11_07.md)
