@@ -4,6 +4,43 @@ This log complements the engineering details in `docs/F*_*.md` and
 GitHub PR/CI history. New chats should read its **latest entry** and the
 [handoff](CURRENT_HANDOFF.md) first. Append, don't overwrite.
 
+## 2026-11-10 — Whole-app / GitHub quality audit and design bible
+
+**Reason:** The owner requested an overall audit, not another feature
+iteration, including a check for a forgotten product/design bible.
+
+**Repository baseline:** `main` `359443f3a29ef7cce5442b54e94124dd0eaea72a`.
+No open PRs at audit start. The latest merged-main Android/JVM/Python
+CI was green and installable Preview 200013 was built, but the
+integrated emulator visual job **FAILED** and the single two-phone
+acceptance matrix is **NOT RUN**.
+
+**Audit:** 584 repository files, 152 docs; no canonical live product/design
+bible despite old Product Vision, Privacy Charter, UX baselines, and
+milestone notes. Several dated docs still describe formerly disabled
+features and different visual palettes. Nine open GitHub issues
+lack source/CI/device/independent review distinctions. Identified
+work that is documented as implemented versus actually device-accepted.
+
+**Real source bug found:** `scripts/emulator_visual_qa.py` had literal
+`\\n` comment escapes that swallowed the code setting the Preview
+package and Activity class; `adb am start` tried the ordinary app
+package even though the Preview APK was installed. Restored real
+executable assignments and added Python tests that actually invoke
+`main()` to prove the chosen package and component, not merely
+search the text for a statement.
+
+**Artifacts:** [Design Bible](EDEN_COMMS_DESIGN_BIBLE.md),
+[overall audit](OVERALL_QUALITY_AUDIT_2026_11_10.md), updated README,
+continuation entrypoint and current handoff. No crypto, radio,
+voice, transport, permissions, data storage, signing or production
+capability modifications.
+
+**Next:** exact final PR-head Android and Python CI, merge, independent
+main CI, and inspect newly captured real emulator PNGs. Fix real
+navigation/visual issues; one consolidated physical two-phone
+session and independent protocol/security review remain necessary.
+
 ## 2026-11-10 — First owner visual feedback: Home needs scroll discoverability
 
 **Evidence:** Owner opened the actual integrated Android Preview on phone

@@ -4,6 +4,12 @@
 coding in a new chat; use live GitHub commit and CI state, not the last chat's
 claims or a local temporary workspace.
 
+**Before coding or changing product direction:** read the
+[consolidated Product & Design Bible](docs/EDEN_COMMS_DESIGN_BIBLE.md)
+and [full repository quality audit](docs/OVERALL_QUALITY_AUDIT_2026_11_10.md).
+The Bible is a working UX/product reference; the Privacy and Security
+Charter is still normative and cannot be overridden by styling decisions.
+
 1. [Current handoff](docs/CURRENT_HANDOFF.md) — what is really integrated,
    blocked, deferred and the **next** task.
 2. [Current work log](docs/WORK_LOG.md) — chronological **who/what/where/why**,

@@ -281,7 +281,10 @@ def main():
         "com.edenpractical.comms", "com.edenpractical.comms.preview"
     ), default=PACKAGE)
     opts = parser.parse_args()
-    # The Preview APK changes the application ID, not the Kotlin Activity\n    # class package declared in the source manifest. The component must be\n    # preview-ID/com.edenpractical.comms.MainActivity (not preview-ID/.MainActivity).\n    # Only the two exact in-repo application IDs are allowed.\n    PACKAGE = opts.package\n    ACTIVITY = PACKAGE + "/com.edenpractical.comms.MainActivity"
+    # Preview changes the installed application ID, not the Activity class.
+    # Only the two known package IDs are allowed; neither restores auth.
+    PACKAGE = opts.package
+    ACTIVITY = PACKAGE + "/com.edenpractical.comms.MainActivity"
     if not opts.apk.is_file():
         parser.error("APK missing")
     report = run(opts.apk.resolve(), opts.out.resolve())
