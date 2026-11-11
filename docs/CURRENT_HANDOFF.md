@@ -278,22 +278,28 @@ untouched. Build/regression and a fresh owner Preview are the only
 verification target; real two-phone and independent security QA
 remain deferred. Do not turn this into another transport milestone.
 
-## Immediate acceptance priorities
+## Immediate acceptance priorities — quality audit handoff
 
-1. Exact PR-head Android/Kotlin/JVM/Python/security CI green.
-   Merge the integrated test drop only after green final SHA;
-   independently verify merged-main Android CI.
-2. The merged workflow change triggers **one installable Preview
-   build plus real emulator visual QA**. Check both jobs;
-   inspect screenshot evidence and fix navigation/layout failures.
-   Do NOT invent a screenshot if emulator fails.
-3. Provide real Preview artifact link, source SHA and short
-   two-phone test card. Actual device text/voice, OEM permissions,
-   QR camera, app install/update, TalkBack, Bluetooth/Wi-Fi
-   Direct and LAN two-phone acceptance remain **NOT RUN**
-   until the owner tests. Independent crypto/privacy/storage
-   review is still required before any production unlock.
-   All production `CAN_*` flags stay FALSE.
+1. **Fix verified visual QA break:** run the corrected Preview package
+   assignment driver on the real emulator after exact PR-head CI green.
+   Squash merge only green source; independently confirm merged-main CI
+   and newly triggered signed Preview + actual screenshot job. The owner
+   already has a valid Preview 200013 APK, but emulator PNG acceptance
+   remains **FAILED / NOT CAPTURED** until observed otherwise.
+2. **Owner-led visual polish:** compare real Home, three-method chooser,
+   QR setup, chat/Text/Talk, Settings/Privacy, scroll cue, light/dark,
+   keyboard, rotation and 200%-font on real screens. Prioritize observed
+   UX defects rather than speculative radio micro-fixes.
+3. **Physical and release gates remain open:** one consolidated two-phone
+   matrix across LAN/Bluetooth/P2P, audited voice/ACK and failure behavior,
+   independent protocol/security/storage/backup/accessibility review.
+   Production `CAN_*` flags remain FALSE. No sensitive messages.
+4. **Document hygiene:** use [Design Bible](EDEN_COMMS_DESIGN_BIBLE.md)
+   as the current UX/scope entry and
+   [quality audit](OVERALL_QUALITY_AUDIT_2026_11_10.md) as the evidence
+   backlog. Old "Coming Soon" milestone documents are historical;
+   update GitHub issues with actual source/CI/device review fields
+   before closing them.
 
 **Rollback:** revert only the relevant merged PR; do not reset package ID,
 signing keys, stored app identity or unrelated features. For F5-A, provide
